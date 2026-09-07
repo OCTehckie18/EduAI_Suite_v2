@@ -1,0 +1,288 @@
+/* ─── Trello Board System ─────────────────────────────────── */
+
+/* Boards Grid */
+.trello-boards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.trello-board-tile {
+  height: 130px;
+  border-radius: 12px;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.trello-board-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.2);
+}
+.trello-board-tile > .relative { padding: 1rem; }
+
+.trello-create-tile {
+  background: var(--color-surface-card);
+  border: 2px dashed var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.trello-create-tile:hover {
+  border-color: var(--color-brand-blue);
+  color: var(--color-brand-blue);
+  background: var(--color-brand-blue-pale);
+}
+
+/* Board View */
+.trello-board-view {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 70px);
+  border-radius: 0;
+}
+
+.trello-board-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Columns Container */
+.trello-columns-container {
+  display: flex;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.75rem 1rem;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+/* Column */
+.trello-column {
+  min-width: 280px;
+  max-width: 280px;
+  background: rgba(241, 243, 249, 1);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 160px);
+  transition: box-shadow 0.2s ease;
+}
+.trello-column-dragging {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.trello-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.65rem 0.5rem;
+  gap: 0.25rem;
+  cursor: grab;
+}
+
+.trello-column-cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0.4rem;
+  min-height: 8px;
+  transition: background 0.15s ease;
+}
+.trello-column-cards-active {
+  background: rgba(38, 71, 150, 0.06);
+  border-radius: 8px;
+}
+
+/* Cards */
+.trello-card {
+  background: white;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+.trello-card:hover {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  border-color: rgba(38, 71, 150, 0.15);
+}
+.trello-card-dragging {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18) !important;
+  opacity: 0.95;
+}
+
+/* Add Card Button */
+.trello-add-card-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 0 0 14px 14px;
+  transition: all 0.15s ease;
+}
+.trello-add-card-btn:hover {
+  background: rgba(38, 71, 150, 0.06);
+  color: var(--color-text-primary);
+}
+
+/* Add Column */
+.trello-add-column-wrapper {
+  min-width: 280px;
+  max-width: 280px;
+  flex-shrink: 0;
+}
+.trello-add-column-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: rgba(255, 255, 255, 0.22);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 14px;
+  transition: all 0.15s ease;
+  backdrop-filter: blur(4px);
+}
+.trello-add-column-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.trello-add-column-form {
+  background: rgba(241, 243, 249, 0.95);
+  border-radius: 14px;
+  padding: 0.65rem;
+}
+
+/* Modals */
+.trello-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+.trello-modal {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  animation: fadeInUp 0.25s ease;
+}
+.trello-card-modal {
+  max-width: 720px;
+}
+.trello-modal-preview {
+  border-radius: 16px 16px 0 0;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* Background picker */
+.trello-bg-option {
+  height: 42px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.trello-bg-option:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Sidebar action buttons in card modal */
+.trello-sidebar-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  border: none;
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+.trello-sidebar-btn:hover {
+  background: var(--color-brand-blue-pale);
+  color: var(--color-brand-blue);
+}
+
+/* Trello Scrollbar (columns area) */
+.trello-columns-container::-webkit-scrollbar { height: 10px; }
+.trello-columns-container::-webkit-scrollbar-track { background: transparent; }
+.trello-columns-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 99px;
+}
+.trello-columns-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.trello-column-cards::-webkit-scrollbar { width: 4px; }
+.trello-column-cards::-webkit-scrollbar-track { background: transparent; }
+.trello-column-cards::-webkit-scrollbar-thumb {
+  background: rgba(38, 71, 150, 0.15);
+  border-radius: 99px;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.badge-blue {
+  background: var(--color-brand-blue-pale);
+  color: var(--color-brand-blue);
+}
+
+.badge-amber {
+  background: #fef3c7;
+  color: #92400e;
+}

@@ -1,0 +1,1 @@
+export { ChainAnswerGamePage } from "./ChainAnswerGamePage";

@@ -1,0 +1,16 @@
+{
+  "framework": "vite",
+  "installCommand": "npm install --include=optional --legacy-peer-deps && npm install --no-save --legacy-peer-deps @rolldown/binding-linux-x64-gnu@1.0.0-rc.15 @tailwindcss/oxide-linux-x64-gnu@4.2.2 lightningcss-linux-x64-gnu@1.32.0",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://eduai-suite-development.onrender.com/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

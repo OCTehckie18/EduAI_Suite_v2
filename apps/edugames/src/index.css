@@ -1,0 +1,658 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800&display=swap');
+
+/* ─── Design Tokens ───────────────────────────────────────── */
+@theme {
+  /* Christ University Brand Colors */
+  --color-brand-blue:        #264796;
+  --color-brand-blue-mid:    #2a52a8;
+  --color-brand-blue-light:  #3460c4;
+  --color-brand-blue-pale:   #e8edf8;
+  --color-brand-blue-dark:   #1c3570;
+
+  --color-brand-gold:        #d0ae61;
+  --color-brand-gold-light:  #ddb867;
+  --color-brand-gold-bright: #e6c97a;
+  --color-brand-gold-pale:   #fdf6e3;
+  --color-brand-gold-dark:   #b8943e;
+
+  /* Dynamic Semantic Tokens */
+  --color-surface-base:    var(--color-bg-base);
+  --color-surface-card:    var(--color-card-bg);
+  --color-surface-sidebar: var(--color-sidebar-bg);
+  --color-text-primary:    var(--color-text-main);
+  --color-text-secondary:  var(--color-text-sub);
+  --color-text-muted:      var(--color-text-dim);
+  --color-border:          var(--color-border-main);
+
+  /* Semantic Status Colors */
+  --color-success:  #16a34a;
+  --color-warning:  #d97706;
+  --color-danger:   #dc2626;
+  --color-info:     #2563eb;
+
+  /* Font Families */
+  --font-sans:    'Inter', system-ui, sans-serif;
+  --font-display: 'Poppins', 'Inter', system-ui, sans-serif;
+}
+
+/* ─── Base Styles ─────────────────────────────────────────── */
+@layer base {
+  :root {
+    --color-bg-base: #f0f3fb;
+    --color-card-bg: rgba(255,255,255,0.82);
+    --color-sidebar-bg: #1c3570;
+    --color-text-main: #0f1e45;
+    --color-text-sub: #4a5a82;
+    --color-text-dim: #8898b3;
+    --color-border-main: rgba(38,71,150,0.12);
+    
+    --color-bg-start: #eef1fb;
+    --color-bg-end: #f5f7ff;
+    --color-bg-grad1: rgba(38,71,150,0.08);
+    --color-bg-grad2: rgba(208,174,97,0.07);
+    
+    --color-header-bg: rgba(255,255,255,0.88);
+    --color-input-bg: rgba(255,255,255,0.9);
+    --color-ai-bubble: rgba(255,255,255,0.95);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg-start);
+    background-image:
+      radial-gradient(ellipse at 0% 0%, var(--color-bg-grad1) 0px, transparent 55%),
+      radial-gradient(ellipse at 100% 100%, var(--color-bg-grad2) 0px, transparent 55%),
+      linear-gradient(180deg, var(--color-bg-start) 0%, var(--color-bg-end) 100%);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); }
+
+  ::selection { background: rgba(38,71,150,0.18); color: var(--color-brand-blue); }
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(38,71,150,0.25); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(38,71,150,0.45); }
+
+/* ─── Utility Classes ─────────────────────────────────────── */
+@utility glass-card {
+  background: var(--color-surface-card);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.05);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+@utility glass-sidebar {
+  background: linear-gradient(175deg, #1c3570 0%, #264796 60%, #1a2e5e 100%);
+  border-right: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 4px 0 30px rgba(15,30,69,0.25);
+}
+
+@utility section-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+@utility stat-number {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+/* ─── Button System ───────────────────────────────────────── */
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+@utility btn-primary {
+  background: linear-gradient(135deg, #264796 0%, #3460c4 100%);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(38,71,150,0.35);
+}
+.btn-primary:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(38,71,150,0.45);
+}
+.btn-primary:active { transform: scale(0.98); }
+
+@utility btn-gold {
+  background: linear-gradient(135deg, #d0ae61 0%, #e6c97a 100%);
+  color: #1c3570;
+  box-shadow: 0 2px 12px rgba(208,174,97,0.4);
+}
+.btn-gold:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(208,174,97,0.5);
+}
+
+@utility btn-outline {
+  background: transparent;
+  color: var(--color-brand-blue);
+  border: 1.5px solid var(--color-brand-blue);
+}
+.btn-outline:hover { background: rgba(38,71,150,0.06); transform: translateY(-1px); }
+
+@utility btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.btn-ghost:hover { background: rgba(38,71,150,0.06); color: var(--color-brand-blue); }
+
+@utility btn-danger {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(220,38,38,0.3);
+}
+
+/* ─── Sidebar Navigation ──────────────────────────────────── */
+@utility nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.62);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+@utility nav-item-active {
+  color: #fff;
+  background: rgba(255,255,255,0.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 8px rgba(15,30,69,0.2);
+}
+
+.nav-item:hover:not(.nav-item-active) {
+  color: rgba(255,255,255,0.9);
+  background: rgba(255,255,255,0.07);
+}
+
+/* ─── Badge System ────────────────────────────────────────── */
+@utility badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+@utility badge-blue   { background: rgba(38,71,150,0.12);  color: #3b82f6; }
+@utility badge-gold   { background: rgba(208,174,97,0.18); color: #d97706; }
+@utility badge-green  { background: rgba(22,163,74,0.12);  color: #16a34a; }
+@utility badge-red    { background: rgba(220,38,38,0.12);  color: #dc2626; }
+@utility badge-orange { background: rgba(217,119,6,0.12);  color: #ea580c; }
+
+/* ─── Input System ────────────────────────────────────────── */
+@utility form-input {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: var(--color-input-bg);
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  transition: all 0.2s;
+  outline: none;
+}
+.form-input:focus {
+  border-color: var(--color-brand-blue);
+  box-shadow: 0 0 0 3px rgba(38,71,150,0.12);
+  background: var(--color-surface-card);
+}
+.form-input::placeholder { color: var(--color-text-muted); }
+
+/* ─── Card Hover Lift ─────────────────────────────────────── */
+@utility card-interactive {
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease;
+}
+.card-interactive:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+}
+
+/* ─── Progress Bar ────────────────────────────────────────── */
+@utility progress-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(38,71,150,0.1);
+  overflow: hidden;
+}
+@utility progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #264796, #3460c4);
+  transition: width 0.6s ease;
+}
+
+/* ─── Gradient Backgrounds ────────────────────────────────── */
+@utility gradient-blue {
+  background: linear-gradient(135deg, #264796 0%, #3460c4 100%);
+}
+@utility gradient-gold {
+  background: linear-gradient(135deg, #d0ae61 0%, #ddb867 100%);
+}
+@utility gradient-mixed {
+  background: linear-gradient(135deg, #264796 0%, #1c3570 60%, #b8943e 100%);
+}
+@utility gradient-header {
+  background: linear-gradient(135deg, #1c3570 0%, #264796 50%, #2a52a8 100%);
+}
+
+/* ─── Animations ──────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0   rgba(38,71,150,0.4); }
+  70%  { box-shadow: 0 0 0 12px rgba(38,71,150,0); }
+  100% { box-shadow: 0 0 0 0   rgba(38,71,150,0); }
+}
+@keyframes breathe {
+  0%,100% { transform: scale(1); opacity: 0.8; }
+  50%      { transform: scale(1.18); opacity: 1; }
+}
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+@keyframes bounce-dot {
+  0%,80%,100% { transform: scale(0); }
+  40%        { transform: scale(1); }
+}
+
+.animate-fade-in-up  { animation: fadeInUp 0.4s ease both; }
+.animate-fade-in     { animation: fadeIn 0.35s ease both; }
+.animate-breathe     { animation: breathe 4s ease-in-out infinite; }
+.animate-spin-slow   { animation: spin-slow 8s linear infinite; }
+
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+
+/* ─── Skeleton Loading ────────────────────────────────────── */
+@utility skeleton {
+  background: linear-gradient(90deg, var(--color-surface-base) 25%, var(--color-surface-card) 50%, var(--color-surface-base) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* ─── Tooltip ─────────────────────────────────────────────── */
+[data-tooltip] { position: relative; }
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.9);
+  background: var(--color-brand-blue-dark);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.15s;
+}
+[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) scale(1); }
+
+/* ─── Chat Bubbles ────────────────────────────────────────── */
+@utility chat-bubble-user {
+  background: linear-gradient(135deg, #264796 0%, #3460c4 100%);
+  color: #fff;
+  border-radius: 18px 18px 4px 18px;
+  padding: 0.75rem 1rem;
+  max-width: 75%;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  box-shadow: 0 2px 8px rgba(38,71,150,0.25);
+}
+
+@utility chat-bubble-ai {
+  background: var(--color-ai-bubble);
+  color: var(--color-text-primary);
+  border-radius: 18px 18px 18px 4px;
+  padding: 0.75rem 1rem;
+  max-width: 80%;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* ─── Risk Level Colors ───────────────────────────────────── */
+.risk-high     { color: var(--color-danger); background: rgba(220,38,38,0.1);  }
+.risk-moderate { color: var(--color-warning); background: rgba(217,119,6,0.1);  }
+.risk-low      { color: var(--color-success); background: rgba(22,163,74,0.1);  }
+
+/* ─── Exam Timer ──────────────────────────────────────────── */
+@utility timer-display {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Trello Board System ─────────────────────────────────── */
+
+/* Boards Grid */
+.trello-boards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.trello-board-tile {
+  height: 130px;
+  border-radius: 12px;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.trello-board-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.2);
+}
+.trello-board-tile > .relative { padding: 1rem; }
+
+.trello-create-tile {
+  background: var(--color-surface-card);
+  border: 2px dashed var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.trello-create-tile:hover {
+  border-color: var(--color-brand-blue);
+  color: var(--color-brand-blue);
+  background: var(--color-brand-blue-pale);
+}
+
+/* Board View */
+.trello-board-view {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 70px);
+  border-radius: 0;
+}
+
+.trello-board-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Columns Container */
+.trello-columns-container {
+  display: flex;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.75rem 1rem;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+/* Column */
+.trello-column {
+  min-width: 280px;
+  max-width: 280px;
+  background: rgba(241, 243, 249, 1);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 160px);
+  transition: box-shadow 0.2s ease;
+}
+.trello-column-dragging {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.trello-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.65rem 0.5rem;
+  gap: 0.25rem;
+  cursor: grab;
+}
+
+.trello-column-cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0.4rem;
+  min-height: 8px;
+  transition: background 0.15s ease;
+}
+.trello-column-cards-active {
+  background: rgba(38, 71, 150, 0.06);
+  border-radius: 8px;
+}
+
+/* Cards */
+.trello-card {
+  background: white;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+.trello-card:hover {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  border-color: rgba(38, 71, 150, 0.15);
+}
+.trello-card-dragging {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18) !important;
+  opacity: 0.95;
+}
+
+/* Add Card Button */
+.trello-add-card-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 0 0 14px 14px;
+  transition: all 0.15s ease;
+}
+.trello-add-card-btn:hover {
+  background: rgba(38, 71, 150, 0.06);
+  color: var(--color-text-primary);
+}
+
+/* Add Column */
+.trello-add-column-wrapper {
+  min-width: 280px;
+  max-width: 280px;
+  flex-shrink: 0;
+}
+.trello-add-column-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: rgba(255, 255, 255, 0.22);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 14px;
+  transition: all 0.15s ease;
+  backdrop-filter: blur(4px);
+}
+.trello-add-column-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.trello-add-column-form {
+  background: rgba(241, 243, 249, 0.95);
+  border-radius: 14px;
+  padding: 0.65rem;
+}
+
+/* Modals */
+.trello-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+.trello-modal {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  animation: fadeInUp 0.25s ease;
+}
+.trello-card-modal {
+  max-width: 720px;
+}
+.trello-modal-preview {
+  border-radius: 16px 16px 0 0;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* Background picker */
+.trello-bg-option {
+  height: 42px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.trello-bg-option:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Sidebar action buttons in card modal */
+.trello-sidebar-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  border: none;
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+.trello-sidebar-btn:hover {
+  background: var(--color-brand-blue-pale);
+  color: var(--color-brand-blue);
+}
+
+/* Trello Scrollbar (columns area) */
+.trello-columns-container::-webkit-scrollbar { height: 10px; }
+.trello-columns-container::-webkit-scrollbar-track { background: transparent; }
+.trello-columns-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 99px;
+}
+.trello-columns-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.trello-column-cards::-webkit-scrollbar { width: 4px; }
+.trello-column-cards::-webkit-scrollbar-track { background: transparent; }
+.trello-column-cards::-webkit-scrollbar-thumb {
+  background: rgba(38, 71, 150, 0.15);
+  border-radius: 99px;
+}
+
