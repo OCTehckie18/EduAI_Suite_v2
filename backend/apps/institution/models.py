@@ -17,7 +17,7 @@ class Campus(SoftDeleteModel):
         return f"{self.name} ({self.code})"
 
     def delete(self, using=None, keep_parents=False):
-        for school in self.schools.all_objects.all():
+        for school in School.all_objects.filter(campus=self):
             school.delete(using=using)
         super().delete(using=using, keep_parents=keep_parents)
 
@@ -37,7 +37,7 @@ class School(SoftDeleteModel):
         return f"{self.name} ({self.campus.code})"
 
     def delete(self, using=None, keep_parents=False):
-        for department in self.departments.all_objects.all():
+        for department in Department.all_objects.filter(school=self):
             department.delete(using=using)
         super().delete(using=using, keep_parents=keep_parents)
 
@@ -57,7 +57,7 @@ class Department(SoftDeleteModel):
         return f"{self.name} ({self.school.code})"
 
     def delete(self, using=None, keep_parents=False):
-        for program in self.programs.all_objects.all():
+        for program in Program.all_objects.filter(department=self):
             program.delete(using=using)
         super().delete(using=using, keep_parents=keep_parents)
 
@@ -84,7 +84,7 @@ class Program(SoftDeleteModel):
         return f"{self.name} ({self.code})"
 
     def delete(self, using=None, keep_parents=False):
-        for batch in self.batches.all_objects.all():
+        for batch in Batch.all_objects.filter(program=self):
             batch.delete(using=using)
         super().delete(using=using, keep_parents=keep_parents)
 
@@ -106,7 +106,7 @@ class Batch(SoftDeleteModel):
         return f"{self.program.code} {self.name}"
 
     def delete(self, using=None, keep_parents=False):
-        for section in self.sections.all_objects.all():
+        for section in Section.all_objects.filter(batch=self):
             section.delete(using=using)
         super().delete(using=using, keep_parents=keep_parents)
 

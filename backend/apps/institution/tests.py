@@ -1,4 +1,5 @@
 from django.urls import reverse
+from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 
 from .models import Batch, Campus, Department, Program, School, Section
@@ -29,6 +30,10 @@ class InstitutionModelTests(APITestCase):
 
     def test_restore_endpoint_reactivates_record(self):
         self.campus.delete()
+        admin = get_user_model().objects.create_superuser(
+            username="test-admin", email="admin@example.com", password="test-password"
+        )
+        self.client.force_authenticate(user=admin)
         response = self.client.post(reverse("campus-restore", args=[self.campus.pk]))
 
         self.assertEqual(response.status_code, 200)
