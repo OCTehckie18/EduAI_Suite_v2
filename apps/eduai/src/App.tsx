@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { 
+import {
   Building2, 
   Users, 
   Trash2, 
@@ -8,9 +8,9 @@ import {
   Search, 
   Plus, 
   ChevronRight,
-  Sparkles,
   GraduationCap
 } from 'lucide-react';
+import logo from '../../logo/eduai_logo.png';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'overview' | 'campuses' | 'users' | 'recycle_bin'>('overview');
@@ -39,7 +39,7 @@ export default function App() {
           {/* Brand Logo */}
           <div className="flex items-center gap-3 mb-10">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-900/30">
-              <Sparkles className="h-5 w-5 text-white" />
+              <img src={logo} alt="EduAI Suite" className="h-8 w-8 object-contain" />
             </div>
             <div>
               <h1 className="font-bold text-lg text-white tracking-tight">EduAI Suite</h1>

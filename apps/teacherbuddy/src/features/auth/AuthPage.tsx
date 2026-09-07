@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Loader } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
-import logo from "../../assets/logo (5).png";
+import logo from "../../../../logo/eduai_logo.png";
 import { useAuthStore } from "../../store/useAuthStore";
 import { supabase } from "../../lib/supabase";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";

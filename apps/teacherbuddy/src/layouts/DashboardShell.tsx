@@ -24,7 +24,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
-import logo from "../assets/logo (5).png";
+import logo from "../../../logo/eduai_logo.png";
 import { API_ENDPOINTS } from "../shared/utils/apiConfig";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 

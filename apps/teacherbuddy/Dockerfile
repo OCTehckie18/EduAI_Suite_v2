@@ -1,12 +1,12 @@
 FROM node:22-alpine
 
-WORKDIR /app
+WORKDIR /app/teacherbuddy
 
-COPY package*.json ./
+COPY teacherbuddy/package*.json ./
 RUN npm ci --legacy-peer-deps
 
-
-COPY . .
+COPY teacherbuddy .
+COPY logo /app/logo
 
 EXPOSE 5173
 

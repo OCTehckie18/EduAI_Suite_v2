@@ -23,3 +23,4 @@ Thumbs.db
 .vscode/
 .idea/
 "@ | Out-File -FilePath C:\Users\Omkaar\Desktop\Projects\EduAI_Suite_v2\.gitignore -Encoding utf8
+.codebase-memory

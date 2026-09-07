@@ -1,11 +1,12 @@
 FROM node:22-alpine
 
-WORKDIR /app
+WORKDIR /app/edugames
 
-COPY package*.json ./
+COPY edugames/package*.json ./
 RUN npm ci
 
-COPY . .
+COPY edugames .
+COPY logo /app/logo
 
 EXPOSE 5174
 

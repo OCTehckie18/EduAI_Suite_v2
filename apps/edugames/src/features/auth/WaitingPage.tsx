@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Clock, Loader, LogOut, ShieldX } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
-import logo from "../../assets/logo (5).png";
+import logo from "../../../../logo/eduai_logo.png";
 import { supabase } from "../../lib/supabase";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
 
