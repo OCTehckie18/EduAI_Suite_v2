@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/health', legacy_health_view, name='legacy-health-check'),
     path('api/v1/auth/', include('apps.accounts.urls')),
     path('api/v1/institution/', include('apps.institution.urls')),
+    path('api/v1/classrooms/', include('apps.classrooms.urls')),
 ]
 
 if settings.DEBUG:
