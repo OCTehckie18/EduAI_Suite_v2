@@ -101,6 +101,7 @@ UPLOADS_ROOT = os.path.join(BASE_DIR, 'uploads')
 LOCAL_UPLOADS_ROOT = os.path.join(BASE_DIR, 'local_uploads')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+AUTH_USER_MODEL = 'accounts.User'
 
 # REST Framework Configuration
 REST_FRAMEWORK = {
