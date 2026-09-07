@@ -22,6 +22,8 @@ class EduAIJWTAuthentication(BaseAuthentication):
                 settings.JWT_SECRET_KEY,
                 algorithms=["HS256"],
             )
+            if payload.get("type") != "access":
+                raise jwt.InvalidTokenError("Not an access token")
             user = get_user_model().objects.get(pk=payload["sub"])
         except (jwt.PyJWTError, KeyError, get_user_model().DoesNotExist) as exc:
             raise AuthenticationFailed("Invalid or expired token.") from exc

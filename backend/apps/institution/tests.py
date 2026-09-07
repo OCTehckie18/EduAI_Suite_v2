@@ -31,7 +31,7 @@ class InstitutionModelTests(APITestCase):
     def test_restore_endpoint_reactivates_record(self):
         self.campus.delete()
         admin = get_user_model().objects.create_superuser(
-            username="test-admin", email="admin@example.com", password="test-password"
+            email="admin@example.com", password="test-password"
         )
         self.client.force_authenticate(user=admin)
         response = self.client.post(reverse("campus-restore", args=[self.campus.pk]))
