@@ -10,7 +10,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # Phase 3 uses a fresh database because AUTH_USER_MODEL changed.
+      - postgres_data_phase3:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U eduai -d eduai_suite"]
       interval: 5s
@@ -124,5 +125,5 @@ services:
       retries: 12
 
 volumes:
-  postgres_data:
+  postgres_data_phase3:
   redis_data:
