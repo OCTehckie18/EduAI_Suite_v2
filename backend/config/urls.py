@@ -9,6 +9,8 @@ urlpatterns = [
     
     # Core Health Endpoint
     path('api/v1/health/', HealthCheckView.as_view(), name='health-check'),
+    path('api/v1/auth/', include('apps.accounts.urls')),
+    path('api/v1/institution/', include('apps.institution.urls')),
 ]
 
 if settings.DEBUG:

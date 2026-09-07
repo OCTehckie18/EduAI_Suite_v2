@@ -1,0 +1,17 @@
+[
+  {"model": "institution.campus", "pk": 1, "fields": {"name": "Central Campus", "code": "CENTRAL", "city": "Bengaluru", "state": "Karnataka", "address": "Hosur Road, Bengaluru", "is_active": true, "deleted_at": null}},
+  {"model": "institution.campus", "pk": 2, "fields": {"name": "Kengeri Campus", "code": "KENGERI", "city": "Bengaluru", "state": "Karnataka", "address": "Kengeri, Bengaluru", "is_active": true, "deleted_at": null}},
+  {"model": "institution.campus", "pk": 3, "fields": {"name": "BGR Campus", "code": "BGR", "city": "Bengaluru", "state": "Karnataka", "address": "BGR Campus, Bengaluru", "is_active": true, "deleted_at": null}},
+  {"model": "institution.campus", "pk": 4, "fields": {"name": "Pune Lavasa Campus", "code": "PUNE-LAVASA", "city": "Pune", "state": "Maharashtra", "address": "Lavasa, Pune", "is_active": true, "deleted_at": null}},
+  {"model": "institution.campus", "pk": 5, "fields": {"name": "Delhi NCR Campus", "code": "DELHI-NCR", "city": "Delhi NCR", "state": "Delhi", "address": "Delhi NCR", "is_active": true, "deleted_at": null}},
+  {"model": "institution.school", "pk": 1, "fields": {"name": "School of Sciences", "code": "SOS", "campus": 1, "is_active": true, "deleted_at": null}},
+  {"model": "institution.school", "pk": 2, "fields": {"name": "School of Business and Management", "code": "SBM", "campus": 1, "is_active": true, "deleted_at": null}},
+  {"model": "institution.department", "pk": 1, "fields": {"name": "Computer Science", "code": "CSE", "school": 1, "is_active": true, "deleted_at": null}},
+  {"model": "institution.department", "pk": 2, "fields": {"name": "Data Science", "code": "DS", "school": 1, "is_active": true, "deleted_at": null}},
+  {"model": "institution.department", "pk": 3, "fields": {"name": "Management Studies", "code": "BBA", "school": 2, "is_active": true, "deleted_at": null}},
+  {"model": "institution.program", "pk": 1, "fields": {"name": "B.Tech Computer Science and Engineering", "code": "BTECH-CSE", "department": 1, "degree_level": "UG", "duration_years": 4, "is_active": true, "deleted_at": null}},
+  {"model": "institution.program", "pk": 2, "fields": {"name": "M.Sc Data Science", "code": "MSC-DS", "department": 2, "degree_level": "PG", "duration_years": 2, "is_active": true, "deleted_at": null}},
+  {"model": "institution.batch", "pk": 1, "fields": {"name": "2025-29", "program": 1, "start_year": 2025, "end_year": 2029, "academic_year": "2025-26", "is_active": true, "deleted_at": null}},
+  {"model": "institution.section", "pk": 1, "fields": {"name": "A", "batch": 1, "max_capacity": 60, "is_active": true, "deleted_at": null}},
+  {"model": "institution.section", "pk": 2, "fields": {"name": "B", "batch": 1, "max_capacity": 60, "is_active": true, "deleted_at": null}}
+]

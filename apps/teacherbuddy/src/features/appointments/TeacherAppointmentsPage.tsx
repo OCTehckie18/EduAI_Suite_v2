@@ -15,7 +15,6 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
-import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/useAuthStore";
 
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
@@ -26,12 +25,6 @@ const getAuthHeaders = async (): Promise<Record<string, string>> => {
   const storedToken = localStorage.getItem("token");
   if (storedToken) return { Authorization: `Bearer ${storedToken}` };
 
-  const { data } = await supabase.auth.getSession();
-  const accessToken = data.session?.access_token;
-  if (accessToken) {
-    localStorage.setItem("token", accessToken);
-    return { Authorization: `Bearer ${accessToken}` };
-  }
   return {};
 };
 
