@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -45,7 +44,7 @@ class GoogleLoginView(APIView):
     def post(self, request):
         credential = request.data.get("id_token")
         app_name = request.data.get("app", "edugames")
-        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        client_id = settings.GOOGLE_CLIENT_ID
         if not credential or not client_id:
             return Response(
                 {"detail": "Google authentication is not configured."},
