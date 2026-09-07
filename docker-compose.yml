@@ -36,6 +36,9 @@ services:
       context: ./backend
     container_name: eduai_backend
     restart: unless-stopped
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
       DJANGO_DEBUG: "True"
@@ -43,7 +46,7 @@ services:
       USE_SQLITE_FALLBACK: "False"
       DATABASE_URL: postgres://eduai:eduai_dev_password@postgres:5432/eduai_suite
       REDIS_URL: redis://redis:6379/0
-      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174,http://localhost:5175
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5175
     ports:
       - "8000:8000"
     depends_on:
@@ -82,6 +85,7 @@ services:
     restart: unless-stopped
     environment:
       VITE_API_PROXY_TARGET: http://backend:8000
+      VITE_API_URL: http://localhost:8000/api/v1
     env_file:
       - path: ./apps/edugames/.env
         required: false
@@ -104,6 +108,7 @@ services:
     restart: unless-stopped
     environment:
       VITE_API_PROXY_TARGET: http://backend:8000
+      VITE_API_URL: http://localhost:8000/api/v1
     env_file:
       - path: ./apps/teacherbuddy/.env
         required: false
