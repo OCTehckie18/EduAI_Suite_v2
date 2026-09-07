@@ -3,7 +3,6 @@ import { Loader } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
 import logo from "../../../../logo/eduai_logo.png";
 import { useAuthStore } from "../../store/useAuthStore";
-import { supabase } from "../../lib/supabase";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
 
 export const AuthPage: React.FC = () => {
@@ -26,17 +25,10 @@ export const AuthPage: React.FC = () => {
     setError("");
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithIdToken({
-        provider: "google",
-        token: credential,
-      });
-      if (authError || !authData.session) {
-        throw authError || new Error("Supabase did not return a session");
-      }
-
-      const res = await fetch(`${API_ENDPOINTS.AUTH}/supabase-sync`, {
+      const res = await fetch(`${API_ENDPOINTS.AUTH}/google/`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${authData.session.access_token}` },
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_token: credential, app: "teacherbuddy" }),
       });
 
       const data = await res.json();
@@ -49,11 +41,7 @@ export const AuthPage: React.FC = () => {
           return;
         }
 
-        googleLogin(
-          authData.session.access_token,
-          data.user,
-          data.status
-        );
+        googleLogin(data.access, data.user, data.status);
 
         if (data.status === "approved") {
           if (data.user.role === "admin") {

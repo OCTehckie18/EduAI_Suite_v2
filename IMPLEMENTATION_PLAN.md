@@ -16,7 +16,7 @@
 | **Phase 6** | Exams, AI Quizzes, OpenCV OMR, Slido WebSockets, EduGames | Evaluation & Live | Pending |
 | **Phase 7** | Lesson Plans (DOCX), Calendar Sync, Mail, Trello, Report Cards | Tools & Analytics | Pending |
 | **Phase 8** | Master Admin Dedicated APIs & `apps/eduai` Full UI Integration | Master Governance | Pending |
-| **Phase 9** | Supabase Removal & Full Frontend Integration (`teacherbuddy`, `edugames`) | Frontend Wiring | Pending |
+| **Phase 9** | Django JWT & Full Frontend Integration (`teacherbuddy`, `edugames`) | Frontend Wiring | In Progress |
 
 ---
 
@@ -203,9 +203,9 @@ python manage.py test apps.classrooms
 
 ---
 
-### Phase 9: Frontend Integration & Supabase Removal
+### Phase 9: Frontend Integration & Django JWT
 * In `apps/teacherbuddy` and `apps/edugames`:
-  * Uninstall `@supabase/supabase-js` and remove all `supabase.ts` references.
+  * Use Django JWT authentication and remove third-party hosted authentication dependencies.
   * Update `useAuthStore.ts` for Django JWT dual-auth.
   * Add the Account Setup / Onboarding page.
   * Align API clients to `/api/v1/...` DRF routes.
