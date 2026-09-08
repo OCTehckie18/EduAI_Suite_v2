@@ -3,7 +3,6 @@ import { Clock, Loader, LogOut, ShieldX } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
 import logo from "../../../../logo/eduai_logo.png";
-import { supabase } from "../../lib/supabase";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
 
 export const WaitingPage: React.FC = () => {
@@ -22,12 +21,11 @@ export const WaitingPage: React.FC = () => {
     setError("");
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token || token || localStorage.getItem("token");
+      const accessToken = token || localStorage.getItem("token");
       if (!accessToken) throw new Error("Your session has expired. Please sign in again.");
 
-      const response = await fetch(`${API_ENDPOINTS.AUTH}/supabase-sync`, {
-        method: "POST",
+      const response = await fetch(`${API_ENDPOINTS.AUTH}/me/`, {
+        method: "GET",
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const data = await response.json();

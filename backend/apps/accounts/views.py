@@ -18,6 +18,8 @@ def _role_for_app(app_name):
 
 
 def _role_label(role):
+    if role in {"MASTER_ADMIN", "CAMPUS_ADMIN"}:
+        return "admin"
     return role.lower().replace("_", "-")
 
 

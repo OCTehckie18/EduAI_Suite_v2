@@ -106,6 +106,7 @@ AUTH_USER_MODEL = 'accounts.User'
 # REST Framework Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'apps.accounts.authentication.EduAIJWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -130,6 +131,10 @@ CORS_ALLOWED_ORIGINS = [
     ).split(',') if origin.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', SECRET_KEY)
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES = int(os.getenv('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', '60'))
+JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(os.getenv('JWT_REFRESH_TOKEN_LIFETIME_DAYS', '7'))
 
 # Shared settings consumed by the OAuth, calendar, and AI integrations as
 # they are ported from the previous backend.
