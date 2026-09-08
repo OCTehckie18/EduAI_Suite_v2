@@ -6,11 +6,14 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
 
+const GOOGLE_LOGIN_SEEN_KEY = "eduai.edugames.google-login-seen";
+
 export const AuthPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [hasGoogleLogin, setHasGoogleLogin] = useState(() => window.localStorage.getItem(GOOGLE_LOGIN_SEEN_KEY) === "true");
   const { googleLogin, logout } = useAuthStore();
   const navigate = useNavigate();
 
@@ -45,6 +48,8 @@ export const AuthPage: React.FC = () => {
           return;
         }
 
+        window.localStorage.setItem(GOOGLE_LOGIN_SEEN_KEY, "true");
+        setHasGoogleLogin(true);
         googleLogin(data.access, data.user, data.user.role || "student", data.status);
 
         if (!data.user.is_profile_complete) {
@@ -216,40 +221,44 @@ export const AuthPage: React.FC = () => {
                   Use your <strong>@christuniversity.in</strong> email to sign in
                 </p>
 
-                <div className="w-full flex items-center gap-3 my-1">
-                  <div className="h-px flex-1" style={{ background: "var(--color-border)" }} />
-                  <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>or use saved credentials</span>
-                  <div className="h-px flex-1" style={{ background: "var(--color-border)" }} />
-                </div>
+                {hasGoogleLogin && (
+                  <>
+                    <div className="w-full flex items-center gap-3 my-1">
+                      <div className="h-px flex-1" style={{ background: "var(--color-border)" }} />
+                      <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>or use saved credentials</span>
+                      <div className="h-px flex-1" style={{ background: "var(--color-border)" }} />
+                    </div>
 
-                <form onSubmit={handlePasswordLogin} className="w-full space-y-3">
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(event) => setUsername(event.target.value)}
-                    placeholder="Register number or email"
-                    autoComplete="username"
-                    className="w-full rounded-xl border px-4 py-3 text-sm outline-none"
-                    style={{ borderColor: "var(--color-border)", background: "var(--color-bg-start)", color: "var(--color-text-primary)" }}
-                  />
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Password"
-                    autoComplete="current-password"
-                    className="w-full rounded-xl border px-4 py-3 text-sm outline-none"
-                    style={{ borderColor: "var(--color-border)", background: "var(--color-bg-start)", color: "var(--color-text-primary)" }}
-                  />
-                  <button
-                    type="submit"
-                    className="w-full rounded-xl px-4 py-3 text-sm font-bold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
-                    style={{ background: "var(--color-brand-blue)" }}
-                    disabled={loading}
-                  >
-                    Sign in with password
-                  </button>
-                </form>
+                    <form onSubmit={handlePasswordLogin} className="w-full space-y-3">
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(event) => setUsername(event.target.value)}
+                        placeholder="Register number or email"
+                        autoComplete="username"
+                        className="w-full rounded-xl border px-4 py-3 text-sm outline-none"
+                        style={{ borderColor: "var(--color-border)", background: "var(--color-bg-start)", color: "var(--color-text-primary)" }}
+                      />
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder="Password"
+                        autoComplete="current-password"
+                        className="w-full rounded-xl border px-4 py-3 text-sm outline-none"
+                        style={{ borderColor: "var(--color-border)", background: "var(--color-bg-start)", color: "var(--color-text-primary)" }}
+                      />
+                      <button
+                        type="submit"
+                        className="w-full rounded-xl px-4 py-3 text-sm font-bold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                        style={{ background: "var(--color-brand-blue)" }}
+                        disabled={loading}
+                      >
+                        Sign in with password
+                      </button>
+                    </form>
+                  </>
+                )}
 
               </div>
             )}
