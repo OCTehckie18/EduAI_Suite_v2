@@ -29,5 +29,7 @@ describe('AuthPage', () => {
     
     // Verify Google Login Mock Button is present
     expect(screen.getByTestId('google-login')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Register number or email')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Password')).toBeInTheDocument();
   });
 });

@@ -9,14 +9,14 @@
 | Phase | Description | Scope | Status |
 |---|---|---|---|
 | **Phase 1** | New Repo, Django 5.1, Docker, Core Soft-Delete, Master Admin Scaffold | Full-Stack Core | **COMPLETED** |
-| **Phase 2** | Academic Hierarchy Models & Soft-Delete CRUD (`institution`) | Backend Core | **NEXT (Ready)** |
+| **Phase 2** | Academic Hierarchy Models & Soft-Delete CRUD (`institution`) | Backend Core | **COMPLETED** |
 | **Phase 3** | Custom User Model, Dual Auth (OAuth + Password), Onboarding (`accounts`) | Backend Core | In Progress |
 | **Phase 4** | Classrooms, Excel/CSV Bulk Enrollment, Section Scoping (`classrooms`) | Academic Backbone | Pending |
 | **Phase 5** | Assignments, Submissions, Announcements, Appointments | Core Deliverables | Pending |
 | **Phase 6** | Exams, AI Quizzes, OpenCV OMR, Slido WebSockets, EduGames | Evaluation & Live | Pending |
 | **Phase 7** | Lesson Plans (DOCX), Calendar Sync, Mail, Trello, Report Cards | Tools & Analytics | Pending |
 | **Phase 8** | Master Admin Dedicated APIs & `apps/eduai` Full UI Integration | Master Governance | Pending |
-| **Phase 9** | Django JWT & Full Frontend Integration (`teacherbuddy`, `edugames`) | Frontend Wiring | In Progress |
+| **Phase 9** | Django JWT & Full Frontend Integration (`teacherbuddy`, `edugames`) | Frontend Wiring | Pending |
 
 ---
 

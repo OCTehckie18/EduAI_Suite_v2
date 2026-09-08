@@ -19,6 +19,7 @@ import AudienceJoinHub from "../features/games/AudienceJoinHub";
 import { StudentCalendar } from "../features/calendar/StudentCalendar";
 
 import { WaitingPage } from "../features/auth/WaitingPage";
+import { ProfileSetupPage } from "../features/auth/ProfileSetupPage";
 
 export const router = createBrowserRouter([
   {
@@ -28,6 +29,10 @@ export const router = createBrowserRouter([
   {
     path: "/waiting",
     element: <WaitingPage />,
+  },
+  {
+    path: "/profile/setup",
+    element: <ProfileSetupPage />,
   },
   {
     path: "/",

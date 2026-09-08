@@ -3,6 +3,17 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
 from django.db import connection
+from django.http import JsonResponse
+
+
+def root_view(request):
+    """Compatibility response matching the previous FastAPI root endpoint."""
+    return JsonResponse({'message': 'EduAI Backend Running'})
+
+
+def legacy_health_view(request):
+    """Compatibility alias for the previous ``/api/health`` endpoint."""
+    return HealthCheckView.as_view()(request)
 
 class HealthCheckView(APIView):
     """

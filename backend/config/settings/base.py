@@ -95,6 +95,10 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Keep the upload locations used by the previous FastAPI service available
+# while Django apps migrate file handling to MEDIA_ROOT.
+UPLOADS_ROOT = os.path.join(BASE_DIR, 'uploads')
+LOCAL_UPLOADS_ROOT = os.path.join(BASE_DIR, 'local_uploads')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.User'
@@ -132,3 +136,19 @@ CORS_ALLOWED_ORIGINS = [
     ).split(',') if origin.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', SECRET_KEY)
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES = int(os.getenv('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', '60'))
+JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(os.getenv('JWT_REFRESH_TOKEN_LIFETIME_DAYS', '7'))
+
+# Shared settings consumed by the OAuth, calendar, and AI integrations as
+# they are ported from the previous backend.
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_CALENDAR_REDIRECT_URI = os.getenv(
+    'GOOGLE_CALENDAR_REDIRECT_URI',
+    'http://localhost:8000/api/v1/auth/google-calendar/callback',
+)
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+REDIS_URL = os.getenv('REDIS_URL', '')

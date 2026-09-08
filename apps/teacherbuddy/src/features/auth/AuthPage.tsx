@@ -8,6 +8,8 @@ import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
 export const AuthPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const { googleLogin, logout } = useAuthStore();
 
   useEffect(() => {
@@ -43,7 +45,9 @@ export const AuthPage: React.FC = () => {
 
         googleLogin(data.access, data.user, data.status);
 
-        if (data.status === "approved") {
+        if (!data.user.is_profile_complete) {
+          window.location.href = "/profile/setup";
+        } else if (data.status === "approved") {
           if (data.user.role === "admin") {
             window.location.href = "/admin/users";
           } else {
@@ -58,6 +62,48 @@ export const AuthPage: React.FC = () => {
     } catch (err) {
       console.error("Google login failed:", err);
       setError("Server connection failed. Please ensure the backend is running.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!username.trim() || !password) {
+      setError("Enter your employee number or email and password.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch(`${API_ENDPOINTS.AUTH}/login/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Invalid employee number or password.");
+      }
+
+      if (data.user.role !== "teacher" && data.user.role !== "admin") {
+        throw new Error("Access Denied: This portal is strictly for Teachers and Administrators.");
+      }
+
+      googleLogin(data.access, data.user, data.status);
+
+      if (!data.user.is_profile_complete) {
+        window.location.href = "/profile/setup";
+      } else if (data.user.role === "admin") {
+        window.location.href = "/admin/users";
+      } else {
+        window.location.href = "/";
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Password login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -140,7 +186,7 @@ export const AuthPage: React.FC = () => {
               Faculty Portal
             </h2>
             <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
-              Sign in with your university Google account.
+              Sign in with Google or your saved employee number and password.
             </p>
 
             {error && (
@@ -172,6 +218,41 @@ export const AuthPage: React.FC = () => {
                 <p className="text-xs text-center mt-1" style={{ color: "var(--color-text-muted)" }}>
                   Use your <strong>@christuniversity.in</strong> email to sign in
                 </p>
+
+                <div className="w-full flex items-center gap-3 my-1">
+                  <div className="h-px flex-1" style={{ background: "var(--color-border)" }} />
+                  <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>or use saved credentials</span>
+                  <div className="h-px flex-1" style={{ background: "var(--color-border)" }} />
+                </div>
+
+                <form onSubmit={handlePasswordLogin} className="w-full space-y-3">
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                    placeholder="Employee number or email"
+                    autoComplete="username"
+                    className="w-full rounded-xl border px-4 py-3 text-sm outline-none"
+                    style={{ borderColor: "var(--color-border)", background: "var(--color-bg-start)", color: "var(--color-text-primary)" }}
+                  />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Password"
+                    autoComplete="current-password"
+                    className="w-full rounded-xl border px-4 py-3 text-sm outline-none"
+                    style={{ borderColor: "var(--color-border)", background: "var(--color-bg-start)", color: "var(--color-text-primary)" }}
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded-xl px-4 py-3 text-sm font-bold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{ background: "var(--color-brand-blue)" }}
+                    disabled={loading}
+                  >
+                    Sign in with password
+                  </button>
+                </form>
 
               </div>
             )}

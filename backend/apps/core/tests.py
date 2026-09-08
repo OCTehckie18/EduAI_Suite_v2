@@ -26,3 +26,12 @@ class SoftDeleteModelTestCase(TestCase):
         response = self.client.get('/api/v1/health/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'healthy')
+
+    def test_fastapi_compatibility_endpoints(self):
+        root_response = self.client.get('/')
+        self.assertEqual(root_response.status_code, 200)
+        self.assertEqual(root_response.json()['message'], 'EduAI Backend Running')
+
+        legacy_health_response = self.client.get('/api/health')
+        self.assertEqual(legacy_health_response.status_code, 200)
+        self.assertEqual(legacy_health_response.json()['status'], 'healthy')

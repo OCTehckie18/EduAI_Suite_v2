@@ -27,6 +27,7 @@ import { TrelloBoardView } from "../features/trello/TrelloBoardView";
 import { AdminUsersPage } from "../features/admin/AdminUsersPage";
 
 import { WaitingPage } from "../features/auth/WaitingPage";
+import { ProfileSetupPage } from "../features/auth/ProfileSetupPage";
 
 export const router = createBrowserRouter([
   {
@@ -36,6 +37,10 @@ export const router = createBrowserRouter([
   {
     path: "/waiting",
     element: <WaitingPage />,
+  },
+  {
+    path: "/profile/setup",
+    element: <ProfileSetupPage />,
   },
   {
     path: "/",
