@@ -22,6 +22,9 @@ class Classroom(SoftDeleteModel):
     batch = models.ForeignKey(Batch, on_delete=models.PROTECT, related_name="classrooms")
     section = models.ForeignKey(Section, null=True, blank=True, on_delete=models.PROTECT, related_name="classrooms")
     enrollment_code = models.CharField(max_length=20, unique=True, default=generate_enrollment_code)
+    color = models.CharField(max_length=20, default="#264796")
+    description = models.TextField(blank=True)
+    course_plan_path = models.CharField(max_length=500, blank=True)
 
     class Meta:
         ordering = ["name"]

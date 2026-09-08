@@ -3,6 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from apps.core.views import HealthCheckView, legacy_health_view, root_view
+from apps.classrooms.legacy_urls import student_urlpatterns
 
 urlpatterns = [
     path('', root_view, name='root'),
@@ -14,6 +15,8 @@ urlpatterns = [
     path('api/v1/auth/', include('apps.accounts.urls')),
     path('api/v1/institution/', include('apps.institution.urls')),
     path('api/v1/classrooms/', include('apps.classrooms.urls')),
+    path('api/v1/courses/', include('apps.classrooms.legacy_urls')),
+    path('api/v1/students/', include((student_urlpatterns, 'students'))),
 ]
 
 if settings.DEBUG:

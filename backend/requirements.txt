@@ -12,6 +12,7 @@ channels>=4.1.0
 channels-redis>=4.2.0
 daphne>=4.1.2
 openpyxl>=3.1.5
+PyPDF2>=3.0.1
 pandas>=2.2.2
 python-docx>=1.1.2
 Pillow>=10.4.0

@@ -75,3 +75,78 @@ class ClassroomTests(APITestCase):
         self.assertFalse(Classroom.objects.filter(pk=classroom.pk).exists())
         self.assertFalse(Enrollment.objects.filter(classroom=classroom).exists())
         self.assertFalse(Enrollment.all_objects.get(classroom=classroom).is_active)
+
+    def test_original_courses_and_students_endpoints_are_compatible(self):
+        course_response = self.client.post(
+            "/api/v1/courses/",
+            {
+                "code": "CS201",
+                "name": "Data Structures",
+                "batch": self.batch.name,
+                "color": "#264796",
+                "description": "Original course contract",
+            },
+            format="json",
+        )
+        self.assertEqual(course_response.status_code, 201)
+        course = course_response.data
+        self.assertEqual(course["code"], "CS201")
+        self.assertEqual(course["students"], 0)
+        self.assertEqual(len(course["enrollment_code"]), 6)
+
+        courses_response = self.client.get("/api/v1/courses/")
+        self.assertEqual(courses_response.status_code, 200)
+        self.assertEqual(courses_response.data[0]["id"], course["id"])
+
+        all_students_response = self.client.get("/api/v1/students/")
+        self.assertEqual(all_students_response.status_code, 200)
+        self.assertEqual(all_students_response.data, [])
+
+        student_response = self.client.post(
+            f"/api/v1/students/{course['id']}",
+            {
+                "name": "Student One",
+                "email": "student1@example.com",
+                "registration_number": "STU001",
+                "student_class": "A",
+                "department": "Computer Science",
+            },
+            format="json",
+        )
+        self.assertEqual(student_response.status_code, 201)
+        self.assertEqual(student_response.data["course_id"], course["id"])
+
+        students_response = self.client.get(f"/api/v1/students/{course['id']}")
+        self.assertEqual(students_response.status_code, 200)
+        self.assertEqual(students_response.data[0]["registration_number"], "STU001")
+
+        code_response = self.client.post(
+            f"/api/v1/students/enroll/code?enrollment_code={course['enrollment_code']}",
+            {
+                "name": "Student Two",
+                "email": "student2@example.com",
+                "registration_number": "STU002",
+                "student_class": "A",
+                "department": "Computer Science",
+            },
+            format="json",
+        )
+        self.assertEqual(code_response.status_code, 201)
+        self.assertEqual(code_response.data["registration_number"], "STU002")
+
+        bulk_upload = SimpleUploadedFile(
+            "students.csv",
+            b"Register No,Student Name,Student Email,Section\nSTU003,Student Three,student3@example.com,A\n",
+            content_type="text/csv",
+        )
+        bulk_response = self.client.post(
+            f"/api/v1/students/bulk_upload/{course['id']}",
+            {"file": bulk_upload},
+            format="multipart",
+        )
+        self.assertEqual(bulk_response.status_code, 201)
+        self.assertIn("Successfully enrolled 1 students", bulk_response.data["message"])
+        self.assertEqual(self.client.get(f"/api/v1/students/{course['id']}/active").status_code, 200)
+
+        delete_response = self.client.delete(f"/api/v1/students/{student_response.data['id']}")
+        self.assertEqual(delete_response.status_code, 204)
