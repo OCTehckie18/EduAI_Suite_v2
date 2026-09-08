@@ -1,9 +1,10 @@
-@"
 # Python / Django
 __pycache__/
 *.py[cod]
 *$py.class
 *.sqlite3
+*.sqlite3-journal
+*.bak
 .env
 .env.local
 venv/
@@ -22,5 +23,5 @@ dist/
 Thumbs.db
 .vscode/
 .idea/
-"@ | Out-File -FilePath C:\Users\Omkaar\Desktop\Projects\EduAI_Suite_v2\.gitignore -Encoding utf8
 .codebase-memory
+backend dupe

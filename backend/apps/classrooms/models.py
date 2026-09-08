@@ -51,3 +51,14 @@ class Enrollment(SoftDeleteModel):
 
     def __str__(self):
         return f"{self.student.email} in {self.classroom}"
+
+
+class Resource(models.Model):
+    course = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name="resources")
+    name = models.CharField(max_length=255, blank=True, null=True)
+    type = models.CharField(max_length=50, blank=True, null=True)
+    size = models.CharField(max_length=50, blank=True, null=True)
+    date = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.course})"

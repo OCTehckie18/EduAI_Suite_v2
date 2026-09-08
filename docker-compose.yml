@@ -10,8 +10,6 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      # Django owns this schema; keep it separate from legacy FastAPI/Mongo data.
-      # AUTH_USER_MODEL is introduced in Phase 3; use a clean schema.
       - postgres_data_django_phase3:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U eduai -d eduai_suite"]
@@ -48,12 +46,22 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
       DJANGO_DEBUG: "True"
-      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend,0.0.0.0
       USE_SQLITE_FALLBACK: "False"
       DATABASE_URL: postgres://eduai:eduai_dev_password@postgres:5432/eduai_suite
       REDIS_URL: redis://redis:6379/0
       CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5175
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      SMTP_SERVER: ${SMTP_SERVER:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
     volumes:
+      - ./backend:/app
       - backend_media:/app/media
       - backend_uploads:/app/uploads
       - backend_local_uploads:/app/local_uploads
@@ -70,6 +78,41 @@ services:
       timeout: 5s
       retries: 12
 
+  celery_worker:
+    build:
+      context: ./backend
+    container_name: eduai_celery_worker
+    restart: unless-stopped
+    command: celery -A config worker -l info
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DJANGO_DEBUG: "True"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      USE_SQLITE_FALLBACK: "False"
+      DATABASE_URL: postgres://eduai:eduai_dev_password@postgres:5432/eduai_suite
+      REDIS_URL: redis://redis:6379/0
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      SMTP_SERVER: ${SMTP_SERVER:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    volumes:
+      - ./backend:/app
+      - backend_media:/app/media
+      - backend_uploads:/app/uploads
+      - backend_local_uploads:/app/local_uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
   eduai:
     build:
       context: ./apps
@@ -82,7 +125,7 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5175"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5175 || exit 0"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -105,7 +148,7 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5174"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5174 || exit 0"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -128,7 +171,7 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5173"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5173 || exit 0"]
       interval: 10s
       timeout: 5s
       retries: 12

@@ -3,7 +3,7 @@ from rest_framework import serializers
 from apps.accounts.models import User
 from apps.institution.models import Batch, Department, Program, Section
 
-from .models import Classroom, Enrollment
+from .models import Classroom, Enrollment, Resource
 
 
 class ClassroomSerializer(serializers.ModelSerializer):
@@ -78,3 +78,10 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             "register_no": obj.student.register_no,
             "section": obj.student.section_id,
         }
+
+
+class ResourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Resource
+        fields = ["id", "course", "name", "type", "size", "date"]
+

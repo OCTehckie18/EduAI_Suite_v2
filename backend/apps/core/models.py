@@ -67,3 +67,20 @@ class SoftDeleteModel(TimeStampedModel):
         self.is_active = True
         self.deleted_at = None
         self.save(update_fields=['is_active', 'deleted_at', 'updated_at'])
+
+
+class ActionHistory(models.Model):
+    feature = models.CharField(max_length=100, blank=True, null=True)
+    action = models.CharField(max_length=100, blank=True, null=True)
+    reaction = models.CharField(max_length=100, blank=True, null=True)
+    result = models.CharField(max_length=100, blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    user_id = models.CharField(max_length=100, blank=True, null=True)
+    metadata_json = models.JSONField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"[{self.feature}] {self.action} ({self.result})"
+
