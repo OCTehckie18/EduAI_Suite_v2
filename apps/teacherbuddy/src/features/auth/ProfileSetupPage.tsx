@@ -1,0 +1,81 @@
+import React, { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { Loader, Save } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import logo from "../../../../logo/eduai_logo.png";
+import { useAuthStore } from "../../store/useAuthStore";
+import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
+
+type Option = { id: number; name: string; code?: string };
+
+const getResults = async (url: string): Promise<Option[]> => {
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Unable to load institution options.");
+  return Array.isArray(data) ? data : data.results || [];
+};
+
+export const ProfileSetupPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { googleLogin } = useAuthStore();
+  const user = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
+  }, []);
+  const token = localStorage.getItem("token");
+  const [campuses, setCampuses] = useState<Option[]>([]);
+  const [schools, setSchools] = useState<Option[]>([]);
+  const [departments, setDepartments] = useState<Option[]>([]);
+  const [programs, setPrograms] = useState<Option[]>([]);
+  const [batches, setBatches] = useState<Option[]>([]);
+  const [sections, setSections] = useState<Option[]>([]);
+  const [form, setForm] = useState({ campus: "", school: "", department: "", program: "", batch: "", section: "", emp_no: "", phone_number: "", password: "", confirm_password: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!token) { navigate("/login", { replace: true }); return; }
+    getResults(`${API_ENDPOINTS.BASE}/institution/campuses/?page_size=100`).then(setCampuses).catch((e) => setError(e.message));
+  }, [navigate, token]);
+
+  useEffect(() => {
+    if (!form.campus) { setSchools([]); return; }
+    getResults(`${API_ENDPOINTS.BASE}/institution/schools/?campus_id=${form.campus}&page_size=100`).then(setSchools).catch((e) => setError(e.message));
+  }, [form.campus]);
+  useEffect(() => {
+    if (!form.school) { setDepartments([]); return; }
+    getResults(`${API_ENDPOINTS.BASE}/institution/departments/?school_id=${form.school}&page_size=100`).then(setDepartments).catch((e) => setError(e.message));
+  }, [form.school]);
+  useEffect(() => {
+    if (!form.department) { setPrograms([]); return; }
+    getResults(`${API_ENDPOINTS.BASE}/institution/programs/?department_id=${form.department}&page_size=100`).then(setPrograms).catch((e) => setError(e.message));
+  }, [form.department]);
+  useEffect(() => {
+    if (!form.program) { setBatches([]); return; }
+    getResults(`${API_ENDPOINTS.BASE}/institution/batches/?program_id=${form.program}&page_size=100`).then(setBatches).catch((e) => setError(e.message));
+  }, [form.program]);
+  useEffect(() => {
+    if (!form.batch) { setSections([]); return; }
+    getResults(`${API_ENDPOINTS.BASE}/institution/sections/?batch_id=${form.batch}&page_size=100`).then(setSections).catch((e) => setError(e.message));
+  }, [form.batch]);
+
+  const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError("");
+    if (!form.emp_no || !form.campus || !form.school || !form.department || !form.password) { setError("Employee number, hierarchy, and password are required."); return; }
+    if (form.password !== form.confirm_password) { setError("Passwords do not match."); return; }
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_ENDPOINTS.AUTH}/profile/setup/`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ role: "TEACHER", emp_no: form.emp_no, phone_number: form.phone_number, campus: Number(form.campus), school: Number(form.school), department: Number(form.department), programs: form.program ? [Number(form.program)] : [], batches: form.batch ? [Number(form.batch)] : [], password: form.password }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Unable to complete registration.");
+      googleLogin(data.access, data.user, data.status);
+      navigate("/", { replace: true });
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to complete registration."); }
+    finally { setLoading(false); }
+  };
+
+  const select = (label: string, key: keyof typeof form, options: Option[], disabled = false) => <label className="flex flex-col gap-2 text-sm font-semibold" key={key}>{label}<select required={!disabled} disabled={disabled} value={form[key]} onChange={(e) => update(key, e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-3 font-normal"><option value="">Select {label.toLowerCase()}</option>{options.map((option) => <option key={option.id} value={option.id}>{option.name}{option.code ? ` (${option.code})` : ""}</option>)}</select></label>;
+
+  return <main className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--color-bg-start)" }}><form onSubmit={submit} className="glass-card w-full max-w-2xl p-8 space-y-5"><div className="flex items-center gap-3"><img src={logo} alt="Christ University" className="h-12 w-12 rounded-xl bg-white p-1" /><div><h1 className="text-2xl font-black">Complete your registration</h1><p className="text-sm" style={{ color: "var(--color-text-muted)" }}>{user.email || "Google account"} · Teacher profile</p></div></div><p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Choose your academic hierarchy and set a password for future sign-ins.</p>{error && <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}<div className="grid gap-4 sm:grid-cols-2"><label className="flex flex-col gap-2 text-sm font-semibold">Employee number<input required value={form.emp_no} onChange={(e) => update("emp_no", e.target.value)} className="rounded-xl border border-slate-200 px-3 py-3 font-normal" /></label><label className="flex flex-col gap-2 text-sm font-semibold">Phone number<input value={form.phone_number} onChange={(e) => update("phone_number", e.target.value)} className="rounded-xl border border-slate-200 px-3 py-3 font-normal" /></label>{select("Campus", "campus", campuses)}{select("School", "school", schools, !form.campus)}{select("Department", "department", departments, !form.school)}{select("Program", "program", programs, !form.department)}{select("Batch", "batch", batches, !form.program)}{select("Section", "section", sections, !form.batch)}</div><div className="grid gap-4 sm:grid-cols-2"><label className="flex flex-col gap-2 text-sm font-semibold">Password<input required minLength={6} type="password" value={form.password} onChange={(e) => update("password", e.target.value)} className="rounded-xl border border-slate-200 px-3 py-3 font-normal" /></label><label className="flex flex-col gap-2 text-sm font-semibold">Confirm password<input required minLength={6} type="password" value={form.confirm_password} onChange={(e) => update("confirm_password", e.target.value)} className="rounded-xl border border-slate-200 px-3 py-3 font-normal" /></label></div><button disabled={loading} className="btn btn-primary flex w-full items-center justify-center gap-2 py-3 font-bold">{loading ? <Loader size={18} className="animate-spin" /> : <Save size={18} />} {loading ? "Saving registration..." : "Complete registration"}</button></form></main>;
+};

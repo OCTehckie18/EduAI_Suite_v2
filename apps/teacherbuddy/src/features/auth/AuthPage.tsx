@@ -43,7 +43,9 @@ export const AuthPage: React.FC = () => {
 
         googleLogin(data.access, data.user, data.status);
 
-        if (data.status === "approved") {
+        if (!data.user.is_profile_complete) {
+          window.location.href = "/profile/setup";
+        } else if (data.status === "approved") {
           if (data.user.role === "admin") {
             window.location.href = "/admin/users";
           } else {

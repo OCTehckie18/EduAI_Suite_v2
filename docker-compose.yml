@@ -41,6 +41,10 @@ services:
     env_file:
       - path: ./backend/.env
         required: false
+    command: >-
+      sh -c "python manage.py migrate &&
+      python manage.py seed_initial_data &&
+      daphne -b 0.0.0.0 -p 8000 config.asgi:application"
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
       DJANGO_DEBUG: "True"

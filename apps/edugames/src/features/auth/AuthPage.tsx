@@ -45,7 +45,9 @@ export const AuthPage: React.FC = () => {
 
         googleLogin(data.access, data.user, data.user.role || "student", data.status);
 
-        if (data.status === "approved") {
+        if (!data.user.is_profile_complete) {
+          navigate("/profile/setup");
+        } else if (data.status === "approved") {
           navigate("/");
         } else {
           navigate("/waiting");
