@@ -23,6 +23,9 @@ urlpatterns = [
     # Auth & Accounts
     path('api/v1/auth/', include('apps.accounts.urls')),
 
+    # Master Admin
+    path('api/v1/master-admin/', include('apps.master_admin.urls')),
+
     # Institution
     path('api/v1/institution/', include('apps.institution.urls')),
 
