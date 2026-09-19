@@ -85,7 +85,8 @@ export const ChainAnswerGamePage: React.FC = () => {
           category: gameConfig.category,
           difficulty_level: gameConfig.difficulty,
           language: gameConfig.language,
-          starting_word: formattedQuestions[0]?.question_text || gameConfig.startingWord,
+          starting_word:
+            formattedQuestions[0]?.question_text || gameConfig.startingWord,
           time_per_turn: 30,
           penalty_on_invalid: false,
           players: selectedPlayers,
@@ -474,7 +475,9 @@ export const ChainAnswerGamePage: React.FC = () => {
                   <input
                     type="text"
                     value={gameConfig.startingWord}
-                    disabled={questions.filter(q => q.trim().length > 0).length > 0}
+                    disabled={
+                      questions.filter((q) => q.trim().length > 0).length > 0
+                    }
                     onChange={(e) =>
                       setGameConfig({
                         ...gameConfig,
@@ -492,21 +495,31 @@ export const ChainAnswerGamePage: React.FC = () => {
               </div>
 
               {/* Multiple Questions/Prompts Section */}
-              <div className="mt-6 border-t pt-6" style={{ borderColor: "var(--color-border)" }}>
+              <div
+                className="mt-6 border-t pt-6"
+                style={{ borderColor: "var(--color-border)" }}
+              >
                 <h3
                   className="text-lg font-bold mb-2"
                   style={{ color: "var(--color-text-primary)" }}
                 >
                   Game Questions / Prompts (Optional)
                 </h3>
-                <p className="text-xs mb-4" style={{ color: "var(--color-text-secondary)" }}>
-                  If you add prompts here, students will play multiple questions sequentially. If left empty, the game will play a single question using the "Starting Word" above.
+                <p
+                  className="text-xs mb-4"
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  If you add prompts here, students will play multiple questions
+                  sequentially. If left empty, the game will play a single
+                  question using the "Starting Word" above.
                 </p>
 
                 <div className="space-y-3">
                   {questions.map((q, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
-                      <span className="text-sm font-bold text-slate-500 w-6">#{idx + 1}</span>
+                      <span className="text-sm font-bold text-slate-500 w-6">
+                        #{idx + 1}
+                      </span>
                       <input
                         type="text"
                         value={q}
@@ -530,9 +543,7 @@ export const ChainAnswerGamePage: React.FC = () => {
                             setQuestions(questions.filter((_, i) => i !== idx));
                           }}
                           className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-colors"
-                        >
-                          
-                        </button>
+                        ></button>
                       )}
                     </div>
                   ))}

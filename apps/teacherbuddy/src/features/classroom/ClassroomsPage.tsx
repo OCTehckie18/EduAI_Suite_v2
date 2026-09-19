@@ -72,7 +72,6 @@ export const ClassroomsPage: React.FC = () => {
     "home" | "assignments" | "students" | "engagement"
   >("home");
 
-
   // Engagement State
   const [engagementData, setEngagementData] = useState<any>(null);
   const [engagementLoading, setEngagementLoading] = useState(false);
@@ -159,7 +158,9 @@ export const ClassroomsPage: React.FC = () => {
 
   const fetchCourses = async () => {
     try {
-      const res = await fetch(`${API_URL}/courses/`, { headers: authHeaders() });
+      const res = await fetch(`${API_URL}/courses/`, {
+        headers: authHeaders(),
+      });
       const data = await res.json();
       if (Array.isArray(data)) {
         setClassrooms(data);
@@ -176,18 +177,28 @@ export const ClassroomsPage: React.FC = () => {
     if (!selectedId) return;
     try {
       const [ann, stu, asgn] = await Promise.all([
-        fetch(`${API_URL}/announcements/${selectedId}`, { headers: authHeaders() }).then((r) => r.json()),
-        fetch(`${API_URL}/students/${selectedId}`, { headers: authHeaders() }).then((r) => r.json()),
-        fetch(`${API_URL}/assignments/${selectedId}`, { headers: authHeaders() }).then((r) => r.json()),
+        fetch(`${API_URL}/announcements/${selectedId}`, {
+          headers: authHeaders(),
+        }).then((r) => r.json()),
+        fetch(`${API_URL}/students/${selectedId}`, {
+          headers: authHeaders(),
+        }).then((r) => r.json()),
+        fetch(`${API_URL}/assignments/${selectedId}`, {
+          headers: authHeaders(),
+        }).then((r) => r.json()),
       ]);
       const sortedAnnouncements = Array.isArray(ann)
         ? ann.sort((a, b) => {
-          if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-          // Fallback to id if created_at is missing for older announcements
-          const timeA = a.created_at ? new Date(a.created_at).getTime() : a.id;
-          const timeB = b.created_at ? new Date(b.created_at).getTime() : b.id;
-          return timeB - timeA;
-        })
+            if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+            // Fallback to id if created_at is missing for older announcements
+            const timeA = a.created_at
+              ? new Date(a.created_at).getTime()
+              : a.id;
+            const timeB = b.created_at
+              ? new Date(b.created_at).getTime()
+              : b.id;
+            return timeB - timeA;
+          })
         : [];
       setAnnouncements(sortedAnnouncements);
       setStudents(Array.isArray(stu) ? stu : []);
@@ -312,18 +323,18 @@ export const ClassroomsPage: React.FC = () => {
 
   const sortedEngagementStudents = engagementData?.students
     ? [...engagementData.students].sort((a: any, b: any) => {
-      let aVal = a[engagementSortKey] ?? 0;
-      let bVal = b[engagementSortKey] ?? 0;
-      if (engagementSortKey === "assignments.completion_rate") {
-        aVal = a.assignments?.completion_rate ?? 0;
-        bVal = b.assignments?.completion_rate ?? 0;
-      }
-      if (engagementSortKey === "games.sessions_played") {
-        aVal = a.games?.sessions_played ?? 0;
-        bVal = b.games?.sessions_played ?? 0;
-      }
-      return engagementSortDir === "desc" ? bVal - aVal : aVal - bVal;
-    })
+        let aVal = a[engagementSortKey] ?? 0;
+        let bVal = b[engagementSortKey] ?? 0;
+        if (engagementSortKey === "assignments.completion_rate") {
+          aVal = a.assignments?.completion_rate ?? 0;
+          bVal = b.assignments?.completion_rate ?? 0;
+        }
+        if (engagementSortKey === "games.sessions_played") {
+          aVal = a.games?.sessions_played ?? 0;
+          bVal = b.games?.sessions_played ?? 0;
+        }
+        return engagementSortDir === "desc" ? bVal - aVal : aVal - bVal;
+      })
     : [];
 
   const toggleSort = (key: string) => {
@@ -347,16 +358,14 @@ export const ClassroomsPage: React.FC = () => {
         try {
           const text = await res.text();
           if (text) errorDetail = text;
-        } catch { }
+        } catch {}
         throw new Error(errorDetail);
       }
       onSuccess();
       setErrorMsg(null);
     } catch (err: any) {
       console.error("API call failed:", err);
-      setErrorMsg(
-        "Something went wrong: " + err.message,
-      );
+      setErrorMsg("Something went wrong: " + err.message);
     }
   };
 
@@ -384,7 +393,12 @@ export const ClassroomsPage: React.FC = () => {
     if (coursePlanFile) formData.append("file", coursePlanFile);
 
     handleApiCall(
-      () => fetch(`${API_URL}/courses/`, { method: "POST", headers: authHeaders(), body: formData }),
+      () =>
+        fetch(`${API_URL}/courses/`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: formData,
+        }),
       () => {
         setShowCourseModal(false);
         resetCourseForm();
@@ -607,7 +621,11 @@ export const ClassroomsPage: React.FC = () => {
 
     const { type, id } = deleteConfirm;
     const actionMap: Record<string, () => Promise<Response>> = {
-      course: () => fetch(`${API_URL}/courses/${id}`, { method: "DELETE", headers: authHeaders() }),
+      course: () =>
+        fetch(`${API_URL}/courses/${id}`, {
+          method: "DELETE",
+          headers: authHeaders(),
+        }),
       announcement: () =>
         fetch(`${API_URL}/announcements/${id}`, { method: "DELETE" }),
       student: () => fetch(`${API_URL}/students/${id}`, { method: "DELETE" }),
@@ -763,7 +781,6 @@ export const ClassroomsPage: React.FC = () => {
                         </div>
                       )}
                       {/* REMOVED THE extra UI element */}
-
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-3 shrink-0">
@@ -1270,7 +1287,7 @@ export const ClassroomsPage: React.FC = () => {
                                   >
                                     Assign.{" "}
                                     {engagementSortKey ===
-                                      "assignments.completion_rate"
+                                    "assignments.completion_rate"
                                       ? engagementSortDir === "desc"
                                         ? "↓"
                                         : "↑"
@@ -1284,7 +1301,7 @@ export const ClassroomsPage: React.FC = () => {
                                   >
                                     Games{" "}
                                     {engagementSortKey ===
-                                      "games.sessions_played"
+                                    "games.sessions_played"
                                       ? engagementSortDir === "desc"
                                         ? "↓"
                                         : "↑"
@@ -1380,95 +1397,95 @@ export const ClassroomsPage: React.FC = () => {
                         {/* At-Risk Alerts */}
                         {(engagementData.at_risk_count > 0 ||
                           engagementData.needs_attention_count > 0) && (
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                              <div className="p-5 border-b border-slate-200 flex items-center gap-3">
-                                <div className="p-2 bg-red-50 rounded-lg">
-                                  <ShieldAlert
-                                    size={20}
-                                    className="text-red-500"
-                                  />
-                                </div>
-                                <div>
-                                  <h3 className="font-extrabold text-lg text-slate-900">
-                                    Students Needing Attention
-                                  </h3>
-                                  <p className="text-xs text-slate-500 font-semibold">
-                                    {engagementData.at_risk_count +
-                                      engagementData.needs_attention_count}{" "}
-                                    student(s) flagged
-                                  </p>
-                                </div>
+                          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="p-5 border-b border-slate-200 flex items-center gap-3">
+                              <div className="p-2 bg-red-50 rounded-lg">
+                                <ShieldAlert
+                                  size={20}
+                                  className="text-red-500"
+                                />
                               </div>
-                              <div className="divide-y divide-slate-100">
-                                {sortedEngagementStudents
-                                  .filter(
-                                    (s: any) =>
-                                      s.engagement_level === "at_risk" ||
-                                      s.engagement_level === "needs_attention",
-                                  )
-                                  .map((s: any) => {
-                                    const colors = getEngagementColor(
-                                      s.engagement_level,
-                                    );
-                                    return (
-                                      <div
-                                        key={s.student_id}
-                                        className="p-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors cursor-pointer"
-                                        onClick={() => openStudentProfile(s)}
-                                      >
-                                        <div className="flex items-center gap-3">
-                                          <div className="relative">
-                                            <div
-                                              className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                                              style={{
-                                                background:
-                                                  s.engagement_level === "at_risk"
-                                                    ? "#ef4444"
-                                                    : "#f59e0b",
-                                              }}
-                                            >
-                                              {s.name.charAt(0)}
-                                            </div>
-                                          </div>
-                                          <div>
-                                            <p className="font-bold text-slate-900 text-sm">
-                                              {s.name}
-                                            </p>
-                                            <div className="flex items-center gap-3 mt-0.5">
-                                              <span className="text-[10px] font-bold text-slate-400">
-                                                Attend: {s.attendance}%
-                                              </span>
-                                              <span className="text-[10px] font-bold text-slate-400">
-                                                Assign:{" "}
-                                                {s.assignments?.completion_rate ??
-                                                  0}
-                                                %
-                                              </span>
-                                              <span className="text-[10px] font-bold text-slate-400">
-                                                Score: {s.engagement_score}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <span
-                                            className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${colors.bg} ${colors.text} ${colors.border} border`}
-                                          >
-                                            {getEngagementLabel(
-                                              s.engagement_level,
-                                            )}
-                                          </span>
-                                          <ChevronRight
-                                            size={16}
-                                            className="text-slate-400"
-                                          />
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
+                              <div>
+                                <h3 className="font-extrabold text-lg text-slate-900">
+                                  Students Needing Attention
+                                </h3>
+                                <p className="text-xs text-slate-500 font-semibold">
+                                  {engagementData.at_risk_count +
+                                    engagementData.needs_attention_count}{" "}
+                                  student(s) flagged
+                                </p>
                               </div>
                             </div>
-                          )}
+                            <div className="divide-y divide-slate-100">
+                              {sortedEngagementStudents
+                                .filter(
+                                  (s: any) =>
+                                    s.engagement_level === "at_risk" ||
+                                    s.engagement_level === "needs_attention",
+                                )
+                                .map((s: any) => {
+                                  const colors = getEngagementColor(
+                                    s.engagement_level,
+                                  );
+                                  return (
+                                    <div
+                                      key={s.student_id}
+                                      className="p-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors cursor-pointer"
+                                      onClick={() => openStudentProfile(s)}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className="relative">
+                                          <div
+                                            className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                                            style={{
+                                              background:
+                                                s.engagement_level === "at_risk"
+                                                  ? "#ef4444"
+                                                  : "#f59e0b",
+                                            }}
+                                          >
+                                            {s.name.charAt(0)}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <p className="font-bold text-slate-900 text-sm">
+                                            {s.name}
+                                          </p>
+                                          <div className="flex items-center gap-3 mt-0.5">
+                                            <span className="text-[10px] font-bold text-slate-400">
+                                              Attend: {s.attendance}%
+                                            </span>
+                                            <span className="text-[10px] font-bold text-slate-400">
+                                              Assign:{" "}
+                                              {s.assignments?.completion_rate ??
+                                                0}
+                                              %
+                                            </span>
+                                            <span className="text-[10px] font-bold text-slate-400">
+                                              Score: {s.engagement_score}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${colors.bg} ${colors.text} ${colors.border} border`}
+                                        >
+                                          {getEngagementLabel(
+                                            s.engagement_level,
+                                          )}
+                                        </span>
+                                        <ChevronRight
+                                          size={16}
+                                          className="text-slate-400"
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -1731,7 +1748,9 @@ export const ClassroomsPage: React.FC = () => {
                     Supported Formats: CSV, XLSX, TXT
                   </p>
                   <code className="text-xs font-bold text-slate-600 block mt-1">
-                    Please ensure the file contains: Registration Number, Name, Email, Class, and Department. Our engine will automatically extract the details!
+                    Please ensure the file contains: Registration Number, Name,
+                    Email, Class, and Department. Our engine will automatically
+                    extract the details!
                   </code>
                 </div>
                 <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center hover:bg-slate-50 transition-colors">
@@ -2140,12 +2159,12 @@ export const ClassroomsPage: React.FC = () => {
                             fill="none"
                             stroke={
                               studentProfileData.engagement_level ===
-                                "excellent"
+                              "excellent"
                                 ? "#10b981"
                                 : studentProfileData.engagement_level === "good"
                                   ? "#3b82f6"
                                   : studentProfileData.engagement_level ===
-                                    "needs_attention"
+                                      "needs_attention"
                                     ? "#f59e0b"
                                     : "#ef4444"
                             }
@@ -2182,7 +2201,8 @@ export const ClassroomsPage: React.FC = () => {
                       <div className="ml-auto flex gap-4">
                         <div className="text-center">
                           <p className="text-2xl font-black text-white">
-                            {studentProfileData.attendance !== null && studentProfileData.attendance !== undefined
+                            {studentProfileData.attendance !== null &&
+                            studentProfileData.attendance !== undefined
                               ? `${studentProfileData.attendance}%`
                               : "N/A"}
                           </p>
@@ -2416,8 +2436,8 @@ export const ClassroomsPage: React.FC = () => {
                                   <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
                                     {e.start_time
                                       ? new Date(
-                                        e.start_time,
-                                      ).toLocaleDateString()
+                                          e.start_time,
+                                        ).toLocaleDateString()
                                       : "N/A"}
                                   </p>
                                 </div>

@@ -16,7 +16,8 @@ class ChainAnswerGameListCreateView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        games = ChainAnswerGame.objects.all().prefetch_related("players", "words", "questions")
+        games = ChainAnswerGame.objects.all().prefetch_related(
+            "players", "words", "questions")
         return Response(ChainAnswerGameSerializer(games, many=True).data)
 
     def post(self, request):
@@ -61,7 +62,8 @@ class ChainAnswerGameListCreateView(APIView):
         for player_data in data.get("players", []):
             if isinstance(player_data, dict):
                 student_id = player_data.get("student_id")
-                player_name = player_data.get("name") or str(student_id or "Player")
+                player_name = player_data.get(
+                    "name") or str(student_id or "Player")
             else:
                 student_id = player_data
                 player_name = str(player_data)
@@ -80,7 +82,8 @@ class ChainAnswerGameListCreateView(APIView):
                 else str(question_data)
             )
             if question_text.strip():
-                GameQuestion.objects.create(game=game, question_text=question_text, order=idx)
+                GameQuestion.objects.create(
+                    game=game, question_text=question_text, order=idx)
 
         return Response(ChainAnswerGameSerializer(game).data, status=status.HTTP_201_CREATED)
 
@@ -90,7 +93,8 @@ class ChainAnswerGameDetailView(APIView):
 
     def get(self, request, session_id):
         game = get_object_or_404(
-            ChainAnswerGame.objects.prefetch_related("players", "words", "questions"),
+            ChainAnswerGame.objects.prefetch_related(
+                "players", "words", "questions"),
             session_id=session_id
         )
         return Response(ChainAnswerGameSerializer(game).data)

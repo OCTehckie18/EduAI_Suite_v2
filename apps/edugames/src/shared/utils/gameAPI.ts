@@ -366,7 +366,9 @@ class ChainAnswerGameAPI {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to advance to next question: ${response.statusText}`);
+        throw new Error(
+          `Failed to advance to next question: ${response.statusText}`,
+        );
       }
 
       return await response.json();

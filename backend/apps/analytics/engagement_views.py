@@ -41,7 +41,8 @@ def _generate_engagement_summary(student_name: str, data: dict) -> str:
 
 def _get_student_engagement(student: User, course_id: int):
     # Assignments
-    course_assignments = Assignment.objects.filter(course_id=course_id) if course_id else Assignment.objects.all()[:10]
+    course_assignments = Assignment.objects.filter(
+        course_id=course_id) if course_id else Assignment.objects.all()[:10]
     total_assignments = course_assignments.count()
 
     submissions = []
@@ -81,11 +82,13 @@ def _get_student_engagement(student: User, course_id: int):
                 "max_points": asgn.max_points,
             })
 
-    assignment_completion = ((submitted_count / total_assignments) * 100.0) if total_assignments > 0 else 0.0
+    assignment_completion = (
+        (submitted_count / total_assignments) * 100.0) if total_assignments > 0 else 0.0
     avg_grade = (total_grade / graded_count) if graded_count > 0 else None
 
     # Exams
-    course_exams = Exam.objects.filter(course_id=course_id) if course_id else Exam.objects.all()[:5]
+    course_exams = Exam.objects.filter(
+        course_id=course_id) if course_id else Exam.objects.all()[:5]
     exam_attempts = ExamAttempt.objects.filter(
         exam__in=course_exams,
         student_id=student.id
@@ -107,7 +110,8 @@ def _get_student_engagement(student: User, course_id: int):
         if attempt.score is not None:
             total_exam_score += attempt.score
 
-    avg_exam_score = (total_exam_score / len(exam_attempts)) if exam_attempts.exists() else None
+    avg_exam_score = (total_exam_score / len(exam_attempts)
+                      ) if exam_attempts.exists() else None
 
     # Games
     game_players = GamePlayer.objects.filter(
@@ -181,7 +185,8 @@ def _get_student_engagement(student: User, course_id: int):
 
     reg_no = student.register_no or f"REG-{student.id}"
     dept_name = student.department.name if student.department else "General"
-    cls_name = student.section.name if student.section else (student.batch.name if student.batch else "Batch A")
+    cls_name = student.section.name if student.section else (
+        student.batch.name if student.batch else "Batch A")
 
     result = {
         "student_id": student.id,
@@ -214,7 +219,8 @@ def _get_student_engagement(student: User, course_id: int):
         },
         "timeline": timeline[:20],
     }
-    result["engagement_summary"] = _generate_engagement_summary(student.full_name, result)
+    result["engagement_summary"] = _generate_engagement_summary(
+        student.full_name, result)
     return result
 
 
@@ -233,7 +239,8 @@ class CourseEngagementSummaryView(APIView):
         ).distinct())
 
         if not students:
-            all_students = list(User.objects.filter(role=User.Role.STUDENT)[:5])
+            all_students = list(User.objects.filter(
+                role=User.Role.STUDENT)[:5])
             if all_students:
                 students = all_students
 
@@ -243,11 +250,16 @@ class CourseEngagementSummaryView(APIView):
             all_engagement.append(eng)
 
         total = len(all_engagement)
-        avg_engagement = round(sum(e["engagement_score"] for e in all_engagement) / total, 1) if total > 0 else 0.0
-        avg_attendance = round(sum(e["attendance"] for e in all_engagement) / total, 1) if total > 0 else 0.0
-        avg_assignment = round(sum(e["assignments"]["completion_rate"] for e in all_engagement) / total, 1) if total > 0 else 0.0
-        at_risk = sum(1 for e in all_engagement if e["engagement_level"] == "at_risk")
-        needs_attention = sum(1 for e in all_engagement if e["engagement_level"] == "needs_attention")
+        avg_engagement = round(sum(
+            e["engagement_score"] for e in all_engagement) / total, 1) if total > 0 else 0.0
+        avg_attendance = round(
+            sum(e["attendance"] for e in all_engagement) / total, 1) if total > 0 else 0.0
+        avg_assignment = round(sum(e["assignments"]["completion_rate"]
+                               for e in all_engagement) / total, 1) if total > 0 else 0.0
+        at_risk = sum(
+            1 for e in all_engagement if e["engagement_level"] == "at_risk")
+        needs_attention = sum(
+            1 for e in all_engagement if e["engagement_level"] == "needs_attention")
 
         all_engagement.sort(key=lambda x: x["engagement_score"], reverse=True)
 
@@ -272,7 +284,8 @@ class StudentEngagementProfileView(APIView):
         if not student:
             return Response({"detail": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        enrollment = Enrollment.objects.filter(student=student, is_active=True).first()
+        enrollment = Enrollment.objects.filter(
+            student=student, is_active=True).first()
         course_id = enrollment.classroom_id if enrollment else 0
 
         return Response(_get_student_engagement(student, course_id))

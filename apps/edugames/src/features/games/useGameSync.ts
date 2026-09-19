@@ -131,10 +131,14 @@ export const useGameSync = ({
       if (cleanUrl.startsWith("/")) {
         const loc = window.location;
         const protocol = loc.protocol === "https:" ? "wss:" : "ws:";
-        const wsHost = (loc.hostname === "localhost" || loc.hostname === "127.0.0.1") 
-          ? `${loc.hostname}:8000` 
-          : loc.host;
-        const pathPrefix = (loc.hostname === "localhost" || loc.hostname === "127.0.0.1") ? "" : cleanUrl;
+        const wsHost =
+          loc.hostname === "localhost" || loc.hostname === "127.0.0.1"
+            ? `${loc.hostname}:8000`
+            : loc.host;
+        const pathPrefix =
+          loc.hostname === "localhost" || loc.hostname === "127.0.0.1"
+            ? ""
+            : cleanUrl;
         wsUrl = `${protocol}//${wsHost}${pathPrefix}/ws/games/chain-answer/${encodedSessionId}?user_type=${userType}`;
       } else {
         const backendUrl = new URL(cleanUrl);
@@ -163,7 +167,13 @@ export const useGameSync = ({
 
         // Send join message once
         if (!hasJoinedRef.current && playerId) {
-          ws.send(JSON.stringify({ type: "join", player_id: playerId, player_name: playerName }));
+          ws.send(
+            JSON.stringify({
+              type: "join",
+              player_id: playerId,
+              player_name: playerName,
+            }),
+          );
           hasJoinedRef.current = true;
         }
       };
@@ -199,8 +209,7 @@ export const useGameSync = ({
               // Calculate next player index
               const lastPlayerIndex = prev.players.findIndex(
                 (p: any) =>
-                  String(p.student_id) ===
-                  String(message.word.submitted_by),
+                  String(p.student_id) === String(message.word.submitted_by),
               );
               const nextPlayerIndex =
                 lastPlayerIndex !== -1
@@ -209,8 +218,7 @@ export const useGameSync = ({
 
               const newPlayers = prev.players.map((p: any) => {
                 if (
-                  String(p.student_id) ===
-                  String(message.word.submitted_by)
+                  String(p.student_id) === String(message.word.submitted_by)
                 ) {
                   return { ...p, ...message.player_stats };
                 }
@@ -229,7 +237,7 @@ export const useGameSync = ({
           } else if (message.type === "game_started") {
             setGameState((prev) => {
               if (!prev) return null;
-              
+
               const updatedFields: any = {
                 status: "active",
                 timer: (prev as any).time_per_turn || 30,
@@ -252,7 +260,8 @@ export const useGameSync = ({
               }
 
               if (message.current_question_index !== undefined) {
-                updatedFields.current_question_index = message.current_question_index;
+                updatedFields.current_question_index =
+                  message.current_question_index;
               }
 
               return {
@@ -298,15 +307,18 @@ export const useGameSync = ({
               if (!prev) return null;
               return {
                 ...prev,
-                currentPlayerIndex: message.next_player_index ?? prev.currentPlayerIndex,
-                timer: message.time_per_turn || (prev as any).time_per_turn || 30,
+                currentPlayerIndex:
+                  message.next_player_index ?? prev.currentPlayerIndex,
+                timer:
+                  message.time_per_turn || (prev as any).time_per_turn || 30,
                 errorMessage: "",
               };
             });
           } else if (message.type === "error") {
             // Server sent a validation or permission error
             setGameState((prev) => {
-              if (!prev) return { ...({} as any), errorMessage: message.message };
+              if (!prev)
+                return { ...({} as any), errorMessage: message.message };
               return {
                 ...prev,
                 errorMessage: message.message || "An error occurred",
@@ -314,7 +326,9 @@ export const useGameSync = ({
             });
             // Auto-clear after 5 seconds
             setTimeout(() => {
-              setGameState((prev) => prev ? { ...prev, errorMessage: "" } : prev);
+              setGameState((prev) =>
+                prev ? { ...prev, errorMessage: "" } : prev,
+              );
             }, 5000);
           }
 
@@ -502,7 +516,9 @@ export const useGameSync = ({
               String(p.id) === String(skippedPlayerId),
           );
           const nextIndex =
-            idx !== -1 ? (idx + 1) % players.length : (prev.currentPlayerIndex || 0);
+            idx !== -1
+              ? (idx + 1) % players.length
+              : prev.currentPlayerIndex || 0;
           return {
             ...prev,
             currentPlayerIndex: nextIndex,
