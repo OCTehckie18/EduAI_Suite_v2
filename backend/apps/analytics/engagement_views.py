@@ -28,10 +28,11 @@ def _generate_engagement_summary(student_name: str, data: dict) -> str:
     att = data["attendance"]
     comp = data["assignments"]["completion_rate"]
 
+    attendance_text = f"{att}% attendance" if att is not None else "attendance data is unavailable"
     if level == "excellent":
-        return f"{student_name} demonstrates outstanding academic engagement with a score of {score}/100, maintaining {att}% attendance and a {comp}% assignment completion rate."
+        return f"{student_name} demonstrates outstanding academic engagement with a score of {score}/100, with {attendance_text} and a {comp}% assignment completion rate."
     elif level == "good":
-        return f"{student_name} is performing well with an engagement score of {score}/100. Attendance is at {att}% and assignment completion is at {comp}%."
+        return f"{student_name} is performing well with an engagement score of {score}/100. {attendance_text.capitalize()} and assignment completion is at {comp}%."
     elif level == "needs_attention":
         return f"{student_name} requires monitoring with an engagement score of {score}/100. Attendance is at {att}% and {comp}% assignments are completed."
     else:
@@ -80,8 +81,8 @@ def _get_student_engagement(student: User, course_id: int):
                 "max_points": asgn.max_points,
             })
 
-    assignment_completion = ((submitted_count / total_assignments) * 100.0) if total_assignments > 0 else 85.0
-    avg_grade = (total_grade / graded_count) if graded_count > 0 else 78.0
+    assignment_completion = ((submitted_count / total_assignments) * 100.0) if total_assignments > 0 else 0.0
+    avg_grade = (total_grade / graded_count) if graded_count > 0 else None
 
     # Exams
     course_exams = Exam.objects.filter(course_id=course_id) if course_id else Exam.objects.all()[:5]
@@ -106,7 +107,7 @@ def _get_student_engagement(student: User, course_id: int):
         if attempt.score is not None:
             total_exam_score += attempt.score
 
-    avg_exam_score = (total_exam_score / len(exam_attempts)) if exam_attempts.exists() else 75.0
+    avg_exam_score = (total_exam_score / len(exam_attempts)) if exam_attempts.exists() else None
 
     # Games
     game_players = GamePlayer.objects.filter(
@@ -132,20 +133,20 @@ def _get_student_engagement(student: User, course_id: int):
         total_words_submitted += gp.words_submitted
         total_words_valid += gp.words_valid
 
-    # Attendance (computed / simulated variation based on student ID)
-    attendance_pct = round(88.0 - (student.id * 7 % 35), 1)
+    # Attendance is unavailable until attendance records are stored by the backend.
+    attendance_pct = None
 
     assignment_score_pct = assignment_completion
-    exam_pct = avg_exam_score
-    game_pct = min(total_game_score, 100) if games_data else 80.0
-
+    score_components = [(assignment_score_pct, 0.35)]
+    if avg_exam_score is not None:
+        score_components.append((avg_exam_score, 0.25))
+    if games_data:
+        score_components.append((min(total_game_score, 100), 0.15))
+    total_weight = sum(weight for _, weight in score_components)
     engagement_score = round(
-        attendance_pct * 0.25 +
-        assignment_score_pct * 0.35 +
-        exam_pct * 0.25 +
-        game_pct * 0.15,
-        1
-    )
+        sum(value * weight for value, weight in score_components) / total_weight,
+        1,
+    ) if total_weight else 0.0
     engagement_level = _compute_engagement_level(engagement_score)
 
     # Activity Timeline
@@ -196,12 +197,12 @@ def _get_student_engagement(student: User, course_id: int):
             "total": total_assignments,
             "submitted": submitted_count,
             "completion_rate": round(assignment_completion, 1),
-            "avg_grade": round(avg_grade, 1),
+            "avg_grade": round(avg_grade, 1) if avg_grade is not None else None,
             "details": submissions,
         },
         "exams": {
             "total_attempts": len(exams_data),
-            "avg_score": round(avg_exam_score, 1),
+            "avg_score": round(avg_exam_score, 1) if avg_exam_score is not None else None,
             "details": exams_data,
         },
         "games": {

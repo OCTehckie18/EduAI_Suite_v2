@@ -78,10 +78,7 @@ export const useGameSync = ({
     const poll = async () => {
       if (!mountedRef.current) return;
       try {
-        const updatedGame =
-          gameId > 0
-            ? await gameAPI.getGameById(gameId)
-            : await gameAPI.getGameBySessionId(sessionId);
+        const updatedGame = await gameAPI.getGameBySessionId(sessionId);
         if (!mountedRef.current) return;
         setGameState(updatedGame);
         onGameUpdateRef.current?.({
@@ -464,10 +461,10 @@ export const useGameSync = ({
         });
       } else {
         // REST fallback
-        gameAPI.submitWord(gameId, word, playerId);
+        gameAPI.submitWord(sessionId, word, playerId);
       }
     },
-    [gameId, playerId, connectionMode, isConnected, sendMessage],
+    [sessionId, playerId, connectionMode, isConnected, sendMessage],
   );
 
   const startGame = useCallback(() => {
@@ -482,10 +479,10 @@ export const useGameSync = ({
       return;
     }
     // REST fallback
-    if (gameId > 0) {
-      await gameAPI.endGame(gameId);
+    if (sessionId) {
+      await gameAPI.endGame(sessionId);
     }
-  }, [gameId, connectionMode, isConnected, sendMessage]);
+  }, [sessionId, connectionMode, isConnected, sendMessage]);
 
   const skipTurn = useCallback(
     (skippedPlayerId: string) => {
@@ -523,15 +520,15 @@ export const useGameSync = ({
       return;
     }
     // REST fallback
-    if (gameId > 0) {
+    if (sessionId) {
       try {
-        const updatedGame = await gameAPI.nextQuestion(gameId);
+        const updatedGame = await gameAPI.nextQuestion(sessionId);
         setGameState(updatedGame);
       } catch (err) {
         console.error("Failed to advance question:", err);
       }
     }
-  }, [gameId, connectionMode, isConnected, sendMessage]);
+  }, [sessionId, connectionMode, isConnected, sendMessage]);
 
   return {
     isConnected,

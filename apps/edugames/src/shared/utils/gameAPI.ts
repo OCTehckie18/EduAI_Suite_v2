@@ -4,6 +4,7 @@ export { API_BASE_URL } from "./apiConfig";
 
 export interface GamePlayer {
   student_id: number;
+  name?: string;
 }
 
 export interface ChainAnswerGameConfig {
@@ -237,7 +238,7 @@ class ChainAnswerGameAPI {
    * Submit a word to the game
    */
   async submitWord(
-    gameId: number,
+    sessionId: string,
     word: string,
     submittedBy: string,
     isValid: boolean = true,
@@ -245,7 +246,7 @@ class ChainAnswerGameAPI {
   ): Promise<any> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/chain-answer/${gameId}/word`,
+        `${this.baseUrl}/chain-answer/${sessionId}/words`,
         {
           method: "POST",
           headers: {
@@ -274,10 +275,10 @@ class ChainAnswerGameAPI {
   /**
    * End a game
    */
-  async endGame(gameId: number): Promise<GameResponse> {
+  async endGame(sessionId: string): Promise<GameResponse> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/chain-answer/${gameId}/end`,
+        `${this.baseUrl}/chain-answer/${sessionId}/end`,
         {
           method: "POST",
           headers: {
@@ -352,10 +353,10 @@ class ChainAnswerGameAPI {
   /**
    * Advance to the next question
    */
-  async nextQuestion(gameId: number): Promise<GameResponse> {
+  async nextQuestion(sessionId: string): Promise<GameResponse> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/chain-answer/${gameId}/next-question`,
+        `${this.baseUrl}/chain-answer/${sessionId}/next-question`,
         {
           method: "POST",
           headers: {

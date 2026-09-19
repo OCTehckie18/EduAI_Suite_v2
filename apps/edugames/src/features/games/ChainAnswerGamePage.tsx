@@ -71,7 +71,7 @@ export const ChainAnswerGamePage: React.FC = () => {
 
       const selectedPlayers = availableStudents
         .filter((s) => selectedPlayerIds.has(s.id))
-        .map((s) => ({ student_id: s.id }));
+        .map((s) => ({ student_id: s.id, name: s.name }));
 
       const formattedQuestions = questions
         .map((q) => q.trim())

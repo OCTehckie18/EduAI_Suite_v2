@@ -2182,7 +2182,9 @@ export const ClassroomsPage: React.FC = () => {
                       <div className="ml-auto flex gap-4">
                         <div className="text-center">
                           <p className="text-2xl font-black text-white">
-                            {studentProfileData.attendance}%
+                            {studentProfileData.attendance !== null && studentProfileData.attendance !== undefined
+                              ? `${studentProfileData.attendance}%`
+                              : "N/A"}
                           </p>
                           <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest">
                             Attendance
@@ -2190,7 +2192,9 @@ export const ClassroomsPage: React.FC = () => {
                         </div>
                         <div className="text-center">
                           <p className="text-2xl font-black text-white">
-                            {studentProfileData.assignments.completion_rate}%
+                            {studentProfileData.assignments.total > 0
+                              ? `${studentProfileData.assignments.completion_rate}%`
+                              : "N/A"}
                           </p>
                           <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest">
                             Assign.

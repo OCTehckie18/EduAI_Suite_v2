@@ -58,8 +58,29 @@ class ChainAnswerGameListCreateView(APIView):
             penalty_type=data.get("penalty_type"),
         )
 
-        for idx, q_text in enumerate(data.get("questions", [])):
-            GameQuestion.objects.create(game=game, question_text=q_text, order=idx)
+        for player_data in data.get("players", []):
+            if isinstance(player_data, dict):
+                student_id = player_data.get("student_id")
+                player_name = player_data.get("name") or str(student_id or "Player")
+            else:
+                student_id = player_data
+                player_name = str(player_data)
+
+            GamePlayer.objects.create(
+                game=game,
+                student_id=student_id,
+                name=player_name,
+                join_order=game.players.count() + 1,
+            )
+
+        for idx, question_data in enumerate(data.get("questions", [])):
+            question_text = (
+                question_data.get("question_text", "")
+                if isinstance(question_data, dict)
+                else str(question_data)
+            )
+            if question_text.strip():
+                GameQuestion.objects.create(game=game, question_text=question_text, order=idx)
 
         return Response(ChainAnswerGameSerializer(game).data, status=status.HTTP_201_CREATED)
 
