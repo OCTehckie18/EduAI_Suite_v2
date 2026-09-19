@@ -51,6 +51,44 @@ type CalendarNotification = {
   message: string;
 };
 
+type CalendarApiEvent = Partial<CalendarEvent> & {
+  int_id?: number;
+  start_time?: string | null;
+  end_time?: string | null;
+  event_type?: string;
+};
+
+const normalizeCalendarDate = (value: string | null | undefined) => {
+  if (!value) return "";
+  // Appointment slots are stored as "YYYY-MM-DD HH:mm", while calendar
+  // events use ISO timestamps. Make both safe for Date parsing and day keys.
+  return value.includes("T") ? value : value.replace(" ", "T");
+};
+
+export const normalizeCalendarEvent = (event: CalendarApiEvent): CalendarEvent => {
+  const id = String(event.id ?? `event_${event.int_id ?? "unknown"}`);
+  const rawId = (event.raw_id ?? event.int_id ?? Number(id.replace(/^[^0-9]*/, ""))) || 0;
+  const type = event.type ?? event.event_type ?? "custom";
+  const start = normalizeCalendarDate(event.start ?? event.start_time);
+  const end = normalizeCalendarDate(event.end ?? event.end_time) || start;
+
+  return {
+    id,
+    raw_id: rawId,
+    title: event.title ?? "",
+    description: event.description ?? "",
+    start,
+    end,
+    type,
+    color: event.color ?? eventTypeColors[type] ?? eventTypeColors.custom,
+    location: event.location ?? "",
+    is_all_day: event.is_all_day ?? false,
+    source: event.source ?? type,
+    editable: event.editable ?? id.startsWith("event_"),
+    status: event.status,
+  };
+};
+
 const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
 const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
 
@@ -116,7 +154,7 @@ export const CalendarPage: React.FC = () => {
       
       if (eventsRes.ok) {
         const data = await eventsRes.json();
-        setEvents(data);
+        setEvents(Array.isArray(data) ? data.map(normalizeCalendarEvent) : []);
       }
       
       if (notificationsRes.ok) {

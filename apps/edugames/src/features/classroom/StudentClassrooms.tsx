@@ -265,7 +265,7 @@ export const StudentClassrooms: React.FC = () => {
     setIsJoining(true);
     try {
       const user = get_user();
-      const storedRegistrationNumber = user.registration_number?.trim();
+      const storedRegistrationNumber = (user.registration_number || user.register_no)?.trim();
       const enteredRegistrationNumber = registrationNumber.trim();
 
       if (!storedRegistrationNumber && !enteredRegistrationNumber) {
@@ -274,27 +274,9 @@ export const StudentClassrooms: React.FC = () => {
 
       let savedRegistrationNumber = storedRegistrationNumber || enteredRegistrationNumber;
       if (!storedRegistrationNumber) {
-        const profileResponse = await fetch(`${API_URL}/auth/profile`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(localStorage.getItem("token")
-              ? { Authorization: `Bearer ${localStorage.getItem("token")}` }
-              : {}),
-          },
-          body: JSON.stringify({ registration_number: enteredRegistrationNumber }),
-        });
-
-        if (!profileResponse.ok) {
-          const errorData = await profileResponse.json().catch(() => ({}));
-          throw new Error(errorData.detail || "Could not save your registration number.");
-        }
-
-        const profileData = await profileResponse.json();
-        savedRegistrationNumber = profileData.registration_number || enteredRegistrationNumber;
         localStorage.setItem(
           "user",
-          JSON.stringify({ ...user, registration_number: savedRegistrationNumber }),
+          JSON.stringify({ ...user, registration_number: savedRegistrationNumber, register_no: savedRegistrationNumber }),
         );
       }
 
@@ -303,7 +285,7 @@ export const StudentClassrooms: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: user.name || "Student",
-          email: user.sub || user.email || "student@university.edu",
+          email: user.email || user.sub || "student@university.edu",
           registration_number: savedRegistrationNumber,
           student_class: user.student_class || "General",
           department: user.department || "General"
@@ -341,7 +323,8 @@ export const StudentClassrooms: React.FC = () => {
 
   useEffect(() => {
     if (showJoinModal) {
-      setRegistrationNumber(get_user().registration_number || "");
+      const user = get_user();
+      setRegistrationNumber(user.registration_number || user.register_no || "");
     }
   }, [showJoinModal]);
 
@@ -921,7 +904,7 @@ export const StudentClassrooms: React.FC = () => {
                 />
               </div>
 
-              {!get_user().registration_number && (
+              {!(get_user().registration_number || get_user().register_no) && (
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="registration-number">
                     Registration number

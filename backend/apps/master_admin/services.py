@@ -22,7 +22,8 @@ def model_for_key(key):
         return None
     app_label, model_name = key.split(".", 1)
     try:
-        model = ContentType.objects.get_by_natural_key(app_label, model_name).model_class()
+        model = ContentType.objects.get_by_natural_key(
+            app_label, model_name).model_class()
     except ContentType.DoesNotExist:
         return None
     if model is None or not issubclass(model, SoftDeleteModel):

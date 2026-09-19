@@ -7,7 +7,8 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'eduai-default-insecure-key-2026')
 DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',')
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS',
+                          'localhost,127.0.0.1,0.0.0.0').split(',')
 
 INSTALLED_APPS = [
     'daphne',
@@ -17,13 +18,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Third-party
     'rest_framework',
     'corsheaders',
     'django_filters',
     'channels',
-    
+
     # EduAI Core Apps
     'apps.core',
     'apps.accounts',
@@ -81,7 +82,8 @@ ASGI_APPLICATION = 'config.asgi.application'
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 6}},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 6}},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
@@ -123,9 +125,17 @@ REST_FRAMEWORK = {
 }
 
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', SECRET_KEY)
-JWT_ACCESS_TOKEN_LIFETIME_MINUTES = int(os.getenv('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', '60'))
-JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(os.getenv('JWT_REFRESH_TOKEN_LIFETIME_DAYS', '7'))
-GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES = int(
+    os.getenv('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', '60'))
+JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(
+    os.getenv('JWT_REFRESH_TOKEN_LIFETIME_DAYS', '7'))
+# OAuth client IDs are public identifiers (the client secret remains private).
+# Keep the configured project usable when a deployment omits its environment
+# file, while still allowing each environment to override this value.
+GOOGLE_CLIENT_ID = os.getenv(
+    'GOOGLE_CLIENT_ID',
+    '',
+)
 
 # CORS Configuration
 CORS_ALLOW_ALL_ORIGINS = DEBUG
@@ -138,13 +148,18 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', SECRET_KEY)
-JWT_ACCESS_TOKEN_LIFETIME_MINUTES = int(os.getenv('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', '60'))
-JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(os.getenv('JWT_REFRESH_TOKEN_LIFETIME_DAYS', '7'))
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES = int(
+    os.getenv('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', '60'))
+JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(
+    os.getenv('JWT_REFRESH_TOKEN_LIFETIME_DAYS', '7'))
 
 # Shared settings consumed by the OAuth, calendar, and AI integrations as
 # they are ported from the previous backend.
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_ID = os.getenv(
+    'GOOGLE_CLIENT_ID',
+    '271506689193-iitug840arohk70lo5363j0lbiqs97t9.apps.googleusercontent.com',
+)
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
 GOOGLE_CALENDAR_REDIRECT_URI = os.getenv(
     'GOOGLE_CALENDAR_REDIRECT_URI',
@@ -160,4 +175,3 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
-

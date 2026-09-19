@@ -5,6 +5,9 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import "./index.css";
 import { router } from "./router";
 
+// This is a public OAuth client identifier. Deployments can override it with
+// VITE_GOOGLE_CLIENT_ID, but the app remains functional if the frontend env
+// file is not injected during the build.
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 if ("serviceWorker" in navigator) {
