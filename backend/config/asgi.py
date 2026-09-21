@@ -1,3 +1,4 @@
+from apps.quizzes.routing import websocket_urlpatterns
 import os
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
@@ -8,5 +9,7 @@ django_asgi_app = get_asgi_application()
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
-    # WebSocket routing will be added in Phase 6 for Slido
+    "websocket": AuthMiddlewareStack(
+        URLRouter(websocket_urlpatterns)
+    ),
 })

@@ -14,7 +14,7 @@ interface SavedLesson extends GeneratedLesson {
   title?: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
 
 export const AutoLessonPlannerComponent: React.FC<{ courseId?: number }> = ({
   courseId = 1,
@@ -31,6 +31,9 @@ export const AutoLessonPlannerComponent: React.FC<{ courseId?: number }> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [posted, setPosted] = useState(false);
+  const [postedLessonId, setPostedLessonId] = useState<number | null>(null);
+  const [isSendingToEduGames, setIsSendingToEduGames] = useState(false);
+  const [eduGamesSessionId, setEduGamesSessionId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const scrollToBottom = () => {
@@ -188,6 +191,7 @@ export const AutoLessonPlannerComponent: React.FC<{ courseId?: number }> = ({
       }
 
       const lesson = await response.json();
+      setPostedLessonId(lesson.id);
 
       // Now post it
       const postResponse = await fetch(
@@ -227,6 +231,39 @@ export const AutoLessonPlannerComponent: React.FC<{ courseId?: number }> = ({
       ]);
     } finally {
       setIsPosting(false);
+    }
+  };
+
+  const handleSendToEduGames = async () => {
+    if (!postedLessonId) return;
+
+    setIsSendingToEduGames(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/lessons/${postedLessonId}/edugames`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || "Failed to prepare EduGames session");
+      }
+
+      setEduGamesSessionId(result.session_id);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          type: "ai",
+          content: `EduGames session prepared. Share session ${result.session_id} with your students from EduGames.`,
+        },
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to prepare EduGames session");
+    } finally {
+      setIsSendingToEduGames(false);
     }
   };
 
@@ -404,10 +441,26 @@ ${generatedLesson.quiz_questions}`;
             )}
 
             {posted && (
-              <div className="w-full btn bg-green-100 text-green-700 border border-green-300 flex items-center justify-center gap-2 text-sm">
-                <Check size={14} />
-                Posted Successfully!
-              </div>
+              <>
+                <div className="w-full btn bg-green-100 text-green-700 border border-green-300 flex items-center justify-center gap-2 text-sm">
+                  <Check size={14} />
+                  Posted Successfully!
+                </div>
+                {!eduGamesSessionId && (
+                  <button
+                    onClick={handleSendToEduGames}
+                    disabled={isSendingToEduGames}
+                    className="w-full btn bg-blue-600 hover:bg-blue-700 text-white shadow flex items-center justify-center gap-2 text-sm"
+                  >
+                    {isSendingToEduGames ? "Preparing EduGames..." : "Send to EduGames"}
+                  </button>
+                )}
+                {eduGamesSessionId && (
+                  <div className="w-full btn bg-blue-100 text-blue-700 border border-blue-300 flex items-center justify-center gap-2 text-sm">
+                    EduGames session: {eduGamesSessionId}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </GlassCard>

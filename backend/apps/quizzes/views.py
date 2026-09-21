@@ -15,6 +15,18 @@ def _generate_pin() -> str:
     return "".join(random.choices(string.digits, k=6))
 
 
+class QuizSessionListView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        sessions = QuizSession.objects.select_related(
+            "quiz").prefetch_related("players")
+        data = QuizSessionSerializer(sessions, many=True).data
+        for session, item in zip(sessions, data):
+            item["quiz_title"] = session.quiz.title
+        return Response(data)
+
+
 class QuizListCreateView(APIView):
     permission_classes = [AllowAny]
 
@@ -57,7 +69,8 @@ class QuizDetailView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, quiz_id):
-        quiz = get_object_or_404(Quiz.objects.prefetch_related("questions__options"), pk=quiz_id)
+        quiz = get_object_or_404(Quiz.objects.prefetch_related(
+            "questions__options"), pk=quiz_id)
         return Response(QuizSerializer(quiz).data)
 
     def put(self, request, quiz_id):
@@ -118,7 +131,8 @@ class QuizSessionDetailView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, pin):
-        session = get_object_or_404(QuizSession.objects.prefetch_related("players"), pin=pin)
+        session = get_object_or_404(
+            QuizSession.objects.prefetch_related("players"), pin=pin)
         return Response(QuizSessionSerializer(session).data)
 
 

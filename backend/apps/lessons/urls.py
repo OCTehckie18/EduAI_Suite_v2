@@ -5,6 +5,7 @@ from .views import (
     LessonListCreateView,
     LessonDetailView,
     LessonPostView,
+    LessonEduGamesView,
 )
 
 urlpatterns = [
@@ -13,4 +14,5 @@ urlpatterns = [
     path("parse-plan", LessonParsePlanView.as_view(), name="lesson-parse-plan"),
     path("<int:lesson_id>", LessonDetailView.as_view(), name="lesson-detail"),
     path("<int:lesson_id>/post", LessonPostView.as_view(), name="lesson-post"),
+    path("<int:lesson_id>/edugames", LessonEduGamesView.as_view(), name="lesson-edugames"),
 ]

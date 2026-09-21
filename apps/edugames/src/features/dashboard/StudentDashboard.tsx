@@ -16,7 +16,7 @@ import { GlassCard } from "../../shared/components/GlassCard";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 
-const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`;
+const API_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
 
 interface Course {
   id: number;
@@ -69,7 +69,7 @@ export const StudentDashboard: React.FC = () => {
         const studentName = user.name;
         
         const [lessonsRes, summaryRes, discoverableRes] = await Promise.all([
-          fetch(`${API_URL}/lessons?posted_only=true`),
+          fetch(`${API_URL}/lessons?status=posted`),
           fetch(`${API_URL}/api/dashboard/student-summary?student_name=${encodeURIComponent(studentName)}`),
           fetch(`${API_URL}/api/dashboard/discoverable-classrooms`),
         ]);
