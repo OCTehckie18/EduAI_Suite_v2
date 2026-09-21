@@ -252,8 +252,13 @@ class CourseEngagementSummaryView(APIView):
         total = len(all_engagement)
         avg_engagement = round(sum(
             e["engagement_score"] for e in all_engagement) / total, 1) if total > 0 else 0.0
+        attendance_values = [
+            e["attendance"] for e in all_engagement
+            if e["attendance"] is not None
+        ]
         avg_attendance = round(
-            sum(e["attendance"] for e in all_engagement) / total, 1) if total > 0 else 0.0
+            sum(attendance_values) / len(attendance_values), 1
+        ) if attendance_values else 0.0
         avg_assignment = round(sum(e["assignments"]["completion_rate"]
                                for e in all_engagement) / total, 1) if total > 0 else 0.0
         at_risk = sum(
