@@ -1,4 +1,5 @@
 import logging
+import uuid
 from datetime import datetime
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -12,6 +13,8 @@ from apps.classrooms.models import Classroom
 from apps.announcements.models import Announcement
 from apps.core.utils.plan_parser import CoursePlanParser
 from services.groq_service import GroqService
+from apps.games.models import ChainAnswerGame, GamePlayer, GameQuestion
+from apps.games.serializers import ChainAnswerGameSerializer
 from .models import Lesson
 from .serializers import LessonSerializer
 
@@ -75,6 +78,8 @@ class LessonListCreateView(APIView):
     def get(self, request):
         course_id = request.query_params.get("course_id")
         status_param = request.query_params.get("status")
+        if request.query_params.get("posted_only") == "true":
+            status_param = "posted"
 
         qs = Lesson.objects.all()
         if course_id:
@@ -157,3 +162,69 @@ class LessonPostView(APIView):
         )
 
         return Response(LessonSerializer(lesson).data)
+
+
+class LessonEduGamesView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, lesson_id):
+        lesson = get_object_or_404(
+            Lesson.objects.select_related("course"),
+            pk=lesson_id,
+        )
+        if lesson.posted_at is None:
+            return Response(
+                {"detail": "Post the lesson before sending it to EduGames."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        questions = [
+            line.strip().lstrip("- ").split(". ", 1)[-1].strip()
+            for line in (lesson.quiz_questions or "").splitlines()
+            if line.strip()
+        ]
+        if not questions:
+            return Response(
+                {"detail": "The lesson has no quiz questions to send to EduGames."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        players = list(
+            lesson.course.enrollments.select_related("student").all()
+        )
+        if len(players) < 2:
+            return Response(
+                {"detail": "The classroom needs at least two enrolled students."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        game = ChainAnswerGame.objects.create(
+            session_id=f"game_{uuid.uuid4().hex[:8]}",
+            teacher_id=lesson.created_by or None,
+            name=f"{lesson.title or lesson.topic} Quiz",
+            subject=lesson.topic,
+            starting_word=lesson.topic or "Lesson",
+            status="setup",
+        )
+        for index, enrollment in enumerate(players, start=1):
+            student = enrollment.student
+            student_name = " ".join(
+                part for part in [student.first_name, student.last_name] if part
+            ).strip() or student.email
+            GamePlayer.objects.create(
+                game=game,
+                student_id=student.id,
+                name=student_name,
+                join_order=index,
+            )
+        for index, question in enumerate(questions):
+            GameQuestion.objects.create(
+                game=game,
+                question_text=question,
+                order=index,
+            )
+
+        return Response(
+            ChainAnswerGameSerializer(game).data,
+            status=status.HTTP_201_CREATED,
+        )
