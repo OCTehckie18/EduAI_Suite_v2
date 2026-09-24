@@ -16,7 +16,8 @@ from apps.ai_chat.context import _build_platform_context
 
 class AIChatRetrievalTests(APITestCase):
     def test_chat_requires_authentication(self):
-        response = self.client.post("/ai/chat", {"message": "What appointments do I have?"}, format="json")
+        response = self.client.post(
+            "/ai/chat", {"message": "What appointments do I have?"}, format="json")
 
         self.assertEqual(response.status_code, 403)
 
@@ -59,13 +60,16 @@ class AIChatRetrievalTests(APITestCase):
             def create(self, **kwargs):
                 captured["messages"] = kwargs["messages"]
                 return SimpleNamespace(
-                    choices=[SimpleNamespace(message=SimpleNamespace(content="Your approved appointment is at 10:00."))]
+                    choices=[SimpleNamespace(message=SimpleNamespace(
+                        content="Your approved appointment is at 10:00."))]
                 )
 
-        get_client.return_value = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+        get_client.return_value = SimpleNamespace(
+            chat=SimpleNamespace(completions=FakeCompletions()))
         self.client.force_authenticate(user=teacher)
 
-        response = self.client.post("/ai/chat", {"message": "What appointments do I have?"}, format="json")
+        response = self.client.post(
+            "/ai/chat", {"message": "What appointments do I have?"}, format="json")
 
         self.assertEqual(response.status_code, 200)
         system_context = captured["messages"][0]["content"]
@@ -89,9 +93,12 @@ class AIChatRetrievalTests(APITestCase):
             first_name="Alan",
             last_name="Turing",
         )
-        campus = Campus.objects.create(name="Main Campus", code="MAIN", city="Bengaluru")
-        school = School.objects.create(name="School of Computing", code="SOC", campus=campus)
-        department = Department.objects.create(name="Computer Science", code="CS", school=school)
+        campus = Campus.objects.create(
+            name="Main Campus", code="MAIN", city="Bengaluru")
+        school = School.objects.create(
+            name="School of Computing", code="SOC", campus=campus)
+        department = Department.objects.create(
+            name="Computer Science", code="CS", school=school)
         program = Program.objects.create(
             name="Computer Science",
             code="BSC-CS",
@@ -140,20 +147,27 @@ class AIChatRetrievalTests(APITestCase):
             register_no="STU-2",
         )
         Enrollment.objects.create(classroom=owned_classroom, student=student)
-        Enrollment.objects.create(classroom=other_classroom, student=other_student)
+        Enrollment.objects.create(
+            classroom=other_classroom, student=other_student)
         owned_assignment = Assignment.objects.create(
             course=owned_classroom,
             title="Owned Assignment",
             description="Analyze a graph",
             due_date="2026-10-01",
         )
-        Assignment.objects.create(course=other_classroom, title="Private Assignment")
-        Exam.objects.create(course=owned_classroom, title="Owned Exam", status="published")
+        Assignment.objects.create(
+            course=other_classroom, title="Private Assignment")
+        Exam.objects.create(course=owned_classroom,
+                            title="Owned Exam", status="published")
         Exam.objects.create(course=other_classroom, title="Private Exam")
-        Lesson.objects.create(course=owned_classroom, title="Owned Lesson", topic="Graphs")
-        Lesson.objects.create(course=other_classroom, title="Private Lesson", topic="Routing")
-        Announcement.objects.create(course=owned_classroom, title="Owned Announcement", body="Bring your notes")
-        Announcement.objects.create(course=other_classroom, title="Private Announcement", body="Private notice")
+        Lesson.objects.create(course=owned_classroom,
+                              title="Owned Lesson", topic="Graphs")
+        Lesson.objects.create(course=other_classroom,
+                              title="Private Lesson", topic="Routing")
+        Announcement.objects.create(
+            course=owned_classroom, title="Owned Announcement", body="Bring your notes")
+        Announcement.objects.create(
+            course=other_classroom, title="Private Announcement", body="Private notice")
 
         context = _build_platform_context(teacher)
 

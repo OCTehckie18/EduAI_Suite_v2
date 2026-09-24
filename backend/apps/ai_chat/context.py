@@ -94,7 +94,8 @@ def _course_context(classrooms):
             is_active=True,
             student__role=User.Role.STUDENT,
         ).count()
-        resources = Resource.objects.filter(course=classroom).values_list("name", flat=True)[:10]
+        resources = Resource.objects.filter(
+            course=classroom).values_list("name", flat=True)[:10]
         lines.append(
             "- "
             f"{classroom.name} ({classroom.subject_code}), course id {classroom.id}; "
@@ -133,11 +134,13 @@ def _build_platform_context(user):
             ).distinct().order_by("last_name", "first_name")[:MAX_ITEMS]
         )
     context.append("\nSTUDENTS AND RECORDED PERFORMANCE")
-    context.extend(_student_metrics(students, course_ids) or ["- No enrolled students found."])
+    context.extend(_student_metrics(students, course_ids)
+                   or ["- No enrolled students found."])
 
     assignments = Assignment.objects.filter(course_id__in=course_ids).select_related("course").annotate(
         submission_count=Count("submissions"),
-        graded_count=Count("submissions", filter=Q(submissions__grade__isnull=False)),
+        graded_count=Count("submissions", filter=Q(
+            submissions__grade__isnull=False)),
         average_grade=Avg("submissions__grade"),
     )[:MAX_ITEMS]
     context.append("\nASSIGNMENTS AND SUBMISSIONS")
@@ -154,7 +157,8 @@ def _build_platform_context(user):
     exams = Exam.objects.filter(course_id__in=course_ids).select_related("course").annotate(
         question_count=Count("questions"),
         attempt_count=Count("attempts"),
-        submitted_count=Count("attempts", filter=Q(attempts__status="submitted")),
+        submitted_count=Count("attempts", filter=Q(
+            attempts__status="submitted")),
         average_score=Avg("attempts__score"),
     )[:MAX_ITEMS]
     context.append("\nEXAMS AND ASSESSMENT ACTIVITY")
@@ -167,7 +171,8 @@ def _build_platform_context(user):
         for exam in exams
     ] or ["- No exams found."])
 
-    lessons = Lesson.objects.filter(course_id__in=course_ids).select_related("course")[:MAX_ITEMS]
+    lessons = Lesson.objects.filter(
+        course_id__in=course_ids).select_related("course")[:MAX_ITEMS]
     context.append("\nLESSONS AND TEACHING CONTENT")
     context.extend([
         "- "
@@ -177,7 +182,8 @@ def _build_platform_context(user):
         for lesson in lessons
     ] or ["- No lessons found."])
 
-    announcements = Announcement.objects.filter(course_id__in=course_ids).select_related("course")[:MAX_ITEMS]
+    announcements = Announcement.objects.filter(
+        course_id__in=course_ids).select_related("course")[:MAX_ITEMS]
     context.append("\nANNOUNCEMENTS")
     context.extend([
         "- "
@@ -201,7 +207,8 @@ def _build_platform_context(user):
     calendar_filter = Q(course_id__in=course_ids)
     if not _is_admin(user):
         calendar_filter |= Q(teacher_name__iexact=user.full_name)
-    calendar_events = CalendarEvent.objects.filter(calendar_filter).order_by("start_time")[:MAX_ITEMS]
+    calendar_events = CalendarEvent.objects.filter(
+        calendar_filter).order_by("start_time")[:MAX_ITEMS]
     context.append("\nCALENDAR EVENTS")
     context.extend([
         "- "
@@ -212,7 +219,8 @@ def _build_platform_context(user):
     ] or ["- No calendar events found."])
 
     quiz_filter = {} if _is_admin(user) else {"teacher_id": user.id}
-    quizzes = Quiz.objects.filter(**quiz_filter).annotate(question_count=Count("questions"))[:MAX_ITEMS]
+    quizzes = Quiz.objects.filter(
+        **quiz_filter).annotate(question_count=Count("questions"))[:MAX_ITEMS]
     context.append("\nQUIZZES")
     context.extend([
         "- "
@@ -235,7 +243,8 @@ def _build_platform_context(user):
     ] or ["- No interactive presentation assignments found."])
 
     slido_filter = {} if _is_admin(user) else {"teacher_id": user.id}
-    sessions = SlidoSession.objects.filter(**slido_filter).select_related("assignment")[:MAX_ITEMS]
+    sessions = SlidoSession.objects.filter(
+        **slido_filter).select_related("assignment")[:MAX_ITEMS]
     session_ids = [session.id for session in sessions]
     polls = SlidoPoll.objects.filter(session_id__in=session_ids)[:MAX_ITEMS]
     context.append("\nLIVE SESSIONS AND POLLS")
@@ -252,7 +261,8 @@ def _build_platform_context(user):
     ])
 
     game_filter = {} if _is_admin(user) else {"teacher_id": user.id}
-    games = ChainAnswerGame.objects.filter(**game_filter).annotate(player_count=Count("players"))[:MAX_ITEMS]
+    games = ChainAnswerGame.objects.filter(
+        **game_filter).annotate(player_count=Count("players"))[:MAX_ITEMS]
     context.append("\nGAME STUDIO")
     context.extend([
         "- "

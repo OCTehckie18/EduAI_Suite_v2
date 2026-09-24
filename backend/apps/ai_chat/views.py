@@ -45,7 +45,8 @@ class AIChatView(APIView):
 
         for item in history[-10:]:
             if isinstance(item, dict) and item.get("role") in {"user", "assistant"} and isinstance(item.get("content"), str):
-                messages.append({"role": item["role"], "content": item["content"]})
+                messages.append(
+                    {"role": item["role"], "content": item["content"]})
 
         messages.append({"role": "user", "content": message})
 
