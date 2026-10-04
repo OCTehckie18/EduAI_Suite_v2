@@ -2,11 +2,11 @@ from .base import *
 import dj_database_url
 
 DEBUG = False
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = [h.strip() for h in _require('DJANGO_ALLOWED_HOSTS').split(',') if h.strip()]
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL'),
+        default=_require('DATABASE_URL'),
         conn_max_age=600,
         ssl_require=True
     )
@@ -15,7 +15,7 @@ DATABASES = {
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {'hosts': [os.getenv('REDIS_URL', 'redis://localhost:6379/0')]},
+        'CONFIG': {'hosts': [_require('REDIS_URL')]},
     },
 }
 

@@ -18,8 +18,9 @@ import {
 } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
 
-const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`;
 
+
+import { API_BASE_URL } from "../../shared/utils/apiConfig";
 type Course = {
   id: number;
   code: string;
@@ -83,7 +84,7 @@ const getAssignmentStatus = (dueDate: string) => {
 const getFileUrl = (path?: string | null) => {
   if (!path) return "";
   const normalized = path.replace(/\\/g, "/");
-  return normalized.startsWith("http") ? normalized : `${API_URL}${normalized.startsWith("/") ? normalized : `/${normalized}`}`;
+  return normalized.startsWith("http") ? normalized : `${API_BASE_URL}${normalized.startsWith("/") ? normalized : `/${normalized}`}`;
 };
 
 export const StudentClassrooms: React.FC = () => {
@@ -117,7 +118,7 @@ export const StudentClassrooms: React.FC = () => {
   const loadCourses = async (): Promise<Course[]> => {
     const user = get_user();
     const studentName = user.name;
-    const response = await fetch(`${API_URL}/api/dashboard/student-summary?student_name=${encodeURIComponent(studentName)}`);
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/student-summary?student_name=${encodeURIComponent(studentName)}`);
     if (!response.ok) {
       throw new Error(`Failed to load classrooms (${response.status})`);
     }
@@ -130,11 +131,11 @@ export const StudentClassrooms: React.FC = () => {
 
   const loadCourseData = async (courseId: number) => {
     const [announcementData, assignmentData] = await Promise.all([
-      fetch(`${API_URL}/announcements/${courseId}`).then(response => {
+      fetch(`${API_BASE_URL}/announcements/${courseId}`).then(response => {
         if (!response.ok) throw new Error(`Failed to load announcements (${response.status})`);
         return response.json();
       }),
-      fetch(`${API_URL}/assignments/${courseId}`).then(response => {
+      fetch(`${API_BASE_URL}/assignments/${courseId}`).then(response => {
         if (!response.ok) throw new Error(`Failed to load assignments (${response.status})`);
         return response.json();
       }),
@@ -147,7 +148,7 @@ export const StudentClassrooms: React.FC = () => {
       assignmentsList.sort((a, b) => b.id - a.id);
       setAssignments(assignmentsList);
       const submissionsPromises = assignmentsList.map((a) =>
-         fetch(`${API_URL}/submissions/${a.id}`).then(res => res.json().catch(() => []))
+         fetch(`${API_BASE_URL}/submissions/${a.id}`).then(res => res.json().catch(() => []))
       );
       const allSubmissions = await Promise.all(submissionsPromises);
       const submittedIds: number[] = [];
@@ -215,7 +216,7 @@ export const StudentClassrooms: React.FC = () => {
         formData.append("files", file);
       }
       
-      const response = await fetch(`${API_URL}/submissions/${assignmentId}`, {
+      const response = await fetch(`${API_BASE_URL}/submissions/${assignmentId}`, {
         method: "POST",
         body: formData
       });
@@ -240,7 +241,7 @@ export const StudentClassrooms: React.FC = () => {
     try {
       const user = get_user();
       const studentName = user.name;
-      const response = await fetch(`${API_URL}/submissions/assignment/${assignmentId}/student/${encodeURIComponent(studentName)}`, {
+      const response = await fetch(`${API_BASE_URL}/submissions/assignment/${assignmentId}/student/${encodeURIComponent(studentName)}`, {
         method: "DELETE"
       });
 
@@ -280,7 +281,7 @@ export const StudentClassrooms: React.FC = () => {
         );
       }
 
-      const response = await fetch(`${API_URL}/students/enroll/code?enrollment_code=${joinCode}`, {
+      const response = await fetch(`${API_BASE_URL}/students/enroll/code?enrollment_code=${joinCode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

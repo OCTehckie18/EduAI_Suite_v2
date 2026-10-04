@@ -3,6 +3,7 @@ import { X, LogIn, Loader2 } from 'lucide-react';
 import { useTrelloStore } from '../../../store/useTrelloStore';
 import { useAuthStore } from '../../../store/useAuthStore';
 
+import { API_BASE_URL } from "../../../shared/utils/apiConfig";
 interface Props {
   onClose: () => void;
 }
@@ -43,7 +44,7 @@ export const JoinBoardModal: React.FC<Props> = ({ onClose }) => {
     // Not found locally — check backend (cross-app board)
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/trello/board/${trimmedId}`);
+      const res = await fetch(`${API_BASE_URL}/trello/board/${trimmedId}`);
       if (!res.ok) {
         setError('Board not found. Please check the ID.');
         setLoading(false);
@@ -64,7 +65,7 @@ export const JoinBoardModal: React.FC<Props> = ({ onClose }) => {
       }
 
       // Submit join request via backend
-      const joinRes = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/trello/board/${trimmedId}/join`, {
+      const joinRes = await fetch(`${API_BASE_URL}/trello/board/${trimmedId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: userEmail }),

@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { GlassCard } from "../../shared/components/GlassCard";
 import { AnswerSheet } from "./AnswerSheet";
 
+import { API_BASE_URL } from "../../shared/utils/apiConfig";
 interface Choice {
   id: number;
   choice_text: string;
@@ -37,7 +38,7 @@ interface ExamPlayerProps {
   onClose: () => void;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 
 export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClose }) => {
   const navigate = useNavigate();

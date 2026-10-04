@@ -3,8 +3,9 @@ import { GlassCard } from "../../shared/components/GlassCard";
 import { Trash2, Play, History, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+
+import { API_BASE_URL } from "../../shared/utils/apiConfig";
 interface GameSession {
   id: string | number;
   type: "chain-answer" | "wordcloud" | "quiz" | "quiz-template";

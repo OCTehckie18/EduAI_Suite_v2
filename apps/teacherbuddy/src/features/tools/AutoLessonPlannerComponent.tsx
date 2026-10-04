@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Sparkles, Clock, Send, Download, Share2, Check, Upload, FileText } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
 
+import { API_BASE_URL } from "../../shared/utils/apiConfig";
 interface GeneratedLesson {
   lecture_flow: string;
   examples: string;
@@ -14,7 +15,7 @@ interface SavedLesson extends GeneratedLesson {
   title?: string;
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
+
 
 export const AutoLessonPlannerComponent: React.FC<{ courseId?: number }> = ({
   courseId = 1,

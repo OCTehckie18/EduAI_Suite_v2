@@ -3,6 +3,7 @@ import { X, Users, Copy, CheckCircle2, UserPlus, UserMinus, ShieldAlert } from '
 import { useTrelloStore, type TrelloBoard } from '../../../store/useTrelloStore';
 import { useAuthStore } from '../../../store/useAuthStore';
 
+import { API_BASE_URL } from "../../../shared/utils/apiConfig";
 interface Props {
   board: TrelloBoard;
   onClose: () => void;
@@ -40,7 +41,7 @@ export const ShareModal: React.FC<Props> = ({ board, onClose }) => {
       setLoadingSuggestions(true);
       try {
         const role = 'teacher'; // TeacherBuddy is always teacher role
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/trello/suggested-members?email=${userEmail}&role=${role}`);
+        const res = await fetch(`${API_BASE_URL}/trello/suggested-members?email=${userEmail}&role=${role}`);
         if (res.ok) {
           const data = await res.json();
           setSuggestions(data);

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { GlassCard } from "../../shared/components/GlassCard";
 import { BarChart, Copy, Check, ArrowLeft } from "lucide-react";
 
+import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
 interface WordData {
   text: string;
   value: number;
@@ -80,7 +81,7 @@ export const WordCloudHostComponent: React.FC<WordCloudHostProps> = ({ onBack, i
 
   const startSession = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/wordcloud/create`, {
+      const response = await fetch(`${API_BASE_URL}/wordcloud/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
@@ -103,7 +104,7 @@ export const WordCloudHostComponent: React.FC<WordCloudHostProps> = ({ onBack, i
 
     // If we joined an existing session without a prompt, fetch it
     if (!prompt) {
-      fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/wordcloud/${pin}`)
+      fetch(`${API_BASE_URL}/wordcloud/${pin}`)
         .then(res => res.json())
         .then(data => {
           if (data && data.prompt && !isCancelled) {
@@ -116,18 +117,7 @@ export const WordCloudHostComponent: React.FC<WordCloudHostProps> = ({ onBack, i
     const connect = () => {
       if (isCancelled) return;
 
-      const getWsUrl = () => {
-        const urlStr = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        if (urlStr.startsWith('/')) {
-          const loc = window.location;
-          const protocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
-          return `${protocol}//${loc.host}${urlStr}/ws/wordcloud/${pin}?role=teacher`;
-        } else {
-          const url = new URL(urlStr);
-          const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-          return `${protocol}//${url.host}/ws/wordcloud/${pin}?role=teacher`;
-        }
-      };
+      const getWsUrl = () => buildWsUrl(`/ws/wordcloud/${pin}?role=teacher`);
 
       ws = new WebSocket(getWsUrl());
 
@@ -184,7 +174,7 @@ export const WordCloudHostComponent: React.FC<WordCloudHostProps> = ({ onBack, i
       if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "end_session" }));
       }
-      const response = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/wordcloud/${pin}`, {
+      const response = await fetch(`${API_BASE_URL}/wordcloud/${pin}`, {
         method: "DELETE",
       });
       if (response.ok) {

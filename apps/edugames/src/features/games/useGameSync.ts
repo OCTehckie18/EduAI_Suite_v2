@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { gameAPI, API_BASE_URL } from "../../shared/utils/gameAPI";
+import { gameAPI } from "../../shared/utils/gameAPI";
+import { buildWsUrl } from "../../shared/utils/apiConfig";
 import type { GameResponse } from "../../shared/utils/gameAPI";
 
 interface GameUpdateMessage {
@@ -125,26 +126,10 @@ export const useGameSync = ({
     }
 
     try {
-      const cleanUrl = API_BASE_URL.trim();
       const encodedSessionId = encodeURIComponent(sessionId);
-      let wsUrl = "";
-      if (cleanUrl.startsWith("/")) {
-        const loc = window.location;
-        const protocol = loc.protocol === "https:" ? "wss:" : "ws:";
-        const wsHost =
-          loc.hostname === "localhost" || loc.hostname === "127.0.0.1"
-            ? `${loc.hostname}:8000`
-            : loc.host;
-        const pathPrefix =
-          loc.hostname === "localhost" || loc.hostname === "127.0.0.1"
-            ? ""
-            : cleanUrl;
-        wsUrl = `${protocol}//${wsHost}${pathPrefix}/ws/games/chain-answer/${encodedSessionId}?user_type=${userType}`;
-      } else {
-        const backendUrl = new URL(cleanUrl);
-        const wsProtocol = backendUrl.protocol === "https:" ? "wss:" : "ws:";
-        wsUrl = `${wsProtocol}//${backendUrl.host}${backendUrl.pathname === "/" ? "" : backendUrl.pathname}/ws/games/chain-answer/${encodedSessionId}?user_type=${userType}`;
-      }
+      const wsUrl = buildWsUrl(
+        `/ws/games/chain-answer/${encodedSessionId}?user_type=${userType}`,
+      );
 
       console.log(
         `[useGameSync] Connecting to WebSocket (attempt ${reconnectCountRef.current + 1}):`,
