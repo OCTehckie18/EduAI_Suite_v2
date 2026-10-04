@@ -158,7 +158,7 @@ JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
 GOOGLE_CLIENT_ID = os.getenv(
     'GOOGLE_CLIENT_ID',
-    '271506689193-iitug840arohk70lo5363j0lbiqs97t9.apps.googleusercontent.com',
+    '',
 )
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
 GOOGLE_CALENDAR_REDIRECT_URI = os.getenv(

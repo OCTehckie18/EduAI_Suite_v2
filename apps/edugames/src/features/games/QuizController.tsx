@@ -11,20 +11,10 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-const getWsUrl = (path: string) => {
-  const cleanUrl = API_BASE_URL.trim();
-  if (cleanUrl.startsWith("/")) {
-    const loc = window.location;
-    const protocol = loc.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${loc.host}${cleanUrl === "/" ? "" : cleanUrl}${path}`;
-  } else {
-    const absUrl = new URL(cleanUrl);
-    const wsProtocol = absUrl.protocol === "https:" ? "wss:" : "ws:";
-    return `${wsProtocol}//${absUrl.host}${path}`;
-  }
-};
+
+import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
+const getWsUrl = buildWsUrl;
 
 export const QuizController: React.FC = () => {
   const [pin, setPin] = useState("");

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useAuthStore } from './useAuthStore';
 
+import { API_BASE_URL } from "../shared/utils/apiConfig";
 // ─── Types ───────────────────────────────────────────────────
 export interface TrelloLabel {
   id: string;
@@ -135,7 +136,7 @@ export const useTrelloStore = create<TrelloState>()(
         }));
 
         try {
-          const resp = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/trello/board/${id}`, { method: 'DELETE' });
+          const resp = await fetch(`${API_BASE_URL}/trello/board/${id}`, { method: 'DELETE' });
           if (resp.ok) {
             get().syncWithBackend(currentUser);
           }
@@ -150,7 +151,7 @@ export const useTrelloStore = create<TrelloState>()(
 
       requestJoinBoard: async (boardId, email) => {
         try {
-          const resp = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/trello/board/${boardId}/join`, {
+          const resp = await fetch(`${API_BASE_URL}/trello/board/${boardId}/join`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email }),
@@ -167,7 +168,7 @@ export const useTrelloStore = create<TrelloState>()(
         const currentUser = useAuthStore.getState().user?.email || 'teacher@eduai.com';
         console.log(`Approving ${email} for board ${boardId}`);
         try {
-          const resp = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/trello/board/${boardId}/approve`, {
+          const resp = await fetch(`${API_BASE_URL}/trello/board/${boardId}/approve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email }),
@@ -190,7 +191,7 @@ export const useTrelloStore = create<TrelloState>()(
         const currentUser = useAuthStore.getState().user?.email || 'teacher@eduai.com';
         console.log(`Rejecting ${email} for board ${boardId}`);
         try {
-          const resp = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/trello/board/${boardId}/reject`, {
+          const resp = await fetch(`${API_BASE_URL}/trello/board/${boardId}/reject`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email }),
@@ -221,7 +222,7 @@ export const useTrelloStore = create<TrelloState>()(
         }));
 
         try {
-          const resp = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/trello/board/${boardId}/remove-member`, {
+          const resp = await fetch(`${API_BASE_URL}/trello/board/${boardId}/remove-member`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email }),
@@ -251,7 +252,7 @@ export const useTrelloStore = create<TrelloState>()(
         }));
 
         try {
-          const resp = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/trello/board/${boardId}/add-member`, {
+          const resp = await fetch(`${API_BASE_URL}/trello/board/${boardId}/add-member`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email }),
@@ -397,7 +398,7 @@ export const useTrelloStore = create<TrelloState>()(
         const state = get();
         try {
           // POST local changes to the server (non-destructive upsert)
-          await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/trello/sync`, {
+          await fetch(`${API_BASE_URL}/trello/sync`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -415,7 +416,7 @@ export const useTrelloStore = create<TrelloState>()(
       },
       pullFromBackend: async (email) => {
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/trello/sync?email=${encodeURIComponent(email)}`);
+          const response = await fetch(`${API_BASE_URL}/trello/sync?email=${encodeURIComponent(email)}`);
           if (response.ok) {
             const data = await response.json();
             set({

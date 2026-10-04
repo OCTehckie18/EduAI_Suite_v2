@@ -3,6 +3,7 @@ import { GlassCard } from "../../shared/components/GlassCard";
 import { Send, CheckCircle2, Trophy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
 export const WordCloudPlayerPage: React.FC = () => {
   const [pin, setPin] = useState("");
   const [session, setSession] = useState<{ pin: string; prompt: string; ended?: boolean } | null>(null);
@@ -13,7 +14,7 @@ export const WordCloudPlayerPage: React.FC = () => {
 
   const joinSession = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`}/wordcloud/${pin}`);
+      const response = await fetch(`${API_BASE_URL}/wordcloud/${pin}`);
       if (response.ok) {
         const data = await response.json();
         setSession({ pin, prompt: data.prompt });
@@ -36,18 +37,8 @@ export const WordCloudPlayerPage: React.FC = () => {
     const connect = () => {
       if (isCancelled) return;
 
-      const getWsUrl = () => {
-        const urlStr = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        if (urlStr.startsWith('/')) {
-          const loc = window.location;
-          const protocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
-          return `${protocol}//${loc.host}${urlStr}/ws/wordcloud/${session.pin}?role=student`;
-        } else {
-          const url = new URL(urlStr);
-          const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-          return `${protocol}//${url.host}/ws/wordcloud/${session.pin}?role=student`;
-        }
-      };
+      const getWsUrl = () =>
+        buildWsUrl(`/ws/wordcloud/${session.pin}?role=student`);
 
       ws = new WebSocket(getWsUrl());
 

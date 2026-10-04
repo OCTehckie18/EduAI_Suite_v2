@@ -16,12 +16,13 @@ import {
 } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
 
+import { API_BASE_URL } from "../../shared/utils/apiConfig";
 const get_user = () => {
   const storedUser = localStorage.getItem("user");
   return storedUser ? JSON.parse(storedUser) : null;
 };
 
-const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`;
+
 const CURRENT_STUDENT = get_user()?.name || "Student";
 
 const getAuthHeaders = async (): Promise<Record<string, string>> => {
@@ -173,8 +174,8 @@ export const AppointmentBookingPage: React.FC = () => {
     try {
       const headers = await getAuthHeaders();
       const [courseResponse, appointmentResponse] = await Promise.all([
-        fetch(`${API_URL}/courses/`, { headers }),
-        fetch(`${API_URL}/appointments/student/${encodeURIComponent(CURRENT_STUDENT)}`, { headers }),
+        fetch(`${API_BASE_URL}/courses/`, { headers }),
+        fetch(`${API_BASE_URL}/appointments/student/${encodeURIComponent(CURRENT_STUDENT)}`, { headers }),
       ]);
 
       if (!courseResponse.ok) {
@@ -218,7 +219,7 @@ export const AppointmentBookingPage: React.FC = () => {
     setNotice(null);
 
     try {
-      const response = await fetch(`${API_URL}/appointments/`, {
+      const response = await fetch(`${API_BASE_URL}/appointments/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

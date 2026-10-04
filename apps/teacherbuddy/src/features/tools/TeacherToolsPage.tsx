@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { GlassCard } from "../../shared/components/GlassCard";
 import { AutoLessonPlannerComponent } from "./AutoLessonPlannerComponent";
 
+import { API_BASE_URL } from "../../shared/utils/apiConfig";
 const tools = [
   // {
   //   id: "generator",
@@ -46,7 +47,7 @@ export const TeacherToolsPage: React.FC = () => {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const apiBaseUrl = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
+        const apiBaseUrl = API_BASE_URL;
         const response = await fetch(`${apiBaseUrl}/courses/`);
         if (!response.ok) return;
         const courses = await response.json();

@@ -18,8 +18,9 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { GlassCard } from "../../shared/components/GlassCard";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+
+import { API_BASE_URL } from "../../shared/utils/apiConfig";
 interface QuizTemplate {
   id: number;
   title: string;

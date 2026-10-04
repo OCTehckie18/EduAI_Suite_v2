@@ -9,6 +9,15 @@ export const API_BASE_URL = (
   import.meta.env.VITE_API_URL || "/api"
 ).replace(/\/$/, "");
 
+export const buildWsUrl = (path: string): string => {
+  const abs = API_BASE_URL.startsWith("/")
+    ? new URL(API_BASE_URL, window.location.origin)
+    : new URL(API_BASE_URL);
+  const protocol = abs.protocol === "https:" ? "wss:" : "ws:";
+  const prefix = abs.pathname.replace(/\/$/, "");
+  return `${protocol}//${abs.host}${prefix}${path}`;
+};
+
 export const API_ENDPOINTS = {
   BASE: API_BASE_URL,
   AUTH: `${API_BASE_URL}/auth`,

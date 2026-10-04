@@ -3,8 +3,9 @@ import { Clock, PlayCircle, AlertCircle, FileText } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
 import { ExamPlayer } from "./ExamPlayer";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+
+import { API_BASE_URL } from "../../shared/utils/apiConfig";
 export const StudentExams: React.FC = () => {
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
