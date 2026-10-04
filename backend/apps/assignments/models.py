@@ -31,3 +31,32 @@ class Submission(models.Model):
 
     def __str__(self):
         return f"Submission by {self.student_name} for {self.assignment}"
+
+
+class RubricCriterion(models.Model):
+    key = models.SlugField(max_length=50, unique=True)
+    label = models.CharField(max_length=120)
+    description = models.CharField(max_length=255, blank=True)
+    weight = models.PositiveIntegerField(default=0)
+    max_score = models.PositiveIntegerField(default=0)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return self.label
+
+
+class FeedbackTemplate(models.Model):
+    mark = models.CharField(max_length=10)
+    text = models.CharField(max_length=500)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.mark}: {self.text[:40]}"

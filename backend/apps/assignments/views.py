@@ -2,7 +2,7 @@ from datetime import datetime
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -162,3 +162,22 @@ class GradeSubmissionView(APIView):
             sub.grade = float(grade)
             sub.save()
         return Response(SubmissionSerializer(sub).data)
+
+
+class RubricCriteriaListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import RubricCriterion
+        rows = RubricCriterion.objects.filter(is_active=True).values(
+            "id", "key", "label", "description", "weight", "max_score")
+        return Response({"results": list(rows)})
+
+
+class FeedbackTemplateListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import FeedbackTemplate
+        rows = FeedbackTemplate.objects.filter(is_active=True).values("id", "mark", "text")
+        return Response({"results": list(rows)})

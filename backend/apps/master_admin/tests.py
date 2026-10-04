@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
-from apps.institution.models import Campus
+from apps.institution.models import Campus, Department, School
 
 
 class MasterAdminAuthorizationTests(APITestCase):
@@ -68,3 +68,25 @@ class RecycleBinTests(APITestCase):
                     args=["institution.doesnotexist", 1])
         )
         self.assertEqual(response.status_code, 404)
+
+
+class CampusSummaryTests(APITestCase):
+    def test_campus_summary_counts_real_rows(self):
+        admin = get_user_model().objects.create_superuser(
+            email="ca-admin@example.com", password="pw-12345-x")
+        campus = Campus.objects.create(name="Counting Campus", code="CNT")
+        school = School.objects.create(campus=campus, name="School A")
+        Department.objects.create(school=school, name="Dept A")
+        get_user_model().objects.create_user(
+            email="stu-count@example.com", password="pw-12345-x", role="STUDENT", campus=campus)
+        self.client.force_authenticate(admin)
+        response = self.client.get("/api/v1/master-admin/campuses/")
+        self.assertEqual(response.status_code, 200)
+        row = next(r for r in response.data["results"] if r["code"] == "CNT")
+        self.assertEqual((row["schools"], row["departments"], row["students"]), (1, 1, 1))
+
+    def test_campus_summary_requires_master_admin(self):
+        user = get_user_model().objects.create_user(
+            email="plain@example.com", password="pw-12345-x", role="STUDENT")
+        self.client.force_authenticate(user)
+        self.assertEqual(self.client.get("/api/v1/master-admin/campuses/").status_code, 403)

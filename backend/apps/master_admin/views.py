@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db.models import Count, Q
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -78,3 +79,36 @@ class RecycleBinRestoreView(APIView):
             return Response({"detail": "Record is already active."}, status=400)
         instance.restore()
         return Response({"success": True, "content_type": content_type, "id": instance.pk})
+
+
+class CampusSummaryView(APIView):
+    """Per-campus counts for the Master Admin campus table, straight from the database."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def get(self, request):
+        User = get_user_model()
+        campuses = Campus.objects.annotate(
+            school_count=Count("schools", filter=Q(schools__is_active=True), distinct=True),
+            department_count=Count(
+                "schools__departments",
+                filter=Q(schools__is_active=True, schools__departments__is_active=True),
+                distinct=True,
+            ),
+            student_count=Count(
+                "users",
+                filter=Q(users__role=User.Role.STUDENT, users__is_active=True),
+                distinct=True,
+            ),
+        ).order_by("name")
+        return Response({"results": [
+            {
+                "id": c.pk,
+                "name": c.name,
+                "code": c.code,
+                "schools": c.school_count,
+                "departments": c.department_count,
+                "students": c.student_count,
+                "is_active": c.is_active,
+            }
+            for c in campuses
+        ]})
