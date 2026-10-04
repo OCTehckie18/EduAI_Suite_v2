@@ -780,6 +780,7 @@ export const DashboardShell: React.FC = () => {
             }}
           />
         )}
+      </main>
 
       {/* Mobile Scrim */}
       {sidebarOpen && (
