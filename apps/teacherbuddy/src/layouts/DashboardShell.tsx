@@ -27,6 +27,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import logo from "../../../logo/eduai_logo.png";
 import { API_ENDPOINTS } from "../shared/utils/apiConfig";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
+import { ProfileModal } from "../shared/components/ProfileModal";
 
 // uncomment to view the modesl
 const navItems = [
@@ -136,6 +137,7 @@ export const DashboardShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -635,6 +637,18 @@ export const DashboardShell: React.FC = () => {
                     {user?.email || "user@eduai.com"}
                   </p>
                 </div>
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    setProfileModalOpen(true);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm transition-colors"
+                  style={{ color: "var(--color-text-secondary)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--color-border)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                >
+                  Edit Profile
+                </button>
                 <div
                   className="border-t mt-1"
                   style={{ borderColor: "var(--color-border)" }}
@@ -756,7 +770,16 @@ export const DashboardShell: React.FC = () => {
         <div className="p-6">
           <Outlet />
         </div>
-      </main>
+        {profileModalOpen && (
+          <ProfileModal
+            onClose={() => setProfileModalOpen(false)}
+            onSaved={(updated) => {
+              const merged = { ...user, ...updated };
+              localStorage.setItem("user", JSON.stringify(merged));
+              setUser(merged);
+            }}
+          />
+        )}
 
       {/* Mobile Scrim */}
       {sidebarOpen && (

@@ -43,6 +43,8 @@ def _user_payload(user, role=None):
         "id": user.pk,
         "email": user.email,
         "name": user.full_name,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
         "picture": user.avatar_url,
         "role": _role_label(role),
         "register_no": user.register_no,
