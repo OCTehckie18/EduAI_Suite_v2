@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from rest_framework import status
@@ -42,6 +43,8 @@ def _user_payload(user, role=None):
         "id": user.pk,
         "email": user.email,
         "name": user.full_name,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
         "picture": user.avatar_url,
         "role": _role_label(role),
         "register_no": user.register_no,
@@ -186,3 +189,31 @@ class CurrentUserView(APIView):
     def get(self, request):
         role = request.auth.get("role", request.user.role) if isinstance(request.auth, dict) else request.user.role
         return Response({"user": _user_payload(request.user, role), "status": "approved"})
+
+    def patch(self, request):
+        user = request.user
+        data = request.data
+        changed = []
+        for field in self.EDITABLE_FIELDS:
+            if field in data:
+                value = data[field].strip() if isinstance(data[field], str) else ""
+                setattr(user, field, value or (None if field in ("register_no", "emp_no") else ""))
+                changed.append(field)
+        if "password" in data:
+            if len(data["password"] or "") < 6:
+                return Response({"detail": "A password of at least 6 characters is required."}, status=status.HTTP_400_BAD_REQUEST)
+            user.set_password(data["password"])
+            changed.append("password")
+        if changed:
+            try:
+                user.save(update_fields=changed)
+            except IntegrityError:
+                return Response({"detail": "Register number or employee number is already in use."}, status=status.HTTP_400_BAD_REQUEST)
+        return self.get(request)
+
+    put = patch
+
+    def delete(self, request):
+        return Response({"detail": "Account deletion is not allowed."}, status=status.HTTP_403_FORBIDDEN)
+
+    EDITABLE_FIELDS = ("first_name", "last_name", "phone_number", "register_no", "emp_no")

@@ -4,6 +4,7 @@ import { BookOpen, Gamepad2, LayoutDashboard, Clock, LogOut, ChevronRight, Menu,
 import logo from "../../../logo/eduai_logo.png";
 import { useAuthStore } from "../store/useAuthStore";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
+import { ProfileModal } from "../shared/components/ProfileModal";
 
 const studentNavItems = [
   { icon: LayoutDashboard, label: "My Dashboard", href: "/", end: true },
@@ -17,6 +18,7 @@ const studentNavItems = [
 export const StudentShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const { logout, role } = useAuthStore();
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
@@ -116,16 +118,15 @@ export const StudentShell: React.FC = () => {
                     <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>{user?.email || "student@christuniversity.in"}</p>
                     <span className="badge mt-2" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>Student</span>
                   </div>
-                  {/* {["View Profile", "Settings"].map(item => (
-                     <button key={item} 
-                       className="w-full text-left px-4 py-2.5 text-sm transition-colors"
-                       style={{ color: 'var(--color-text-secondary)' }}
-                       onMouseEnter={e => { e.currentTarget.style.color = 'var(--color-brand-blue)'; e.currentTarget.style.backgroundColor = 'var(--color-border)' }}
-                       onMouseLeave={e => { e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.backgroundColor = 'transparent' }}
-                     >
-                       {item}
-                     </button>
-                   ))} */}
+                  <button
+                    onClick={() => { setProfileOpen(false); setProfileModalOpen(true); }}
+                    className="w-full text-left px-4 py-2.5 text-sm transition-colors"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--color-brand-blue)'; e.currentTarget.style.backgroundColor = 'var(--color-border)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.backgroundColor = 'transparent' }}
+                  >
+                    Edit Profile
+                  </button>
 
                   <div className="border-t mt-1" style={{ borderColor: 'var(--color-border)' }}>
                     <button onClick={() => { logout(); navigate("/login"); }}
@@ -145,6 +146,16 @@ export const StudentShell: React.FC = () => {
         <div className="p-6 min-h-[calc(100vh-70px)]">
           <Outlet />
         </div>
+        {profileModalOpen && (
+          <ProfileModal
+            onClose={() => setProfileModalOpen(false)}
+            onSaved={(updated) => {
+              const merged = { ...user, ...updated };
+              localStorage.setItem("user", JSON.stringify(merged));
+              setUser(merged);
+            }}
+          />
+        )}
       </main>
 
       {/* Overlay to close dropdowns */}
