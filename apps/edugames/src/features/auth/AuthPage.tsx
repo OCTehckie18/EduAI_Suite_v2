@@ -134,7 +134,7 @@ export const AuthPage: React.FC = () => {
             <span style={{ color: "var(--color-brand-gold)" }}>Grow.</span>
           </h1>
           <p className="text-white/60 text-base leading-relaxed max-w-sm">
-            Interactive AI-powered learning games and wellbeing tools for students at Christ University.
+            Interactive AI-powered learning games for students at Christ University.
           </p>
         </div>
 
@@ -144,7 +144,6 @@ export const AuthPage: React.FC = () => {
             { mark: "PL", title: "Play & Learn", desc: "Master subjects through interactive mini-games" },
             { mark: "LB", title: "Leaderboards", desc: "Compete locally and earn reward badges" },
             { mark: "SQ", title: "Smart Quizzes", desc: "Adaptive challenges that adjust to your skill" },
-            { mark: "WZ", title: "Wellbeing Zone", desc: "Breathing, focus timer, and guided relaxation" },
           ].map(f => (
             <div key={f.title} className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-base"

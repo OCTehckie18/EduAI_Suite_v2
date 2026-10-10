@@ -91,6 +91,8 @@ urlpatterns = [
     # EduGames: Chain Answer & Word Games
     path('api/v1/games/', include('apps.games.urls')),
     path('games/', include('apps.games.urls')),
+    path('api/v1/wordcloud/', include('apps.games.wordcloud_urls')),
+    path('wordcloud/', include('apps.games.wordcloud_urls')),
 
     # Quizzes: Live & Solo
     path('api/v1/quizzes/', include('apps.quizzes.urls')),

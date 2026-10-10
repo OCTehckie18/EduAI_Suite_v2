@@ -61,3 +61,16 @@ class AIChatView(APIView):
             return Response({"content": content})
         except Exception as e:
             return Response({"content": f"AI service error: {str(e)}"}, status=status.HTTP_200_OK)
+
+
+class PromptSuggestionListView(APIView):
+    """Database-backed starter prompts; optionally filtered by ?audience=STUDENT|TEACHER."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import PromptSuggestion
+        queryset = PromptSuggestion.objects.filter(is_active=True)
+        audience = request.query_params.get("audience")
+        if audience:
+            queryset = queryset.filter(audience=audience.upper())
+        return Response({"results": list(queryset.values("id", "audience", "text"))})

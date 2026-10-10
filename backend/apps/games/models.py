@@ -68,3 +68,23 @@ class GameQuestion(models.Model):
 
     def __str__(self):
         return f"Q{self.order}: {self.question_text[:40]}"
+
+
+class WordCloudSession(models.Model):
+    pin = models.CharField(max_length=6, unique=True, db_index=True)
+    teacher_id = models.IntegerField(null=True, blank=True)
+    prompt = models.TextField()
+    status = models.CharField(max_length=20, default="active")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class WordCloudSubmission(models.Model):
+    session = models.ForeignKey(
+        WordCloudSession, on_delete=models.CASCADE, related_name="submissions"
+    )
+    word = models.CharField(max_length=100)
+    submitted_by = models.CharField(max_length=100, blank=True, null=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
