@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
+from apps.core.models import ActionHistory
 from apps.institution.models import Campus, Department, School
 
 
@@ -90,3 +91,76 @@ class CampusSummaryTests(APITestCase):
             email="plain@example.com", password="pw-12345-x", role="STUDENT")
         self.client.force_authenticate(user)
         self.assertEqual(self.client.get("/api/v1/master-admin/campuses/").status_code, 403)
+
+
+class MasterAdminGovernanceTests(APITestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.admin = self.User.objects.create_superuser(
+            email="governance-admin@example.com", password="testpass123")
+        self.client.force_authenticate(self.admin)
+
+    def test_master_admin_can_create_update_and_deactivate_campus(self):
+        created = self.client.post(
+            reverse("master-admin-campuses"),
+            {"name": "New Campus", "code": "NEW", "city": "Bengaluru"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201)
+        campus_id = created.data["id"]
+
+        updated = self.client.put(
+            reverse("master-admin-campus-detail", args=[campus_id]),
+            {"name": "Updated Campus", "code": "UPD", "city": "Mysuru"},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.data["code"], "UPD")
+
+        deleted = self.client.delete(
+            reverse("master-admin-campus-detail", args=[campus_id])
+        )
+        self.assertEqual(deleted.status_code, 200)
+        self.assertFalse(Campus.all_objects.get(pk=campus_id).is_active)
+        self.assertTrue(
+            ActionHistory.objects.filter(action="deactivate_campus").exists()
+        )
+
+    def test_master_admin_can_filter_and_deactivate_then_restore_user(self):
+        user = self.User.objects.create_user(
+            email="directory-student@example.com",
+            password="testpass123",
+            role=self.User.Role.STUDENT,
+        )
+        response = self.client.get(
+            reverse("master-admin-users"), {"search": "directory-student"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["email"], user.email)
+
+        updated = self.client.patch(
+            reverse("master-admin-user-detail", args=[user.pk]),
+            {"first_name": "Directory", "role": self.User.Role.TEACHER},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.data["role"], self.User.Role.TEACHER)
+
+        deleted = self.client.delete(
+            reverse("master-admin-user-detail", args=[user.pk])
+        )
+        self.assertEqual(deleted.status_code, 200)
+        self.assertFalse(self.User.all_objects.get(pk=user.pk).is_active)
+
+        restored = self.client.post(
+            reverse("master-admin-user-detail", args=[user.pk])
+        )
+        self.assertEqual(restored.status_code, 200)
+        self.assertTrue(self.User.all_objects.get(pk=user.pk).is_active)
+
+    def test_master_admin_cannot_deactivate_self(self):
+        response = self.client.delete(
+            reverse("master-admin-user-detail", args=[self.admin.pk])
+        )
+        self.assertEqual(response.status_code, 400)
