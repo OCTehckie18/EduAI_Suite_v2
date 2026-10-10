@@ -8,6 +8,8 @@ from .views import (
     ChainAnswerGameSubmitWordView,
     WordSuggestionsView,
     ValidateWordView,
+    WordCloudSessionListCreateView,
+    WordCloudSessionDetailView,
 )
 
 urlpatterns = [
@@ -19,4 +21,8 @@ urlpatterns = [
     path("chain-answer/<str:session_id>/words", ChainAnswerGameSubmitWordView.as_view(), name="game-chain-answer-words"),
     path("word-suggestions", WordSuggestionsView.as_view(), name="game-word-suggestions"),
     path("validate-word", ValidateWordView.as_view(), name="game-validate-word"),
+    path("wordcloud/create", WordCloudSessionListCreateView.as_view(), name="wordcloud-create"),
+    path("wordcloud", WordCloudSessionListCreateView.as_view(), name="wordcloud-list"),
+    path("wordcloud/", WordCloudSessionListCreateView.as_view(), name="wordcloud-list-slash"),
+    path("wordcloud/<str:pin>", WordCloudSessionDetailView.as_view(), name="wordcloud-detail"),
 ]

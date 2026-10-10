@@ -14,7 +14,11 @@ export const buildWsUrl = (path: string): string => {
     ? new URL(API_BASE_URL, window.location.origin)
     : new URL(API_BASE_URL);
   const protocol = abs.protocol === "https:" ? "wss:" : "ws:";
-  const prefix = abs.pathname.replace(/\/$/, "");
+  // HTTP endpoints are mounted below /api or /api/v1, but ASGI WebSockets
+  // are mounted at /ws directly.
+  const prefix = API_BASE_URL.startsWith("/")
+    ? abs.pathname.replace(/\/$/, "")
+    : abs.pathname.replace(/\/api(?:\/v\d+)?\/?$/, "");
   return `${protocol}//${abs.host}${prefix}${path}`;
 };
 

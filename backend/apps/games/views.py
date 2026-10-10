@@ -1,4 +1,6 @@
 import json
+import random
+import string
 import uuid
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -8,7 +10,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from services.word_service import WordService
-from .models import ChainAnswerGame, GamePlayer, GameWord, GameQuestion
+from .models import (
+    ChainAnswerGame,
+    GamePlayer,
+    GameWord,
+    GameQuestion,
+    WordCloudSession,
+)
 from .serializers import ChainAnswerGameSerializer, GameWordSerializer, GamePlayerSerializer
 
 
@@ -86,6 +94,62 @@ class ChainAnswerGameListCreateView(APIView):
                     game=game, question_text=question_text, order=idx)
 
         return Response(ChainAnswerGameSerializer(game).data, status=status.HTTP_201_CREATED)
+
+
+class WordCloudSessionListCreateView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        prompt = str(request.data.get("prompt", "")).strip()
+        if not prompt:
+            return Response(
+                {"detail": "A prompt is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        pin = "".join(random.choices(string.digits, k=6))
+        while WordCloudSession.objects.filter(pin=pin).exists():
+            pin = "".join(random.choices(string.digits, k=6))
+
+        session = WordCloudSession.objects.create(
+            pin=pin,
+            prompt=prompt,
+            teacher_id=request.data.get("teacher_id"),
+        )
+        return Response(
+            {"pin": session.pin, "prompt": session.prompt, "session_id": session.id},
+            status=status.HTTP_201_CREATED,
+        )
+
+    def get(self, request):
+        sessions = WordCloudSession.objects.all()
+        return Response([
+            {
+                "pin": session.pin,
+                "prompt": session.prompt,
+                "status": session.status,
+                "session_id": session.id,
+                "created_at": session.created_at,
+            }
+            for session in sessions
+        ])
+
+
+class WordCloudSessionDetailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, pin):
+        session = get_object_or_404(WordCloudSession, pin=pin)
+        return Response({
+            "prompt": session.prompt,
+            "status": session.status,
+            "session_id": session.id,
+        })
+
+    def delete(self, request, pin):
+        session = get_object_or_404(WordCloudSession, pin=pin)
+        session.delete()
+        return Response({"status": "success", "message": "Deleted successfully"})
 
 
 class ChainAnswerGameDetailView(APIView):
