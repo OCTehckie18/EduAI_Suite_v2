@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import {
   Building2, 
   Users, 
@@ -8,13 +8,145 @@ import {
   Search, 
   Plus, 
   ChevronRight,
-  GraduationCap
+  GraduationCap,
+  LogOut
 } from 'lucide-react';
 import logo from '../../logo/eduai_logo.png';
+import { API_ENDPOINTS, authHeaders } from './shared/apiConfig';
+
+interface AdminUser {
+  id: number;
+  email: string;
+  name?: string;
+  role: string;
+}
+
+const clearSession = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  localStorage.removeItem('lastActivity');
+};
+
+function LoginScreen({ onLogin }: { onLogin: (user: AdminUser) => void }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!username.trim() || !password) {
+      setError('Enter your email, employee number, or password.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_ENDPOINTS.AUTH}/login/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Authentication failed.');
+      }
+      if (data.user.role !== 'MASTER_ADMIN' && data.user.role !== 'admin') {
+        throw new Error('Access denied. Master Admin privileges are required.');
+      }
+
+      localStorage.setItem('token', data.access);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('lastActivity', Date.now().toString());
+      onLogin(data.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-stone-950 px-6 text-stone-100">
+      <form onSubmit={submit} className="w-full max-w-md rounded-2xl border border-stone-800 bg-stone-900 p-8 shadow-2xl">
+        <div className="flex items-center gap-3 mb-8">
+          <img src={logo} alt="EduAI Suite" className="h-12 w-12 rounded-xl bg-white object-contain p-1" />
+          <div>
+            <h1 className="text-xl font-bold">Master Admin</h1>
+            <p className="text-sm text-stone-400">Sign in to continue</p>
+          </div>
+        </div>
+        {error && <p className="mb-4 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">{error}</p>}
+        <label className="mb-4 block text-sm text-stone-300">
+          Email or employee number
+          <input
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-stone-700 bg-stone-950 px-4 py-3 text-white outline-none focus:border-amber-400"
+            autoComplete="username"
+          />
+        </label>
+        <label className="mb-6 block text-sm text-stone-300">
+          Password
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-stone-700 bg-stone-950 px-4 py-3 text-white outline-none focus:border-amber-400"
+            autoComplete="current-password"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-xl bg-rose-600 px-4 py-3 font-semibold text-white transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? 'Signing in...' : 'Sign in'}
+        </button>
+      </form>
+    </div>
+  );
+}
 
 export default function App() {
+  const [user, setUser] = useState<AdminUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'campuses' | 'users' | 'recycle_bin'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    if (!storedToken) {
+      setAuthLoading(false);
+      return;
+    }
+
+    fetch(`${API_ENDPOINTS.AUTH}/me/`, { headers: authHeaders() })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error('Session expired.');
+        }
+        const data = await response.json();
+        if (data.user.role !== 'MASTER_ADMIN' && data.user.role !== 'admin') {
+          throw new Error('Access denied.');
+        }
+        setUser(data.user);
+      })
+      .catch(() => {
+        clearSession();
+        setUser(null);
+      })
+      .finally(() => setAuthLoading(false));
+  }, []);
+
+  if (authLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-stone-950 text-stone-300">Checking session...</div>;
+  }
+
+  if (!user) {
+    return <LoginScreen onLogin={setUser} />;
+  }
 
   // Sample Master Admin state representing cross-campus data
   const campuses = [
@@ -141,6 +273,16 @@ export default function App() {
             <button className="flex items-center gap-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-medium text-sm px-4 py-2 rounded-xl transition shadow-lg shadow-rose-950/40">
               <Plus className="h-4 w-4" />
               New Campus
+            </button>
+            <button
+              onClick={() => {
+                clearSession();
+                setUser(null);
+              }}
+              className="flex items-center gap-2 rounded-xl border border-stone-700 px-4 py-2 text-sm font-medium text-stone-300 transition hover:border-stone-500 hover:text-white"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
             </button>
           </div>
         </header>
