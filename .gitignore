@@ -27,3 +27,5 @@ Thumbs.db
 .idea/
 .codebase-memory
 backend dupe
+docs/*PLAN.md
+/*_PLAN.md
