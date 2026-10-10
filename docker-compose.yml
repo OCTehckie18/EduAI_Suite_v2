@@ -106,6 +106,8 @@ services:
     restart: unless-stopped
     ports:
       - "5175:5175"
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
     depends_on:
       backend:
         condition: service_healthy
