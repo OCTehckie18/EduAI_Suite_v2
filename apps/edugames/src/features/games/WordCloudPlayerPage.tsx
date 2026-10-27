@@ -4,6 +4,7 @@ import { Send, CheckCircle2, Trophy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
+import { requestGameFullscreen } from "./fullscreen";
 export const WordCloudPlayerPage: React.FC = () => {
   const [pin, setPin] = useState("");
   const [session, setSession] = useState<{ pin: string; prompt: string; ended?: boolean } | null>(null);
@@ -13,6 +14,7 @@ export const WordCloudPlayerPage: React.FC = () => {
   const [error, setError] = useState("");
 
   const joinSession = async () => {
+    requestGameFullscreen();
     try {
       const response = await fetch(`${API_BASE_URL}/wordcloud/${pin}`);
       if (response.ok) {

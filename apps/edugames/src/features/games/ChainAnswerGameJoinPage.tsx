@@ -8,6 +8,7 @@ import {
 } from "./chainAnswerPlayerSession";
 import { motion } from "framer-motion";
 import { Play, Users, Lock, Loader, Copy, CheckCircle } from "lucide-react";
+import { requestGameFullscreen } from "./fullscreen";
 
 interface ChainAnswerGameJoinPageProps {
   initialSessionId?: string;
@@ -37,6 +38,7 @@ export const ChainAnswerGameJoinPage: React.FC<
       return;
     }
 
+    requestGameFullscreen();
     setIsLoading(true);
     setError(null);
 

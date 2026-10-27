@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 
 import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
+import { requestGameFullscreen } from "./fullscreen";
 const getWsUrl = buildWsUrl;
 
 export const QuizController: React.FC = () => {
@@ -36,6 +37,7 @@ export const QuizController: React.FC = () => {
   const handleJoin = () => {
     if (!pin || !nickname) return;
 
+    requestGameFullscreen();
     const ws = new WebSocket(
       getWsUrl(
         `/ws/quiz/${encodeURIComponent(pin)}?user_type=student&nickname=${encodeURIComponent(nickname)}`,

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Hash, ArrowRight, Loader2, AlertCircle, Users, Zap, Radio } from "lucide-react";
 import LiveSessionInterface from "./LiveSessionInterface";
 import { API_BASE_URL } from "../../shared/utils/gameAPI";
+import { requestGameFullscreen } from "./fullscreen";
 
 const BRAND_BLUE = "#264796";
 const BRAND_BLUE_LIGHT = "#3460c4";
@@ -24,6 +25,7 @@ const AudienceJoinHub: React.FC = () => {
       return;
     }
 
+    requestGameFullscreen();
     setJoining(true);
     setError(null);
 

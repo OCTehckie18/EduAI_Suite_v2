@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Gamepad2,
@@ -7,6 +7,7 @@ import {
   FlaskConical,
   Target,
   HardHat,
+  Maximize2,
 } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
 import { motion, AnimatePresence } from "framer-motion";
@@ -73,6 +74,28 @@ const gameCategories = [
 export const GamesPage: React.FC = () => {
   const navigate = useNavigate();
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const handleFullscreenToggle = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch {
+      // Fullscreen can be denied by the browser or device settings.
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -88,6 +111,28 @@ export const GamesPage: React.FC = () => {
           Interactive learning modules, live quizzes, and collaborative spaces.
         </p>
       </div>
+
+      <GlassCard className="flex items-center justify-between gap-4 border border-blue-200/70 bg-blue-50/70 p-4 dark:border-blue-400/20 dark:bg-blue-950/20">
+        <div className="flex items-center gap-3">
+          <Maximize2 size={20} style={{ color: "var(--color-brand-blue)" }} aria-hidden="true" />
+          <div>
+            <p className="font-semibold" style={{ color: "var(--color-text-primary)" }}>
+              Play in full screen
+            </p>
+            <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+              Full screen gives your class more room for interactive games.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleFullscreenToggle}
+          className="shrink-0 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-transform hover:scale-105 active:scale-95"
+          style={{ background: "var(--color-brand-blue)" }}
+        >
+          {isFullscreen ? "Exit full screen" : "Go full screen"}
+        </button>
+      </GlassCard>
 
       {/* Grid of game types */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
