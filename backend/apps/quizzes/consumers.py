@@ -89,12 +89,15 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "error", "message": "Add at least one question before starting."})
             return
 
-        await self.update_session(
+        started = await self.transition_session(
+            expected_status="lobby",
             status="active",
             current_question_index=0,
             started_at=timezone.now(),
             question_started_at=timezone.now(),
         )
+        if not started:
+            return
         question = await self.get_current_question(0)
         await self.broadcast_json(await self.new_question_message(question, 0))
 
@@ -135,8 +138,14 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         if session["status"] != "active":
             return
 
+        transitioned = await self.transition_session(
+            expected_status="active",
+            status="result",
+        )
+        if not transitioned:
+            return
+
         result = await self.get_results(session["current_question_index"])
-        await self.update_session(status="result")
         await self.broadcast_json({
             "type": "show_results",
             "stats": result["stats"],
@@ -156,18 +165,26 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         next_index = session["current_question_index"] + 1
         if next_index >= session["question_count"]:
-            await self.update_session(status="completed")
+            transitioned = await self.transition_session(
+                expected_status="result",
+                status="completed",
+            )
+            if not transitioned:
+                return
             await self.broadcast_json({
                 "type": "game_over",
                 "leaderboard": await self.get_leaderboard(),
             })
             return
 
-        await self.update_session(
+        transitioned = await self.transition_session(
+            expected_status="result",
             status="active",
             current_question_index=next_index,
             question_started_at=timezone.now(),
         )
+        if not transitioned:
+            return
         question = await self.get_current_question(next_index)
         await self.broadcast_json(await self.new_question_message(question, next_index))
 
@@ -216,6 +233,18 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def update_session(self, **fields):
         QuizSession.objects.filter(pin=self.pin).update(**fields)
+
+    @database_sync_to_async
+    def transition_session(self, expected_status, **fields):
+        with transaction.atomic():
+            session = QuizSession.objects.select_for_update().filter(
+                pin=self.pin,
+                status=expected_status,
+            ).first()
+            if not session:
+                return False
+            QuizSession.objects.filter(pk=session.pk).update(**fields)
+            return True
 
     @database_sync_to_async
     def get_players(self):
