@@ -42,6 +42,7 @@ export const QuizMonitoring: React.FC = () => {
   const [stats, setStats] = useState<Record<number, number>>({});
   const [correctOptionIds, setCorrectOptionIds] = useState<number[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
+  const timeUpQuestionRef = useRef<number | null>(null);
 
   useEffect(() => {
     startSession();
@@ -104,6 +105,7 @@ export const QuizMonitoring: React.FC = () => {
           break;
         case "new_question":
           setCurrentQuestion(message.question);
+          timeUpQuestionRef.current = null;
           setQuestionIndex(message.index);
           setTotalQuestions(message.total);
           setTimer(message.question.time_limit || 20);
@@ -139,9 +141,10 @@ export const QuizMonitoring: React.FC = () => {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       console.warn("Quiz WebSocket is not connected");
-      return;
+      return false;
     }
     socket.send(JSON.stringify(message));
+    return true;
   };
 
   useEffect(() => {
@@ -151,14 +154,18 @@ export const QuizMonitoring: React.FC = () => {
       }, 1000);
       return () => clearInterval(interval);
     } else if (timer === 0 && status === "active") {
-      if (currentQuestion) {
+      if (
+        currentQuestion &&
+        timeUpQuestionRef.current !== currentQuestion.id &&
         sendQuizMessage({
           type: "time_up",
           question_id: currentQuestion.id,
-        });
+        })
+      ) {
+        timeUpQuestionRef.current = currentQuestion.id;
       }
     }
-  }, [status, timer]);
+  }, [status, timer, currentQuestion]);
 
   const handleStartGame = () => {
     sendQuizMessage({ type: "start_game" });
