@@ -121,6 +121,28 @@ class QuizWebSocketFlowTests(TransactionTestCase):
             second_option.id,
         )
 
+    def test_duplicate_student_nickname_is_rejected(self):
+        async_to_sync(self._assert_rejects_duplicate_nickname)()
+
+    async def _assert_rejects_duplicate_nickname(self):
+        first_student = WebsocketCommunicator(
+            application,
+            "/ws/quiz/123456?user_type=student&nickname=Ana",
+        )
+        second_student = WebsocketCommunicator(
+            application,
+            "/ws/quiz/123456?user_type=student&nickname=Ana",
+        )
+
+        first_connected, _ = await first_student.connect()
+        self.assertTrue(first_connected)
+        await first_student.receive_json_from()
+
+        second_connected, _ = await second_student.connect()
+        self.assertFalse(second_connected)
+
+        await first_student.disconnect()
+
     async def _assert_rejects_non_current_answer(self, question_id, option_id):
         teacher = WebsocketCommunicator(
             application,
