@@ -82,7 +82,12 @@ export const QuizMonitoring: React.FC = () => {
   };
 
   const connectWebSocket = (pin: string) => {
-    const ws = new WebSocket(getWsUrl(`/ws/quiz/${pin}?user_type=teacher`));
+    const accessToken = localStorage.getItem("token");
+    const query = new URLSearchParams({
+      user_type: "teacher",
+      access_token: accessToken || "",
+    });
+    const ws = new WebSocket(getWsUrl(`/ws/quiz/${pin}?${query.toString()}`));
     socketRef.current = ws;
 
     ws.onmessage = (event) => {

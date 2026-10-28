@@ -6,6 +6,24 @@ from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth import get_user_model
 
 
+def authenticate_access_token(token):
+    try:
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=["HS256"],
+        )
+        if payload.get("type") != "access":
+            raise jwt.InvalidTokenError("Not an access token")
+        user = get_user_model().objects.get(pk=payload["sub"])
+    except (jwt.PyJWTError, KeyError, get_user_model().DoesNotExist) as exc:
+        raise AuthenticationFailed("Invalid or expired token.") from exc
+
+    if not user.is_active:
+        raise AuthenticationFailed("User account is inactive.")
+    return user, payload
+
+
 class EduAIJWTAuthentication(BaseAuthentication):
     keyword = b"bearer"
 
@@ -16,18 +34,4 @@ class EduAIJWTAuthentication(BaseAuthentication):
         if len(parts) != 2:
             raise AuthenticationFailed("Invalid Authorization header.")
 
-        try:
-            payload = jwt.decode(
-                parts[1].decode("utf-8"),
-                settings.JWT_SECRET_KEY,
-                algorithms=["HS256"],
-            )
-            if payload.get("type") != "access":
-                raise jwt.InvalidTokenError("Not an access token")
-            user = get_user_model().objects.get(pk=payload["sub"])
-        except (jwt.PyJWTError, KeyError, get_user_model().DoesNotExist) as exc:
-            raise AuthenticationFailed("Invalid or expired token.") from exc
-
-        if not user.is_active:
-            raise AuthenticationFailed("User account is inactive.")
-        return user, payload
+        return authenticate_access_token(parts[1].decode("utf-8"))

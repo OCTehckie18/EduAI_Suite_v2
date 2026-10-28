@@ -1,6 +1,9 @@
 from asgiref.sync import async_to_sync
 from channels.testing import WebsocketCommunicator
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.test import TransactionTestCase
+import jwt
 
 from config.asgi import application
 from .models import Quiz, QuizOption, QuizQuestion, QuizSession
@@ -8,6 +11,16 @@ from .models import Quiz, QuizOption, QuizQuestion, QuizSession
 
 class QuizWebSocketFlowTests(TransactionTestCase):
     def setUp(self):
+        teacher = get_user_model().objects.create(
+            email="quiz-teacher@example.com",
+            role="TEACHER",
+            is_active=True,
+        )
+        self.teacher_token = jwt.encode(
+            {"sub": str(teacher.pk), "type": "access"},
+            settings.JWT_SECRET_KEY,
+            algorithm="HS256",
+        )
         quiz = Quiz.objects.create(title="WebSocket smoke quiz")
         question = QuizQuestion.objects.create(
             quiz=quiz,
@@ -26,7 +39,9 @@ class QuizWebSocketFlowTests(TransactionTestCase):
 
     async def _assert_kahoot_flow(self):
         teacher = WebsocketCommunicator(
-            application, "/ws/quiz/123456?user_type=teacher")
+            application,
+            f"/ws/quiz/123456?user_type=teacher&access_token={self.teacher_token}",
+        )
         student = WebsocketCommunicator(
             application,
             "/ws/quiz/123456?user_type=student&nickname=Ana",
@@ -66,3 +81,13 @@ class QuizWebSocketFlowTests(TransactionTestCase):
 
         await teacher.disconnect()
         await student.disconnect()
+
+    async def _connect_teacher(self, token):
+        return await WebsocketCommunicator(
+            application,
+            f"/ws/quiz/123456?user_type=teacher&access_token={token}",
+        ).connect()
+
+    def test_teacher_requires_access_token(self):
+        connected, _ = async_to_sync(self._connect_teacher)("")
+        self.assertFalse(connected)
