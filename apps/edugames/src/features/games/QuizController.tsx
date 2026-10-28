@@ -46,7 +46,13 @@ export const QuizController: React.FC = () => {
     socketRef.current = ws;
 
     ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
+      let message: any;
+      try {
+        message = JSON.parse(event.data);
+      } catch (error) {
+        console.error("Invalid quiz WebSocket message", error);
+        return;
+      }
       console.log("Student WS Message:", message);
 
       if (message.type === "lobby_update") {
@@ -87,13 +93,25 @@ export const QuizController: React.FC = () => {
       }
     };
 
+    ws.onerror = (event) => {
+      console.error("Quiz WebSocket error", event);
+      setStatus("join");
+    };
     ws.onclose = () => setStatus("join");
   };
 
   const submitAnswer = (optionId: number) => {
-    if (status !== "playing") return;
+    const socket = socketRef.current;
+    if (
+      status !== "playing" ||
+      !currentQuestion ||
+      !socket ||
+      socket.readyState !== WebSocket.OPEN
+    ) {
+      return;
+    }
     const responseTime = Date.now() - startTime;
-    socketRef.current?.send(
+    socket.send(
       JSON.stringify({
         type: "submit_answer",
         question_id: currentQuestion.id,

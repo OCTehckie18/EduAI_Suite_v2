@@ -91,7 +91,13 @@ export const QuizMonitoring: React.FC = () => {
     socketRef.current = ws;
 
     ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
+      let message: any;
+      try {
+        message = JSON.parse(event.data);
+      } catch (error) {
+        console.error("Invalid quiz WebSocket message", error);
+        return;
+      }
       switch (message.type) {
         case "lobby_update":
           setPlayers(message.players);
@@ -119,6 +125,23 @@ export const QuizMonitoring: React.FC = () => {
           break;
       }
     };
+    ws.onerror = (event) => {
+      console.error("Quiz WebSocket error", event);
+    };
+    ws.onclose = () => {
+      if (socketRef.current === ws) {
+        socketRef.current = null;
+      }
+    };
+  };
+
+  const sendQuizMessage = (message: object) => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.warn("Quiz WebSocket is not connected");
+      return;
+    }
+    socket.send(JSON.stringify(message));
   };
 
   useEffect(() => {
@@ -128,26 +151,21 @@ export const QuizMonitoring: React.FC = () => {
       }, 1000);
       return () => clearInterval(interval);
     } else if (timer === 0 && status === "active") {
-      socketRef.current?.send(
-        JSON.stringify({
+      if (currentQuestion) {
+        sendQuizMessage({
           type: "time_up",
           question_id: currentQuestion.id,
-        }),
-      );
+        });
+      }
     }
   }, [status, timer]);
 
   const handleStartGame = () => {
-    socketRef.current?.send(JSON.stringify({ type: "start_game" }));
+    sendQuizMessage({ type: "start_game" });
   };
 
   const handleNext = () => {
-    if (status === "result") {
-      // Show leaderboard or next question
-      socketRef.current?.send(JSON.stringify({ type: "next_question" }));
-    } else {
-      socketRef.current?.send(JSON.stringify({ type: "next_question" }));
-    }
+    sendQuizMessage({ type: "next_question" });
   };
 
   if (status === "lobby") {
