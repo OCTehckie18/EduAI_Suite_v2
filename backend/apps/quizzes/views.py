@@ -1,5 +1,6 @@
 import random
 import string
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -115,16 +116,30 @@ class QuizHostView(APIView):
 
     def post(self, request, quiz_id):
         quiz = get_object_or_404(Quiz, pk=quiz_id)
-        pin = _generate_pin()
-        while QuizSession.objects.filter(pin=pin, status__in=["lobby", "active"]).exists():
+        for _ in range(10):
             pin = _generate_pin()
+            if QuizSession.objects.filter(pin=pin).exists():
+                continue
 
-        session = QuizSession.objects.create(
-            quiz=quiz,
-            pin=pin,
-            status="lobby",
+            try:
+                with transaction.atomic():
+                    session = QuizSession.objects.create(
+                        quiz=quiz,
+                        pin=pin,
+                        status="lobby",
+                    )
+            except IntegrityError:
+                continue
+
+            return Response(
+                QuizSessionSerializer(session).data,
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(
+            {"detail": "Unable to allocate a unique game PIN. Try again."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-        return Response(QuizSessionSerializer(session).data, status=status.HTTP_201_CREATED)
 
 
 class QuizSessionDetailView(APIView):
