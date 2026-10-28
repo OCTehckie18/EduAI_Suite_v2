@@ -45,6 +45,7 @@ class QuizOption(models.Model):
 class QuizSession(models.Model):
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name="sessions")
     pin = models.CharField(max_length=10, unique=True, db_index=True)
+    is_test_run = models.BooleanField(default=False)
     status = models.CharField(max_length=50, default="lobby")
     current_question_index = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

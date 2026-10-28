@@ -13,6 +13,7 @@ import { GamesPage } from "../features/games/GamesPage";
 import { QuizCreator } from "../features/games/QuizCreator";
 import { QuizLibraryPage } from "../features/games/QuizLibraryPage";
 import { QuizMonitoring } from "../features/games/QuizMonitoring";
+import { QuizTestParticipantPage } from "../features/games/QuizTestParticipantPage";
 import SlidoAssignmentDashboard from "../features/games/SlidoAssignmentDashboard";
 import { LiveGradingPage } from "../features/games/LiveGradingForm";
 import SplitViewGrading from "../features/games/SplitViewGrading";
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
       { path: "games/quiz/create", element: <QuizCreator /> },
       { path: "games/quiz/edit/:id", element: <QuizCreator /> },
       { path: "games/quiz/host/:quizId", element: <QuizMonitoring /> },
+      { path: "games/quiz/test/:pin", element: <QuizTestParticipantPage /> },
       {
         path: "games/slido/assignments",
         element: <SlidoAssignmentDashboard />,
