@@ -9,6 +9,11 @@ export const API_BASE_URL = (
   import.meta.env.VITE_API_URL || "/api"
 ).replace(/\/$/, "");
 
+export const authHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 export const buildWsUrl = (path: string): string => {
   const abs = API_BASE_URL.startsWith("/")
     ? new URL(API_BASE_URL, window.location.origin)

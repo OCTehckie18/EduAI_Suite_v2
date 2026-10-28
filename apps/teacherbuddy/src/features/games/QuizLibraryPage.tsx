@@ -20,7 +20,7 @@ import { GlassCard } from "../../shared/components/GlassCard";
 
 
 
-import { API_BASE_URL } from "../../shared/utils/apiConfig";
+import { API_BASE_URL, authHeaders } from "../../shared/utils/apiConfig";
 interface QuizTemplate {
   id: number;
   title: string;
@@ -43,7 +43,7 @@ export const QuizLibraryPage: React.FC = () => {
 
   const fetchQuizzes = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/quizzes/`);
+      const res = await fetch(`${API_BASE_URL}/quizzes/`, { headers: authHeaders() });
       if (res.ok) {
         const data = await res.json();
         setQuizzes(data);
@@ -58,7 +58,10 @@ export const QuizLibraryPage: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this quiz?")) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/quizzes/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE_URL}/quizzes/${id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
       if (res.ok) {
         setQuizzes(prev => prev.filter(q => q.id !== id));
       }
@@ -69,7 +72,10 @@ export const QuizLibraryPage: React.FC = () => {
 
   const handlePlay = async (id: number) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/quizzes/${id}/session`, { method: "POST" });
+      const res = await fetch(`${API_BASE_URL}/quizzes/${id}/session`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
       if (res.ok) {
         const session = await res.json();
         navigate(`/games/quiz/host/${session.pin}`);
