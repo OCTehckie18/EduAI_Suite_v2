@@ -70,6 +70,18 @@ class QuizWebSocketFlowTests(TransactionTestCase):
         self.assertEqual((await teacher.receive_json_from())["type"], "answer_count_update")
         self.assertEqual((await student.receive_json_from())["type"], "answer_count_update")
 
+        await student.send_json_to({
+            "type": "submit_answer",
+            "question_id": 1,
+            "option_id": 1,
+            "response_time": 250,
+        })
+        duplicate = await student.receive_json_from()
+        self.assertEqual(duplicate["type"], "error")
+        self.assertEqual(
+            duplicate["message"], "You have already answered this question."
+        )
+
         await teacher.send_json_to({"type": "time_up", "question_id": 1})
         self.assertEqual((await teacher.receive_json_from())["type"], "show_results")
         self.assertEqual((await student.receive_json_from())["type"], "show_results")

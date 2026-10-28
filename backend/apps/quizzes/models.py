@@ -82,5 +82,13 @@ class QuizAnswer(models.Model):
     points_earned = models.IntegerField(default=0)
     response_time_ms = models.IntegerField(default=0)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["player", "question"],
+                name="unique_quiz_answer_per_player_question",
+            ),
+        ]
+
     def __str__(self):
         return f"Answer by {self.player_id} for Q{self.question_id}"

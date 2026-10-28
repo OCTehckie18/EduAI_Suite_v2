@@ -3,6 +3,7 @@ from urllib.parse import parse_qs
 from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from ..accounts.authentication import authenticate_access_token
@@ -253,36 +254,45 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         if not current_question or str(question_id) != str(current_question.id):
             return {"error": "That question is no longer accepting answers."}
 
-        player = QuizPlayer.objects.filter(
-            id=player_id, session__pin=self.pin).first()
         question = QuizQuestion.objects.filter(
             id=question_id, quiz__sessions__pin=self.pin).first()
         option = QuizOption.objects.filter(
             id=option_id, question=question).first() if question else None
-        if not player or not question or not option:
+        if not question or not option:
             return {"error": "That answer is no longer available."}
-
-        if QuizAnswer.objects.filter(player=player, question=question).exists():
-            return {"error": "You have already answered this question."}
 
         time_limit_ms = max(question.time_limit * 1000, 1)
         speed_multiplier = max(0.5, 1 - response_time_ms / time_limit_ms)
         points = round(question.points *
                        speed_multiplier) if option.is_correct else 0
-        QuizAnswer.objects.create(
-            player=player,
-            question=question,
-            option_id=option.id,
-            is_correct=option.is_correct,
-            points_earned=points,
-            response_time_ms=response_time_ms,
-        )
-        player.score += points
-        player.streak = player.streak + 1 if option.is_correct else 0
-        player.save(update_fields=["score", "streak"])
-        answer_count = QuizAnswer.objects.filter(
-            player__session=player.session, question=question
-        ).count()
+        try:
+            with transaction.atomic():
+                player = QuizPlayer.objects.select_for_update().filter(
+                    id=player_id, session__pin=self.pin
+                ).first()
+                if not player:
+                    return {"error": "That answer is no longer available."}
+
+                if QuizAnswer.objects.filter(player=player, question=question).exists():
+                    return {"error": "You have already answered this question."}
+
+                QuizAnswer.objects.create(
+                    player=player,
+                    question=question,
+                    option_id=option.id,
+                    is_correct=option.is_correct,
+                    points_earned=points,
+                    response_time_ms=response_time_ms,
+                )
+                player.score += points
+                player.streak = player.streak + 1 if option.is_correct else 0
+                player.save(update_fields=["score", "streak"])
+                answer_count = QuizAnswer.objects.filter(
+                    player__session=player.session, question=question
+                ).count()
+        except IntegrityError:
+            return {"error": "You have already answered this question."}
+
         return {
             "error": None,
             "is_correct": option.is_correct,
