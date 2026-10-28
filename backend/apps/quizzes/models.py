@@ -68,6 +68,12 @@ class QuizPlayer(models.Model):
 
     class Meta:
         ordering = ["-score"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["session", "nickname"],
+                name="unique_quiz_player_nickname_per_session",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.nickname} ({self.score} pts)"

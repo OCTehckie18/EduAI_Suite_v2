@@ -43,11 +43,14 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=4404)
             return
 
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.accept()
-
         if self.user_type == "student":
             self.player_id = await self.join_player()
+            if not self.player_id:
+                await self.close(code=4409)
+                return
+
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
 
         await self.broadcast_lobby()
         session = await self.get_session_state()
@@ -177,17 +180,20 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def join_player(self):
-        session = QuizSession.objects.get(pin=self.pin)
-        player = session.players.filter(nickname=self.nickname).first()
-        if player:
-            return player.id
+        try:
+            with transaction.atomic():
+                session = QuizSession.objects.select_for_update().get(pin=self.pin)
+                if session.players.filter(nickname=self.nickname).exists():
+                    return None
 
-        player = QuizPlayer.objects.create(
-            session=session,
-            nickname=self.nickname,
-            avatar=OPTION_COLORS[session.players.count() % len(OPTION_COLORS)],
-        )
-        return player.id
+                player = QuizPlayer.objects.create(
+                    session=session,
+                    nickname=self.nickname,
+                    avatar=OPTION_COLORS[session.players.count() % len(OPTION_COLORS)],
+                )
+                return player.id
+        except IntegrityError:
+            return None
 
     @database_sync_to_async
     def get_session_state(self):
