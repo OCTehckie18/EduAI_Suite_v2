@@ -91,3 +91,55 @@ class QuizWebSocketFlowTests(TransactionTestCase):
     def test_teacher_requires_access_token(self):
         connected, _ = async_to_sync(self._connect_teacher)("")
         self.assertFalse(connected)
+
+    def test_student_cannot_answer_non_current_question(self):
+        second_question = QuizQuestion.objects.create(
+            quiz=Quiz.objects.get(title="WebSocket smoke quiz"),
+            question_text="Which answer is not active?",
+            time_limit=20,
+            points=1000,
+        )
+        second_option = QuizOption.objects.create(
+            question=second_question,
+            option_text="Correct but not current",
+            is_correct=True,
+        )
+        async_to_sync(self._assert_rejects_non_current_answer)(
+            second_question.id,
+            second_option.id,
+        )
+
+    async def _assert_rejects_non_current_answer(self, question_id, option_id):
+        teacher = WebsocketCommunicator(
+            application,
+            f"/ws/quiz/123456?user_type=teacher&access_token={self.teacher_token}",
+        )
+        student = WebsocketCommunicator(
+            application,
+            "/ws/quiz/123456?user_type=student&nickname=Ana",
+        )
+
+        await teacher.connect()
+        await teacher.receive_json_from()
+        await student.connect()
+        await student.receive_json_from()
+        await teacher.receive_json_from()
+
+        await teacher.send_json_to({"type": "start_game"})
+        await teacher.receive_json_from()
+        await student.receive_json_from()
+
+        await student.send_json_to({
+            "type": "submit_answer",
+            "question_id": question_id,
+            "option_id": option_id,
+            "response_time": 250,
+        })
+        error = await student.receive_json_from()
+        self.assertEqual(error["type"], "error")
+        self.assertEqual(
+            error["message"], "That question is no longer accepting answers."
+        )
+
+        await teacher.disconnect()
+        await student.disconnect()

@@ -241,6 +241,18 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def save_answer(self, player_id, question_id, option_id, response_time_ms):
+        session = QuizSession.objects.filter(pin=self.pin).select_related("quiz").first()
+        current_question = None
+        if session:
+            current_question = QuizQuestion.objects.filter(
+                quiz=session.quiz
+            ).order_by("order", "id")[
+                session.current_question_index:session.current_question_index + 1
+            ].first()
+
+        if not current_question or str(question_id) != str(current_question.id):
+            return {"error": "That question is no longer accepting answers."}
+
         player = QuizPlayer.objects.filter(
             id=player_id, session__pin=self.pin).first()
         question = QuizQuestion.objects.filter(
