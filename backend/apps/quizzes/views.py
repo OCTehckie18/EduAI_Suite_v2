@@ -8,6 +8,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from ..core.permissions import IsTeacher
 from .models import Quiz, QuizQuestion, QuizOption, QuizSession, QuizPlayer, QuizAnswer
 from .serializers import QuizSerializer, QuizSessionSerializer, QuizPlayerSerializer
 
@@ -17,7 +18,7 @@ def _generate_pin() -> str:
 
 
 class QuizSessionListView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsTeacher]
 
     def get(self, request):
         sessions = QuizSession.objects.select_related(
@@ -29,7 +30,7 @@ class QuizSessionListView(APIView):
 
 
 class QuizListCreateView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsTeacher]
 
     def get(self, request):
         quizzes = Quiz.objects.all().prefetch_related("questions__options")
@@ -67,7 +68,7 @@ class QuizListCreateView(APIView):
 
 
 class QuizDetailView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsTeacher]
 
     def get(self, request, quiz_id):
         quiz = get_object_or_404(Quiz.objects.prefetch_related(
@@ -112,7 +113,7 @@ class QuizDetailView(APIView):
 
 
 class QuizHostView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsTeacher]
 
     def post(self, request, quiz_id):
         quiz = get_object_or_404(Quiz, pk=quiz_id)
@@ -143,7 +144,7 @@ class QuizHostView(APIView):
 
 
 class QuizSessionDetailView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsTeacher]
 
     def get(self, request, pin):
         session = get_object_or_404(
@@ -169,7 +170,7 @@ class QuizSessionJoinView(APIView):
 
 
 class QuizLeaderboardView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsTeacher]
 
     def get(self, request, pin):
         session = get_object_or_404(QuizSession, pin=pin)

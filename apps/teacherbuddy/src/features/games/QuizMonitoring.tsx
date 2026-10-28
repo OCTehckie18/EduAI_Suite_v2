@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 
 
-import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
+import { API_BASE_URL, authHeaders, buildWsUrl } from "../../shared/utils/apiConfig";
 const getWsUrl = buildWsUrl;
 
 interface Player {
@@ -55,7 +55,9 @@ export const QuizMonitoring: React.FC = () => {
     // If quizId is 6 digits, it's likely a PIN (rejoining)
     if (quizId && quizId.length === 6 && !isNaN(Number(quizId))) {
       try {
-        const res = await fetch(`${API_BASE_URL}/quizzes/sessions/${quizId}`);
+        const res = await fetch(`${API_BASE_URL}/quizzes/sessions/${quizId}`, {
+          headers: authHeaders(),
+        });
         if (res.ok) {
           const data = await res.json();
           setPin(quizId);
@@ -73,6 +75,7 @@ export const QuizMonitoring: React.FC = () => {
     try {
       const res = await fetch(`${API_BASE_URL}/quizzes/${quizId}/session`, {
         method: "POST",
+        headers: authHeaders(),
       });
       const data = await res.json();
       setPin(data.pin);

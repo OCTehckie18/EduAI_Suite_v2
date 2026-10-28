@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 
 
 
-import { API_BASE_URL } from "../../shared/utils/apiConfig";
+import { API_BASE_URL, authHeaders } from "../../shared/utils/apiConfig";
 interface GameSession {
   id: string | number;
   type: "chain-answer" | "wordcloud" | "quiz" | "quiz-template";
@@ -34,7 +34,7 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
 
       // Fetch Quizzes (Drafts and Templates)
       try {
-        const qzRes = await fetch(`${API_BASE_URL}/quizzes/`);
+        const qzRes = await fetch(`${API_BASE_URL}/quizzes/`, { headers: authHeaders() });
         if (qzRes.ok) {
           const qzData = await qzRes.json();
           qzData.forEach((quiz: any) => {
@@ -92,7 +92,7 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
 
       // Fetch Quiz sessions (Active games)
       try {
-        const qRes = await fetch(`${API_BASE_URL}/quizzes/sessions`);
+        const qRes = await fetch(`${API_BASE_URL}/quizzes/sessions`, { headers: authHeaders() });
         if (qRes.ok) {
           const qData = await qRes.json();
           qData.forEach((game: any) => {
@@ -136,7 +136,7 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
         endpoint = `${API_BASE_URL}/quizzes/${id}`;
       }
 
-      const res = await fetch(endpoint, { method: "DELETE" });
+      const res = await fetch(endpoint, { method: "DELETE", headers: authHeaders() });
       if (res.ok) {
         setSessions((prev) => prev.filter((s) => s.id !== id || s.type !== type));
       } else {
@@ -151,7 +151,8 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
   const handlePlayTemplate = async (quizId: number) => {
     try {
       const res = await fetch(`${API_BASE_URL}/quizzes/${quizId}/session`, {
-        method: "POST"
+        method: "POST",
+        headers: authHeaders(),
       });
       if (res.ok) {
         const session = await res.json();

@@ -16,7 +16,7 @@ import { useEffect } from "react";
 
 
 
-import { API_BASE_URL } from "../../shared/utils/apiConfig";
+import { API_BASE_URL, authHeaders } from "../../shared/utils/apiConfig";
 interface Option {
   option_text: string;
   is_correct: boolean;
@@ -57,7 +57,7 @@ export const QuizCreator: React.FC = () => {
 
   useEffect(() => {
     if (id) {
-      fetch(`${API_BASE_URL}/quizzes/${id}`)
+      fetch(`${API_BASE_URL}/quizzes/${id}`, { headers: authHeaders() })
         .then(res => res.json())
         .then(data => {
           setTitle(data.title);
@@ -143,7 +143,7 @@ export const QuizCreator: React.FC = () => {
       
       const res = await fetch(url, {
         method: method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           title,
           description,
