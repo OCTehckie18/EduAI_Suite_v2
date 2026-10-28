@@ -5,6 +5,7 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.utils import timezone
 
+from ..accounts.authentication import authenticate_access_token
 from .models import QuizAnswer, QuizOption, QuizPlayer, QuizQuestion, QuizSession
 
 
@@ -18,6 +19,24 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         self.user_type = query.get("user_type", ["student"])[0]
         self.nickname = query.get("nickname", [""])[0].strip() or "Player"
         self.group_name = f"quiz_{self.pin}"
+
+        if self.user_type == "teacher":
+            access_token = query.get("access_token", [""])[0]
+            if not access_token:
+                await self.close(code=4401)
+                return
+            try:
+                self.user, _ = await sync_to_async(authenticate_access_token)(access_token)
+            except Exception:
+                await self.close(code=4401)
+                return
+            if getattr(self.user, "role", "") not in {
+                "TEACHER",
+                "CAMPUS_ADMIN",
+                "MASTER_ADMIN",
+            }:
+                await self.close(code=4403)
+                return
 
         if not await self.session_exists():
             await self.close(code=4404)
