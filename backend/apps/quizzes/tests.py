@@ -66,6 +66,16 @@ class QuizWebSocketFlowTests(TransactionTestCase):
             "type": "submit_answer",
             "question_id": 1,
             "option_id": 1,
+            "response_time": "not-a-number",
+        })
+        invalid_payload = await student.receive_json_from()
+        self.assertEqual(invalid_payload["type"], "error")
+        self.assertEqual(invalid_payload["message"], "Invalid answer payload.")
+
+        await student.send_json_to({
+            "type": "submit_answer",
+            "question_id": 1,
+            "option_id": 1,
             "response_time": 250,
         })
         self.assertEqual((await student.receive_json_from())["type"], "answer_submitted")

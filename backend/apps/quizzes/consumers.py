@@ -64,6 +64,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def receive_json(self, content, **kwargs):
+        if not isinstance(content, dict):
+            await self.send_json({"type": "error", "message": "Invalid quiz message."})
+            return
+
         message_type = content.get("type")
 
         if message_type == "start_game":
@@ -110,11 +114,22 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "error", "message": "This question is not accepting answers."})
             return
 
+        try:
+            question_id = int(content["question_id"])
+            option_id = int(content["option_id"])
+            response_time_ms = max(0, int(content.get("response_time", 0)))
+        except (KeyError, TypeError, ValueError):
+            await self.send_json({
+                "type": "error",
+                "message": "Invalid answer payload.",
+            })
+            return
+
         result = await self.save_answer(
             player_id=self.player_id,
-            question_id=content.get("question_id"),
-            option_id=content.get("option_id"),
-            response_time_ms=max(0, int(content.get("response_time", 0))),
+            question_id=question_id,
+            option_id=option_id,
+            response_time_ms=response_time_ms,
         )
         if result["error"]:
             await self.send_json({"type": "error", "message": result["error"]})
