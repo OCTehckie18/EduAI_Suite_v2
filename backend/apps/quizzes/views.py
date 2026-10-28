@@ -1,6 +1,7 @@
 import random
 import string
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -17,12 +18,20 @@ def _generate_pin() -> str:
     return "".join(random.choices(string.digits, k=6))
 
 
+def _managed_quizzes(user):
+    if getattr(user, "role", "") in {"CAMPUS_ADMIN", "MASTER_ADMIN"}:
+        return Quiz.objects.all()
+    return Quiz.objects.filter(teacher_id=user.pk)
+
+
 class QuizSessionListView(APIView):
     permission_classes = [IsTeacher]
 
     def get(self, request):
-        sessions = QuizSession.objects.select_related(
-            "quiz").prefetch_related("players")
+        sessions = QuizSession.objects.filter(
+            Q(quiz__in=_managed_quizzes(request.user))
+            | Q(is_test_run=True, status__in=["lobby", "active"])
+        ).select_related("quiz").prefetch_related("players")
         data = QuizSessionSerializer(sessions, many=True).data
         for session, item in zip(sessions, data):
             item["quiz_title"] = session.quiz.title
@@ -33,13 +42,18 @@ class QuizListCreateView(APIView):
     permission_classes = [IsTeacher]
 
     def get(self, request):
-        quizzes = Quiz.objects.all().prefetch_related("questions__options")
+        quizzes = _managed_quizzes(request.user).prefetch_related("questions__options")
         return Response(QuizSerializer(quizzes, many=True).data)
 
     def post(self, request):
         data = request.data
+        teacher_id = (
+            data.get("teacher_id")
+            if getattr(request.user, "role", "") in {"CAMPUS_ADMIN", "MASTER_ADMIN"}
+            else request.user.pk
+        )
         quiz = Quiz.objects.create(
-            teacher_id=data.get("teacher_id"),
+            teacher_id=teacher_id,
             title=data.get("title", "Untitled Quiz"),
             description=data.get("description", ""),
             cover_image=data.get("cover_image"),
@@ -71,12 +85,14 @@ class QuizDetailView(APIView):
     permission_classes = [IsTeacher]
 
     def get(self, request, quiz_id):
-        quiz = get_object_or_404(Quiz.objects.prefetch_related(
-            "questions__options"), pk=quiz_id)
+        quiz = get_object_or_404(
+            _managed_quizzes(request.user).prefetch_related("questions__options"),
+            pk=quiz_id,
+        )
         return Response(QuizSerializer(quiz).data)
 
     def put(self, request, quiz_id):
-        quiz = get_object_or_404(Quiz, pk=quiz_id)
+        quiz = get_object_or_404(_managed_quizzes(request.user), pk=quiz_id)
         data = request.data
 
         for field in ["title", "description", "cover_image", "is_draft"]:
@@ -107,7 +123,7 @@ class QuizDetailView(APIView):
         return Response(QuizSerializer(quiz).data)
 
     def delete(self, request, quiz_id):
-        quiz = get_object_or_404(Quiz, pk=quiz_id)
+        quiz = get_object_or_404(_managed_quizzes(request.user), pk=quiz_id)
         quiz.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -116,7 +132,7 @@ class QuizHostView(APIView):
     permission_classes = [IsTeacher]
 
     def post(self, request, quiz_id):
-        quiz = get_object_or_404(Quiz, pk=quiz_id)
+        quiz = get_object_or_404(_managed_quizzes(request.user), pk=quiz_id)
         for _ in range(10):
             pin = _generate_pin()
             if QuizSession.objects.filter(pin=pin).exists():
@@ -127,6 +143,7 @@ class QuizHostView(APIView):
                     session = QuizSession.objects.create(
                         quiz=quiz,
                         pin=pin,
+                        is_test_run=bool(request.data.get("is_test_run", False)),
                         status="lobby",
                     )
             except IntegrityError:
@@ -148,7 +165,11 @@ class QuizSessionDetailView(APIView):
 
     def get(self, request, pin):
         session = get_object_or_404(
-            QuizSession.objects.prefetch_related("players"), pin=pin)
+            QuizSession.objects.filter(
+                quiz__in=_managed_quizzes(request.user)
+            ).prefetch_related("players"),
+            pin=pin,
+        )
         return Response(QuizSessionSerializer(session).data)
 
 
@@ -173,6 +194,9 @@ class QuizLeaderboardView(APIView):
     permission_classes = [IsTeacher]
 
     def get(self, request, pin):
-        session = get_object_or_404(QuizSession, pin=pin)
+        session = get_object_or_404(
+            QuizSession.objects.filter(quiz__in=_managed_quizzes(request.user)),
+            pin=pin,
+        )
         players = session.players.order_by("-score")
         return Response(QuizPlayerSerializer(players, many=True).data)

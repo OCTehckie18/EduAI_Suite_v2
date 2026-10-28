@@ -21,7 +21,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         self.nickname = query.get("nickname", [""])[0].strip() or "Player"
         self.group_name = f"quiz_{self.pin}"
 
-        if self.user_type == "teacher":
+        if self.user_type in {"teacher", "teacher_player"}:
             access_token = query.get("access_token", [""])[0]
             if not access_token:
                 await self.close(code=4401)
@@ -43,7 +43,14 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=4404)
             return
 
-        if self.user_type == "student":
+        if self.user_type == "teacher_player" and not await self.test_run_exists():
+            await self.close(code=4403)
+            return
+        if self.user_type == "student" and await self.test_run_exists():
+            await self.close(code=4403)
+            return
+
+        if self.user_type in {"student", "teacher_player"}:
             self.player_id = await self.join_player()
             if not self.player_id:
                 await self.close(code=4409)
@@ -106,7 +113,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         await self.broadcast_json(await self.new_question_message(question, 0))
 
     async def submit_answer(self, content):
-        if self.user_type != "student":
+        if self.user_type not in {"student", "teacher_player"}:
             return
 
         session = await self.get_session_state()
@@ -218,6 +225,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def session_exists(self):
         return QuizSession.objects.filter(pin=self.pin).exists()
+
+    @database_sync_to_async
+    def test_run_exists(self):
+        return QuizSession.objects.filter(pin=self.pin, is_test_run=True).exists()
 
     @database_sync_to_async
     def join_player(self):

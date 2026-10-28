@@ -35,4 +35,4 @@ class QuizSessionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuizSession
-        fields = ["id", "quiz_id", "pin", "status", "current_question_index", "created_at", "started_at", "players"]
+        fields = ["id", "quiz_id", "pin", "is_test_run", "status", "current_question_index", "created_at", "started_at", "players"]

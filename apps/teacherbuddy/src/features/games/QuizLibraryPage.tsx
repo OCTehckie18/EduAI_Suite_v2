@@ -30,15 +30,26 @@ interface QuizTemplate {
   created_at: string;
 }
 
+interface TestRunSession {
+  pin: string;
+  quiz_title: string;
+  status: string;
+  players: Array<{ id: number; nickname: string }>;
+}
+
 export const QuizLibraryPage: React.FC = () => {
   const navigate = useNavigate();
   const [quizzes, setQuizzes] = useState<QuizTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [testRuns, setTestRuns] = useState<TestRunSession[]>([]);
 
   useEffect(() => {
     fetchQuizzes();
+    fetchTestRuns();
+    const interval = window.setInterval(fetchTestRuns, 15000);
+    return () => window.clearInterval(interval);
   }, []);
 
   const fetchQuizzes = async () => {
@@ -52,6 +63,17 @@ export const QuizLibraryPage: React.FC = () => {
       console.error("Failed to fetch quizzes", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTestRuns = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/quizzes/sessions`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      setTestRuns(data.filter((session: any) => session.is_test_run && ["lobby", "active"].includes(session.status)));
+    } catch (err) {
+      console.warn("Failed to load teacher test runs", err);
     }
   };
 
@@ -85,6 +107,24 @@ export const QuizLibraryPage: React.FC = () => {
     }
   };
 
+  const handleStartTestRun = async (id: number) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/quizzes/${id}/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ is_test_run: true }),
+      });
+      if (res.ok) {
+        const session = await res.json();
+        navigate(`/games/quiz/host/${session.pin}`);
+      }
+    } catch (err) {
+      console.error("Failed to start teacher test run", err);
+    }
+  };
+
+  const handleJoinTestRun = (pin: string) => navigate(`/games/quiz/test/${pin}`);
+
   const filteredQuizzes = quizzes.filter(q => 
     q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (q.description && q.description.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -112,6 +152,29 @@ export const QuizLibraryPage: React.FC = () => {
           CREATE NEW QUIZ
         </button>
       </div>
+
+      {testRuns.length > 0 && (
+        <GlassCard className="border border-amber-200 bg-amber-50/70 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-amber-900">Teacher test runs</h2>
+              <p className="text-sm font-medium text-amber-700">Preview quizzes privately before releasing them to students.</p>
+            </div>
+            <span className="rounded-full bg-amber-200 px-3 py-1 text-xs font-black uppercase tracking-wider text-amber-900">{testRuns.length} open</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {testRuns.map((run) => (
+              <div key={run.pin} className="flex items-center justify-between gap-4 rounded-2xl bg-white p-4 shadow-sm">
+                <div>
+                  <p className="font-black text-gray-900">{run.quiz_title}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">{run.status} · {run.players?.length || 0} teachers joined</p>
+                </div>
+                <button onClick={() => handleJoinTestRun(run.pin)} className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-white hover:bg-amber-600">Join preview</button>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
 
       {/* Toolbar */}
       <GlassCard className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -221,6 +284,12 @@ export const QuizLibraryPage: React.FC = () => {
                         <Play size={16} fill="white" /> Host
                       </button>
                     )}
+                    <button
+                      onClick={() => handleStartTestRun(quiz.id)}
+                      className="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl text-sm hover:bg-amber-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-200"
+                    >
+                      Test run
+                    </button>
                     <button 
                       onClick={() => handleDelete(quiz.id)}
                       className="p-3 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
@@ -254,6 +323,7 @@ export const QuizLibraryPage: React.FC = () => {
                    {!quiz.is_draft && (
                      <button onClick={() => handlePlay(quiz.id)} className="px-4 py-2 bg-blue-600 text-white font-bold text-sm rounded-xl hover:bg-blue-700 transition-all flex items-center gap-2"><Play size={14} fill="white"/> Host</button>
                    )}
+                   <button onClick={() => handleStartTestRun(quiz.id)} className="px-4 py-2 bg-amber-500 text-white font-bold text-sm rounded-xl hover:bg-amber-600 transition-all">Test run</button>
                    <button onClick={() => handleDelete(quiz.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={20}/></button>
                 </div>
              </GlassCard>
