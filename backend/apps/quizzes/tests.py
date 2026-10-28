@@ -1,9 +1,11 @@
-from asgiref.sync import async_to_sync
+from asgiref.sync import async_to_sync, sync_to_async
 from channels.testing import WebsocketCommunicator
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TransactionTestCase
+from django.utils import timezone
 import jwt
+from datetime import timedelta
 
 from config.asgi import application
 from .models import Quiz, QuizOption, QuizQuestion, QuizSession
@@ -123,6 +125,47 @@ class QuizWebSocketFlowTests(TransactionTestCase):
 
     def test_duplicate_student_nickname_is_rejected(self):
         async_to_sync(self._assert_rejects_duplicate_nickname)()
+
+    def test_student_cannot_answer_after_question_timeout(self):
+        async_to_sync(self._assert_rejects_expired_answer)()
+
+    async def _assert_rejects_expired_answer(self):
+        teacher = WebsocketCommunicator(
+            application,
+            f"/ws/quiz/123456?user_type=teacher&access_token={self.teacher_token}",
+        )
+        student = WebsocketCommunicator(
+            application,
+            "/ws/quiz/123456?user_type=student&nickname=Ana",
+        )
+
+        await teacher.connect()
+        await teacher.receive_json_from()
+        await student.connect()
+        await student.receive_json_from()
+        await teacher.receive_json_from()
+
+        await teacher.send_json_to({"type": "start_game"})
+        await teacher.receive_json_from()
+        await student.receive_json_from()
+        await sync_to_async(
+            lambda: QuizSession.objects.filter(pin="123456").update(
+                question_started_at=timezone.now() - timedelta(seconds=21)
+            )
+        )()
+
+        await student.send_json_to({
+            "type": "submit_answer",
+            "question_id": 1,
+            "option_id": 1,
+            "response_time": 1,
+        })
+        error = await student.receive_json_from()
+        self.assertEqual(error["type"], "error")
+        self.assertEqual(error["message"], "This question's time has expired.")
+
+        await teacher.disconnect()
+        await student.disconnect()
 
     async def _assert_rejects_duplicate_nickname(self):
         first_student = WebsocketCommunicator(

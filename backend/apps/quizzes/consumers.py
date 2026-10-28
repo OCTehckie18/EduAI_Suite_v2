@@ -89,7 +89,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "error", "message": "Add at least one question before starting."})
             return
 
-        await self.update_session(status="active", current_question_index=0, started_at=timezone.now())
+        await self.update_session(
+            status="active",
+            current_question_index=0,
+            started_at=timezone.now(),
+            question_started_at=timezone.now(),
+        )
         question = await self.get_current_question(0)
         await self.broadcast_json(await self.new_question_message(question, 0))
 
@@ -158,7 +163,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             })
             return
 
-        await self.update_session(status="active", current_question_index=next_index)
+        await self.update_session(
+            status="active",
+            current_question_index=next_index,
+            question_started_at=timezone.now(),
+        )
         question = await self.get_current_question(next_index)
         await self.broadcast_json(await self.new_question_message(question, next_index))
 
@@ -259,6 +268,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         if not current_question or str(question_id) != str(current_question.id):
             return {"error": "That question is no longer accepting answers."}
+
+        if session.question_started_at:
+            elapsed_seconds = (timezone.now() - session.question_started_at).total_seconds()
+            if elapsed_seconds > max(current_question.time_limit, 1):
+                return {"error": "This question's time has expired."}
 
         question = QuizQuestion.objects.filter(
             id=question_id, quiz__sessions__pin=self.pin).first()
