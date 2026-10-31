@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from services.word_service import WordService
+from apps.core.services import record_student_activity
 from .models import (
     ChainAnswerGame,
     GamePlayer,
@@ -271,6 +272,17 @@ class ChainAnswerGameSubmitWordView(APIView):
             elif game.penalty_on_invalid:
                 player.score = max(0.0, player.score - 5.0)
             player.save()
+
+            student_id = str(player.student_id or "").strip()
+            if student_id.isdigit():
+                record_student_activity(
+                    student_id=int(student_id),
+                    activity_type="game",
+                    source_id=game.id,
+                    title=game.name or "Game Session",
+                    score=player.score,
+                    status=player.status,
+                )
 
         return Response({
             "word": GameWordSerializer(game_word).data,

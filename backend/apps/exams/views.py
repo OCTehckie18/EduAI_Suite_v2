@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.classrooms.models import Classroom
+from apps.core.services import record_student_activity
 from .models import Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer
 from .serializers import ExamSerializer, ExamAttemptSerializer
 
@@ -167,6 +168,16 @@ class ExamAttemptSubmitView(APIView):
         attempt.status = "submitted"
         attempt.end_time = timezone.now()
         attempt.save()
+
+        record_student_activity(
+            student_id=attempt.student_id,
+            activity_type="exam",
+            source_id=attempt.id,
+            title=attempt.exam.title or "Assessment",
+            score=attempt.score,
+            status=attempt.status,
+            occurred_at=attempt.end_time,
+        )
 
         return Response(ExamAttemptSerializer(attempt).data)
 

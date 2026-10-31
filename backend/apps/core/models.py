@@ -84,3 +84,35 @@ class ActionHistory(models.Model):
     def __str__(self):
         return f"[{self.feature}] {self.action} ({self.result})"
 
+
+class StudentActivity(models.Model):
+    """Compact, display-ready record of a student learning event."""
+
+    ACTIVITY_TYPES = (
+        ("assignment", "Assignment"),
+        ("exam", "Exam"),
+        ("game", "Game"),
+        ("lesson", "Lesson"),
+    )
+
+    student_id = models.IntegerField(db_index=True)
+    source_id = models.CharField(max_length=100)
+    activity_type = models.CharField(max_length=30, choices=ACTIVITY_TYPES)
+    title = models.CharField(max_length=255)
+    score = models.FloatField(null=True, blank=True)
+    status = models.CharField(max_length=50, blank=True)
+    occurred_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        ordering = ["-occurred_at"]
+        indexes = [models.Index(fields=["student_id", "-occurred_at"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student_id", "activity_type", "source_id"],
+                name="unique_student_activity_source",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.student_id}: {self.activity_type} - {self.title}"
+

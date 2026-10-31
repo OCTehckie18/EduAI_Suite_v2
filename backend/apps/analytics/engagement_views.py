@@ -9,6 +9,7 @@ from apps.classrooms.models import Classroom, Enrollment
 from apps.assignments.models import Assignment, Submission
 from apps.exams.models import Exam, ExamAttempt
 from apps.games.models import ChainAnswerGame, GamePlayer
+from apps.core.models import StudentActivity
 
 
 def _compute_engagement_level(score: float) -> str:
@@ -153,8 +154,26 @@ def _get_student_engagement(student: User, course_id: int):
     ) if total_weight else 0.0
     engagement_level = _compute_engagement_level(engagement_score)
 
-    # Activity Timeline
-    timeline = []
+    # Compact persisted events used by the classroom student profile.
+    timeline = [
+        {
+            "type": activity.activity_type,
+            "title": activity.title,
+            "detail": (
+                f"Score: {activity.score}"
+                if activity.score is not None else activity.status
+            ),
+            "timestamp": activity.occurred_at,
+            "icon": "activity",
+        }
+        for activity in StudentActivity.objects.filter(
+            student_id=student.id,
+        )[:20]
+    ]
+    has_persisted_activity = bool(timeline)
+
+    # Assignments still use the legacy submission table, so include them
+    # alongside the compact event rows.
     for sub_data in submissions:
         if sub_data["status"] == "submitted" and sub_data["submitted_at"]:
             timeline.append({
@@ -165,23 +184,25 @@ def _get_student_engagement(student: User, course_id: int):
                 "icon": "file-check",
             })
 
-    for exam_d in exams_data:
-        timeline.append({
-            "type": "exam_attempt",
-            "title": f"Exam: {exam_d['exam_title']}",
-            "detail": f"Score: {exam_d['score']}",
-            "timestamp": exam_d["end_time"] or exam_d["start_time"],
-            "icon": "clipboard-list",
-        })
+    # Backfill exam/game events for historical records that predate this table.
+    if not has_persisted_activity:
+        for exam_d in exams_data:
+            timeline.append({
+                "type": "exam_attempt",
+                "title": f"Exam: {exam_d['exam_title']}",
+                "detail": f"Score: {exam_d['score']}",
+                "timestamp": exam_d["end_time"] or exam_d["start_time"],
+                "icon": "clipboard-list",
+            })
 
-    for game_d in games_data:
-        timeline.append({
-            "type": "game_session",
-            "title": f"Game: {game_d['game_name']}",
-            "detail": f"Score: {game_d['score']} | Words: {game_d['words_valid']}/{game_d['words_submitted']}",
-            "timestamp": None,
-            "icon": "gamepad-2",
-        })
+        for game_d in games_data:
+            timeline.append({
+                "type": "game_session",
+                "title": f"Game: {game_d['game_name']}",
+                "detail": f"Score: {game_d['score']} | Words: {game_d['words_valid']}/{game_d['words_submitted']}",
+                "timestamp": None,
+                "icon": "gamepad-2",
+            })
 
     reg_no = student.register_no or f"REG-{student.id}"
     dept_name = student.department.name if student.department else "General"
