@@ -47,6 +47,9 @@ type CalendarNotification = {
   message: string;
 };
 
+// Any event type without its own filter chip (e.g. "meeting") shows under "custom".
+const FILTER_TYPES = ["custom", "deadline", "exam", "appointment", "class"];
+
 const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
 const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
 
@@ -96,8 +99,8 @@ export const StudentCalendar: React.FC = () => {
     location: "",
   });
 
-  const fetchEventsAndNotifications = useCallback(async () => {
-    setLoading(true);
+  const fetchEventsAndNotifications = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const token = localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -125,6 +128,20 @@ export const StudentCalendar: React.FC = () => {
 
   useEffect(() => {
     fetchEventsAndNotifications();
+
+    // Keep the calendar in step with activity elsewhere on the platform (new
+    // assignments, exams, appointments, quizzes) without a manual reload.
+    const refresh = () => {
+      if (document.visibilityState === "visible") fetchEventsAndNotifications(true);
+    };
+    const interval = window.setInterval(refresh, 60000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [fetchEventsAndNotifications]);
 
   const year = currentDate.getFullYear();
@@ -150,7 +167,7 @@ export const StudentCalendar: React.FC = () => {
   };
 
   const filteredEvents = useMemo(() => {
-    let filtered = events.filter(e => activeFilters.has(e.type === "custom" ? "custom" : e.type));
+    let filtered = events.filter(e => activeFilters.has(FILTER_TYPES.includes(e.type) ? e.type : "custom"));
     
     if (search) {
       const q = search.toLowerCase();

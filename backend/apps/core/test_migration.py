@@ -165,6 +165,7 @@ class MigrationSmokeTestCase(TestCase):
         self.assertGreaterEqual(res.json()["total_exams"], 1)
 
     def test_calendar(self):
+        self.client.force_authenticate(user=self.teacher)
         res = self.client.post("/calendar/events", {
             "title": "Faculty Meeting",
             "start_time": "2026-09-12T10:00:00Z",
