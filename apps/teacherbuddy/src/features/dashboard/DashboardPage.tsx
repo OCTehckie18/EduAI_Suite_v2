@@ -6,6 +6,7 @@ import {
   Plus, XCircle
 } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
+import { TeacherTestRuns } from "../games/TeacherTestRuns";
 import { Link } from "react-router-dom";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -135,6 +136,8 @@ export const DashboardPage: React.FC = () => {
           <Link to="/appointments" className="btn btn-primary text-xs"><Calendar size={13} /> Schedule Appointment</Link>
         </div>
       </div>
+
+      <TeacherTestRuns />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Link to="/exams" className="glass-card flex items-center gap-3 p-3 transition hover:-translate-y-0.5">

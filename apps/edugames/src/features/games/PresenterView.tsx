@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import PPTXViewer from "./PPTXViewer";
 import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
+import { getCurrentStudentId } from "../../shared/utils/currentStudent";
 
 // ─── Types ────────────────────────────────────────────────────
 interface PreloadedInteraction {
@@ -115,7 +116,7 @@ const PresenterView: React.FC<Props> = ({ submissionId, fileUrl, fileName, onBac
   const [sessionEnded, setSessionEnded] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const studentId = localStorage.getItem("student_id") || "1";
+  const studentId = String(getCurrentStudentId() ?? "");
 
   // ─── Fetch Interactions ───────────────────────────────────
   useEffect(() => {

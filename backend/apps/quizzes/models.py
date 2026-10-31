@@ -7,6 +7,7 @@ class Quiz(models.Model):
     description = models.TextField(blank=True, null=True)
     cover_image = models.CharField(max_length=500, blank=True, null=True)
     is_draft = models.BooleanField(default=False)
+    is_public = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:

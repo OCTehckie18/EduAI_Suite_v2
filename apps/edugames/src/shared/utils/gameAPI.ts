@@ -3,7 +3,7 @@ import { API_BASE_URL } from "./apiConfig";
 export { API_BASE_URL } from "./apiConfig";
 
 export interface GamePlayer {
-  student_id: number;
+  student_id: string | number;
   name?: string;
 }
 

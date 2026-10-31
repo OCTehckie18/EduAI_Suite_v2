@@ -24,6 +24,31 @@ def _managed_quizzes(user):
     return Quiz.objects.filter(teacher_id=user.pk)
 
 
+def _library_quizzes(user):
+    """Public, published quizzes from other teachers, kept for reference."""
+    return Quiz.objects.filter(is_public=True, is_draft=False).exclude(teacher_id=user.pk)
+
+
+def _copy_questions(quiz, questions):
+    for q_idx, q_data in enumerate(questions):
+        question = QuizQuestion.objects.create(
+            quiz=quiz,
+            question_text=q_data.get("question_text", ""),
+            question_type=q_data.get("question_type", "mcq"),
+            image_url=q_data.get("image_url"),
+            time_limit=int(q_data.get("time_limit", 20)),
+            points=int(q_data.get("points", 1000)),
+            order=q_data.get("order", q_idx),
+        )
+        for c_data in q_data.get("options", []):
+            QuizOption.objects.create(
+                question=question,
+                option_text=c_data.get("option_text", ""),
+                is_correct=bool(c_data.get("is_correct", False)),
+                color=c_data.get("color"),
+            )
+
+
 class QuizSessionListView(APIView):
     permission_classes = [IsTeacher]
 
@@ -42,8 +67,11 @@ class QuizListCreateView(APIView):
     permission_classes = [IsTeacher]
 
     def get(self, request):
-        quizzes = _managed_quizzes(request.user).prefetch_related("questions__options")
-        return Response(QuizSerializer(quizzes, many=True).data)
+        if request.query_params.get("scope") == "library":
+            quizzes = _library_quizzes(request.user)
+        else:
+            quizzes = _managed_quizzes(request.user)
+        return Response(QuizSerializer(quizzes.prefetch_related("questions__options"), many=True).data)
 
     def post(self, request):
         data = request.data
@@ -58,25 +86,9 @@ class QuizListCreateView(APIView):
             description=data.get("description", ""),
             cover_image=data.get("cover_image"),
             is_draft=bool(data.get("is_draft", False)),
+            is_public=bool(data.get("is_public", False)),
         )
-
-        for q_idx, q_data in enumerate(data.get("questions", [])):
-            question = QuizQuestion.objects.create(
-                quiz=quiz,
-                question_text=q_data.get("question_text", ""),
-                question_type=q_data.get("question_type", "mcq"),
-                image_url=q_data.get("image_url"),
-                time_limit=int(q_data.get("time_limit", 20)),
-                points=int(q_data.get("points", 1000)),
-                order=q_data.get("order", q_idx),
-            )
-            for c_data in q_data.get("options", []):
-                QuizOption.objects.create(
-                    question=question,
-                    option_text=c_data.get("option_text", ""),
-                    is_correct=bool(c_data.get("is_correct", False)),
-                    color=c_data.get("color"),
-                )
+        _copy_questions(quiz, data.get("questions", []))
 
         return Response(QuizSerializer(quiz).data, status=status.HTTP_201_CREATED)
 
@@ -85,40 +97,22 @@ class QuizDetailView(APIView):
     permission_classes = [IsTeacher]
 
     def get(self, request, quiz_id):
-        quiz = get_object_or_404(
-            _managed_quizzes(request.user).prefetch_related("questions__options"),
-            pk=quiz_id,
-        )
+        visible = _managed_quizzes(request.user) | _library_quizzes(request.user)
+        quiz = get_object_or_404(visible.prefetch_related("questions__options"), pk=quiz_id)
         return Response(QuizSerializer(quiz).data)
 
     def put(self, request, quiz_id):
         quiz = get_object_or_404(_managed_quizzes(request.user), pk=quiz_id)
         data = request.data
 
-        for field in ["title", "description", "cover_image", "is_draft"]:
+        for field in ["title", "description", "cover_image", "is_draft", "is_public"]:
             if field in data:
                 setattr(quiz, field, data[field])
         quiz.save()
 
         if "questions" in data:
             quiz.questions.all().delete()
-            for q_idx, q_data in enumerate(data["questions"]):
-                question = QuizQuestion.objects.create(
-                    quiz=quiz,
-                    question_text=q_data.get("question_text", ""),
-                    question_type=q_data.get("question_type", "mcq"),
-                    image_url=q_data.get("image_url"),
-                    time_limit=int(q_data.get("time_limit", 20)),
-                    points=int(q_data.get("points", 1000)),
-                    order=q_data.get("order", q_idx),
-                )
-                for c_data in q_data.get("options", []):
-                    QuizOption.objects.create(
-                        question=question,
-                        option_text=c_data.get("option_text", ""),
-                        is_correct=bool(c_data.get("is_correct", False)),
-                        color=c_data.get("color"),
-                    )
+            _copy_questions(quiz, data["questions"])
 
         return Response(QuizSerializer(quiz).data)
 
@@ -126,6 +120,24 @@ class QuizDetailView(APIView):
         quiz = get_object_or_404(_managed_quizzes(request.user), pk=quiz_id)
         quiz.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class QuizCloneView(APIView):
+    permission_classes = [IsTeacher]
+
+    def post(self, request, quiz_id):
+        visible = _managed_quizzes(request.user) | _library_quizzes(request.user)
+        source = get_object_or_404(visible.prefetch_related("questions__options"), pk=quiz_id)
+        copy = Quiz.objects.create(
+            teacher_id=request.user.pk,
+            title=f"{source.title or 'Untitled Quiz'} (copy)",
+            description=source.description,
+            cover_image=source.cover_image,
+            is_draft=True,
+            is_public=False,
+        )
+        _copy_questions(copy, QuizSerializer(source).data["questions"])
+        return Response(QuizSerializer(copy).data, status=status.HTTP_201_CREATED)
 
 
 class QuizHostView(APIView):

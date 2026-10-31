@@ -6,6 +6,7 @@ interface UserInfo {
   email: string;
   name: string;
   picture?: string;
+  register_no?: string | null;
 }
 
 interface AuthState {

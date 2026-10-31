@@ -18,10 +18,14 @@ class QuizQuestionSerializer(serializers.ModelSerializer):
 
 class QuizSerializer(serializers.ModelSerializer):
     questions = QuizQuestionSerializer(many=True, required=False)
+    question_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Quiz
-        fields = ["id", "teacher_id", "title", "description", "cover_image", "is_draft", "created_at", "questions"]
+        fields = ["id", "teacher_id", "title", "description", "cover_image", "is_draft", "is_public", "created_at", "question_count", "questions"]
+
+    def get_question_count(self, obj):
+        return len(obj.questions.all())
 
 
 class QuizPlayerSerializer(serializers.ModelSerializer):

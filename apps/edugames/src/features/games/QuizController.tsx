@@ -15,11 +15,13 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
 import { requestGameFullscreen } from "./fullscreen";
+import { getCurrentAccessToken, getCurrentStudentName } from "../../shared/utils/currentStudent";
+import { PlayerAvatar } from "../../shared/components/PlayerAvatar";
 const getWsUrl = buildWsUrl;
 
 export const QuizController: React.FC = () => {
   const [pin, setPin] = useState("");
-  const [nickname, setNickname] = useState("");
+  const [nickname, setNickname] = useState(getCurrentStudentName());
   const [status, setStatus] = useState<
     "join" | "waiting" | "playing" | "submitted" | "feedback" | "finished"
   >("join");
@@ -38,9 +40,12 @@ export const QuizController: React.FC = () => {
     if (!pin || !nickname) return;
 
     requestGameFullscreen();
+    // Sending the token lets the server save this result against the real account.
+    const token = getCurrentAccessToken();
+    const tokenParam = token ? `&access_token=${encodeURIComponent(token)}` : "";
     const ws = new WebSocket(
       getWsUrl(
-        `/ws/quiz/${encodeURIComponent(pin)}?user_type=student&nickname=${encodeURIComponent(nickname)}`,
+        `/ws/quiz/${encodeURIComponent(pin)}?user_type=student&nickname=${encodeURIComponent(nickname)}${tokenParam}`,
       ),
     );
     socketRef.current = ws;
@@ -168,9 +173,9 @@ export const QuizController: React.FC = () => {
   if (status === "waiting") {
     return (
       <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-6 text-white text-center animate-pulse">
-        <span className="text-4xl mb-8 font-semibold tracking-wide">
-          {avatar || "PLAYER"}
-        </span>
+        <div className="mb-8">
+          <PlayerAvatar avatar={avatar} size={96} />
+        </div>
         <h2 className="text-5xl font-black mb-4 italic tracking-tighter">
           You're in!
         </h2>
@@ -307,7 +312,7 @@ export const QuizController: React.FC = () => {
                   >
                     {idx + 1}
                   </span>
-                  <span className="text-2xl">{p.avatar}</span>
+                  <PlayerAvatar avatar={p.avatar} size={32} />
                   <span className="font-bold text-lg">{p.nickname}</span>
                 </div>
                 <span className="font-black">{p.score}</span>

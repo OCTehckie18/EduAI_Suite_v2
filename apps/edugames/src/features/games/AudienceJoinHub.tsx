@@ -5,6 +5,7 @@ import { Hash, ArrowRight, Loader2, AlertCircle, Users, Zap, Radio } from "lucid
 import LiveSessionInterface from "./LiveSessionInterface";
 import { API_BASE_URL } from "../../shared/utils/gameAPI";
 import { requestGameFullscreen } from "./fullscreen";
+import { getCurrentStudentId } from "../../shared/utils/currentStudent";
 
 const BRAND_BLUE = "#264796";
 const BRAND_BLUE_LIGHT = "#3460c4";
@@ -16,7 +17,7 @@ const AudienceJoinHub: React.FC = () => {
   const [joined, setJoined] = useState(false);
   const [sessionData, setSessionData] = useState<any>(null);
 
-  const studentId = parseInt(localStorage.getItem("student_id") || "1");
+  const studentId = getCurrentStudentId() ?? 0;
 
   const handleJoin = async () => {
     const cleanPin = pin.replace(/\s/g, "");

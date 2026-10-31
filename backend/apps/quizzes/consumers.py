@@ -7,6 +7,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from ..accounts.authentication import authenticate_access_token
+from ..core.services import record_student_activity, resolve_student, student_key
 from .models import QuizAnswer, QuizOption, QuizPlayer, QuizQuestion, QuizSession
 
 
@@ -20,6 +21,20 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         self.user_type = query.get("user_type", ["student"])[0]
         self.nickname = query.get("nickname", [""])[0].strip() or "Player"
         self.group_name = f"quiz_{self.pin}"
+        self.student_id = None
+
+        # Signed-in students send their access token so results are saved against
+        # the real account. The id comes from the verified token, never the client.
+        if self.user_type == "student":
+            access_token = query.get("access_token", [""])[0]
+            if access_token:
+                try:
+                    student, _ = await sync_to_async(authenticate_access_token)(access_token)
+                except Exception:
+                    await self.close(code=4401)
+                    return
+                if getattr(student, "role", "") == "STUDENT":
+                    self.student_id = student_key(student)
 
         if self.user_type in {"teacher", "teacher_player"}:
             access_token = query.get("access_token", [""])[0]
@@ -193,6 +208,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             )
             if not transitioned:
                 return
+            await self.record_results()
             await self.broadcast_json({
                 "type": "game_over",
                 "leaderboard": await self.get_leaderboard(),
@@ -235,11 +251,17 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         try:
             with transaction.atomic():
                 session = QuizSession.objects.select_for_update().get(pin=self.pin)
+                if self.student_id:
+                    # Same account reconnecting (refresh, dropped network): keep its score.
+                    existing = session.players.filter(student_id=self.student_id).first()
+                    if existing:
+                        return existing.id
                 if session.players.filter(nickname=self.nickname).exists():
                     return None
 
                 player = QuizPlayer.objects.create(
                     session=session,
+                    student_id=self.student_id,
                     nickname=self.nickname,
                     avatar=OPTION_COLORS[session.players.count() % len(OPTION_COLORS)],
                 )
@@ -259,6 +281,25 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def update_session(self, **fields):
         QuizSession.objects.filter(pin=self.pin).update(**fields)
+
+    @database_sync_to_async
+    def record_results(self):
+        session = QuizSession.objects.select_related("quiz").get(pin=self.pin)
+        if session.is_test_run:
+            return
+        total = sum(q.points for q in session.quiz.questions.all()) or None
+        for player in session.players.exclude(student_id__isnull=True).exclude(student_id=""):
+            student = resolve_student(player.student_id)
+            if student is None:
+                continue
+            record_student_activity(
+                student_id=student.pk,
+                activity_type="game",
+                source_id=f"quiz:{session.pk}",
+                title=session.quiz.title or "Quiz",
+                score=player.score,
+                status="completed",
+            )
 
     @database_sync_to_async
     def transition_session(self, expected_status, **fields):

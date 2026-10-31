@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
+import { PlayerAvatar } from "../../shared/components/PlayerAvatar";
 import { motion, AnimatePresence } from "framer-motion";
 
 
@@ -239,7 +240,7 @@ export const QuizMonitoring: React.FC = () => {
                   exit={{ scale: 0, opacity: 0 }}
                   className="bg-white/10 backdrop-blur-sm border border-white/10 p-4 rounded-2xl text-center flex flex-col items-center gap-2"
                 >
-                  <span className="text-4xl">{p.avatar}</span>
+                  <PlayerAvatar avatar={p.avatar} size={56} />
                   <span className="font-black truncate w-full">
                     {p.nickname}
                   </span>
@@ -381,7 +382,7 @@ export const QuizMonitoring: React.FC = () => {
               className="flex-1 flex flex-col items-center gap-4"
             >
               <div className="flex flex-col items-center">
-                <span className="text-6xl mb-2">{leaderboard[1].avatar}</span>
+                <span className="mb-2"><PlayerAvatar avatar={leaderboard[1].avatar} size={72} /></span>
                 <span className="text-2xl font-black">
                   {leaderboard[1].nickname}
                 </span>
@@ -402,8 +403,8 @@ export const QuizMonitoring: React.FC = () => {
               className="flex-1 flex flex-col items-center gap-4"
             >
               <div className="flex flex-col items-center">
-                <span className="text-8xl mb-4 animate-bounce">
-                  {leaderboard[0].avatar}
+                <span className="mb-4 animate-bounce">
+                  <PlayerAvatar avatar={leaderboard[0].avatar} size={104} />
                 </span>
                 <span className="text-4xl font-black text-yellow-400">
                   {leaderboard[0].nickname}
@@ -426,7 +427,7 @@ export const QuizMonitoring: React.FC = () => {
               className="flex-1 flex flex-col items-center gap-4"
             >
               <div className="flex flex-col items-center">
-                <span className="text-5xl mb-2">{leaderboard[2].avatar}</span>
+                <span className="mb-2"><PlayerAvatar avatar={leaderboard[2].avatar} size={64} /></span>
                 <span className="text-xl font-black">
                   {leaderboard[2].nickname}
                 </span>

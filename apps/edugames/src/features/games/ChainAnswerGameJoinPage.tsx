@@ -9,6 +9,7 @@ import {
 import { motion } from "framer-motion";
 import { Play, Users, Lock, Loader, Copy, CheckCircle } from "lucide-react";
 import { requestGameFullscreen } from "./fullscreen";
+import { getCurrentStudentId, getCurrentStudentKey } from "../../shared/utils/currentStudent";
 
 interface ChainAnswerGameJoinPageProps {
   initialSessionId?: string;
@@ -46,16 +47,31 @@ export const ChainAnswerGameJoinPage: React.FC<
       // Fetch game by session ID
       const game = await gameAPI.getGameBySessionId(sessionId);
 
-      // Find the player in the registered list by name (case-insensitive)
-      const registeredPlayer = game.players?.find(
-        (p: any) =>
-          p.name.trim().toLowerCase() === playerName.trim().toLowerCase(),
-      );
+      // Prefer the signed-in account, then fall back to the typed name (case-insensitive)
+      const accountId = getCurrentStudentId();
+      const studentKey = getCurrentStudentKey();
+      const registeredPlayer =
+        (studentKey !== null
+          ? game.players?.find(
+              (p: any) =>
+                String(p.student_id) === studentKey ||
+                String(p.student_id) === String(accountId),
+            )
+          : undefined) ??
+        game.players?.find(
+          (p: any) =>
+            p.name.trim().toLowerCase() === playerName.trim().toLowerCase(),
+        );
 
       setGameId(game.id);
 
-      // Use the actual student_id from the backend if they match, otherwise generate one
-      const effectivePlayerId = registeredPlayer ? registeredPlayer.student_id : createChainAnswerPlayerId();
+      // Registered player's id, else the signed-in account's id; a random id is only
+      // used for guests, so results are never filed under an id that matches no one.
+      const effectivePlayerId = registeredPlayer
+        ? registeredPlayer.student_id
+        : studentKey !== null
+          ? studentKey
+          : createChainAnswerPlayerId();
 
       setPlayerId(effectivePlayerId);
       saveChainAnswerPlayerSession(

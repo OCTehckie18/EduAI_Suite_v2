@@ -10,6 +10,8 @@ from apps.assignments.models import Assignment, Submission
 from apps.exams.models import Exam, ExamAttempt
 from apps.games.models import ChainAnswerGame, GamePlayer
 from apps.core.models import StudentActivity
+from apps.core.services import student_keys
+from apps.quizzes.models import QuizPlayer
 
 
 def _compute_engagement_level(score: float) -> str:
@@ -116,7 +118,7 @@ def _get_student_engagement(student: User, course_id: int):
 
     # Games
     game_players = GamePlayer.objects.filter(
-        Q(student_id=str(student.id)) | Q(name__iexact=student.full_name)
+        Q(student_id__in=student_keys(student)) | Q(name__iexact=student.full_name)
     )
     games_data = []
     total_game_score = 0.0
@@ -137,6 +139,23 @@ def _get_student_engagement(student: User, course_id: int):
         total_game_score += gp.score
         total_words_submitted += gp.words_submitted
         total_words_valid += gp.words_valid
+
+    # Live quizzes are matched on the student's register number, never the nickname.
+    quiz_players = QuizPlayer.objects.filter(
+        student_id__in=student_keys(student),
+        session__is_test_run=False,
+    ).select_related("session__quiz")
+    for qp in quiz_players:
+        games_data.append({
+            "game_id": f"quiz-{qp.session_id}",
+            "game_name": qp.session.quiz.title or "Quiz",
+            "game_status": qp.session.status,
+            "score": qp.score,
+            "words_submitted": 0,
+            "words_valid": 0,
+            "player_status": "completed" if qp.session.status == "completed" else qp.session.status,
+        })
+        total_game_score += qp.score
 
     # Attendance is unavailable until attendance records are stored by the backend.
     attendance_pct = None

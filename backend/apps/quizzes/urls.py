@@ -3,6 +3,7 @@ from .views import (
     QuizListCreateView,
     QuizDetailView,
     QuizHostView,
+    QuizCloneView,
     QuizSessionListView,
     QuizSessionDetailView,
     QuizSessionJoinView,
@@ -12,6 +13,7 @@ from .views import (
 urlpatterns = [
     path("", QuizListCreateView.as_view(), name="quiz-list-create"),
     path("<int:quiz_id>", QuizDetailView.as_view(), name="quiz-detail"),
+    path("<int:quiz_id>/clone", QuizCloneView.as_view(), name="quiz-clone"),
     path("<int:quiz_id>/host", QuizHostView.as_view(), name="quiz-host"),
     path("<int:quiz_id>/session", QuizHostView.as_view(),
          name="quiz-session-create"),

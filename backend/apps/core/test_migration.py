@@ -220,6 +220,7 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
 
     def test_quizzes(self):
+        self.client.force_authenticate(user=self.teacher)
         res = self.client.post("/quizzes/", {
             "title": "Python Basics",
             "questions": [
@@ -279,6 +280,7 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(len(res.json()["columns"]), 3)
 
     def test_ai_chat(self):
+        self.client.force_authenticate(user=self.teacher)
         res = self.client.post("/ai/chat", {
             "message": "Hello!",
             "history": [],

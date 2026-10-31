@@ -38,6 +38,7 @@ export const QuizCreator: React.FC = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([
     {
       question_text: "",
@@ -62,15 +63,16 @@ export const QuizCreator: React.FC = () => {
         .then(data => {
           setTitle(data.title);
           setDescription(data.description || "");
+          setIsPublic(Boolean(data.is_public));
           if (data.questions && data.questions.length > 0) {
             setQuestions(data.questions.map((q: any) => ({
-              question_text: q.text,
-              question_type: q.type,
+              question_text: q.question_text,
+              question_type: q.question_type,
               time_limit: q.time_limit,
               points: q.points,
               image_url: q.image_url,
               options: q.options.map((o: any) => ({
-                option_text: o.text,
+                option_text: o.option_text,
                 is_correct: o.is_correct,
                 color: o.color
               }))
@@ -148,6 +150,7 @@ export const QuizCreator: React.FC = () => {
           title,
           description,
           is_draft: asDraft,
+          is_public: isPublic,
           questions
         })
       });
@@ -199,6 +202,17 @@ export const QuizCreator: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-3">
+          <label
+            className="flex items-center gap-2 text-sm font-bold text-gray-600 cursor-pointer select-none"
+            title="Public quizzes appear in every teacher's library as a reference"
+          >
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={e => setIsPublic(e.target.checked)}
+            />
+            {isPublic ? "Public" : "Private"}
+          </label>
           <button 
             onClick={() => handleSave(false, false)}
             disabled={saving}

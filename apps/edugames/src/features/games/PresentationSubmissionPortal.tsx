@@ -15,6 +15,7 @@ import {
 import InteractionStudio from "./InteractionStudio";
 import PresenterView from "./PresenterView";
 import { API_BASE_URL } from "../../shared/utils/gameAPI";
+import { getCurrentStudentId } from "../../shared/utils/currentStudent";
 
 interface Assignment {
   id: number;
@@ -67,7 +68,7 @@ const PresentationSubmissionPortal: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [studioMode, setStudioMode] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
-  const studentId = localStorage.getItem("student_id") || "1";
+  const studentId = String(getCurrentStudentId() ?? "");
 
   useEffect(() => {
     const fetchAssignmentAndSubmission = async () => {

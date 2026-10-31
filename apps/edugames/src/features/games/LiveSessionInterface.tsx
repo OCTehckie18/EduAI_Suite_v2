@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import PPTXViewer from "./PPTXViewer";
 import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
+import { getCurrentStudentId } from "../../shared/utils/currentStudent";
 
 interface Poll {
   id: number;
@@ -75,12 +76,7 @@ const LiveSessionInterface: React.FC<Props> = ({
 
   const sessionPin = propsPin || pin || "";
   const studentId =
-    propsStudentId ||
-    parseInt(
-      searchParams.get("studentId") ||
-      localStorage.getItem("student_id") ||
-      "1",
-    );
+    propsStudentId || getCurrentStudentId() || 0;
   const isPresenter =
     propsIsPresenter || searchParams.get("isPresenter") === "true" || false;
   const fileUrl = propsFileUrl || searchParams.get("fileUrl") || "";
