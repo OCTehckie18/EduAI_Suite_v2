@@ -229,10 +229,10 @@ const SlidoAssignmentDashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <BarChart className="w-8 h-8 text-blue-600" />
-              <h1 className="text-3xl font-bold text-slate-800">
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
                 Presentation Assignments
               </h1>
             </div>
@@ -251,7 +251,7 @@ const SlidoAssignmentDashboard: React.FC = () => {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex gap-2 mb-6 bg-white rounded-lg p-1 w-fit shadow-sm">
+        <div className="flex gap-2 mb-6 bg-white rounded-lg p-1 w-fit max-w-full overflow-x-auto shadow-sm">
           {(["all", "pending", "submitted", "graded"] as const).map((f) => (
             <button
               key={f}

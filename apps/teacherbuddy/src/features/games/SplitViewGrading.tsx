@@ -279,9 +279,9 @@ const SplitViewGrading: React.FC = () => {
       )}
 
       {/* ─── Split View Layout ───────────────────────────────── */}
-      <div className="flex h-[calc(100vh-130px)]">
+      <div className="flex flex-col lg:flex-row lg:h-[calc(100dvh-130px)]">
         {/* LEFT: Presentation Preview */}
-        <div className="flex-1 bg-slate-900 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-[50vh] bg-slate-900 flex flex-col overflow-hidden">
           {/* Presentation Header */}
           <div className="px-5 py-3 flex items-center justify-between border-b border-slate-700/50 bg-slate-800/80">
             <div className="flex items-center gap-3">
@@ -340,7 +340,7 @@ const SplitViewGrading: React.FC = () => {
         </div>
 
         {/* RIGHT: Grading Panel */}
-        <div className="w-[420px] flex flex-col overflow-hidden bg-white border-l border-slate-200 shadow-xl">
+        <div className="w-full lg:w-[420px] flex flex-col overflow-hidden bg-white border-l border-slate-200 shadow-xl">
           {/* Panel Header */}
           <div className="p-4 border-b border-slate-100 bg-slate-50/50">
             <div className="flex items-center gap-2">

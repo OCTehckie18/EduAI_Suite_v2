@@ -682,7 +682,7 @@ export const AnalyticsPage: React.FC = () => {
       />
 
       {/* Tabs Navigation */}
-      <div className="flex gap-1 bg-slate-100/50 p-1 rounded-2xl w-fit">
+      <div className="flex gap-1 bg-slate-100/50 p-1 rounded-2xl w-fit max-w-full overflow-x-auto">
         {(["overview", "risk", "subjects", "raw"] as const).map(tab => (
           <button
             key={tab}

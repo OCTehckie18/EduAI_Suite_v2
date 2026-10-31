@@ -168,9 +168,9 @@ export const AuthPage: React.FC = () => {
       </div>
 
       {/* ── Right Panel ── */}
-      <div className="flex-1 flex items-center justify-center p-6" style={{ background: "var(--color-bg-start)" }}>
+      <div className="flex-1 min-w-0 flex items-center justify-center p-4 sm:p-6" style={{ background: "var(--color-bg-start)" }}>
         <div className="w-full max-w-md animate-fade-in-up">
-          <div className="glass-card p-8">
+          <div className="glass-card p-5 sm:p-8">
             {/* Mobile Logo */}
             <div className="flex items-center gap-3 mb-8 lg:hidden">
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center p-1">
@@ -209,7 +209,7 @@ export const AuthPage: React.FC = () => {
                     onError={() => setError("Google Sign-In failed. Please try again.")}
                     theme="outline"
                     size="large"
-                    width="350"
+                    width={String(Math.min(350, Math.max(200, window.innerWidth - 72)))}
                     text="signin_with"
                     shape="rectangular"
                   />

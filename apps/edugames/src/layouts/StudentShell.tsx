@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, Gamepad2, LayoutDashboard, Clock, LogOut, ChevronRight, Menu, Calendar } from "lucide-react";
 import logo from "../../../logo/eduai_logo.png";
 import { useAuthStore } from "../store/useAuthStore";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
+import { DESKTOP_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import { ProfileModal } from "../shared/components/ProfileModal";
 
 const studentNavItems = [
@@ -16,7 +17,10 @@ const studentNavItems = [
 ];
 
 export const StudentShell: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  // Desktop: expanded/collapsed rail. Below 1024px: drawer open/closed (closed by default).
+  const [sidebarOpen, setSidebarOpen] = useState(isDesktop);
+  const location = useLocation();
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const { logout, role } = useAuthStore();
@@ -24,6 +28,14 @@ export const StudentShell: React.FC = () => {
   const [user, setUser] = useState<any>(null);
 
   const remainingTime = useSessionTimeout(900000);
+
+  useEffect(() => {
+    setSidebarOpen(isDesktop);
+  }, [isDesktop]);
+
+  useEffect(() => {
+    if (!isDesktop) setSidebarOpen(false);
+  }, [location.pathname, isDesktop]);
 
   useEffect(() => {
     if (!role) {
@@ -41,9 +53,16 @@ export const StudentShell: React.FC = () => {
     : "ST";
 
   return (
-    <div className="flex min-h-screen" style={{ background: "var(--color-surface-base)" }}>
+    <div className="flex min-h-screen min-h-dvh" style={{ background: "var(--color-surface-base)" }}>
       {/* ── Sidebar ── */}
-      <aside className={`glass-sidebar flex flex-col fixed h-full z-50 transition-all duration-300 ${sidebarOpen ? "w-64" : "w-[72px]"}`}>
+      {!isDesktop && sidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+      )}
+      <aside className={`glass-sidebar flex flex-col fixed h-full z-50 transition-all duration-300 ${
+        isDesktop
+          ? sidebarOpen ? "w-64" : "w-[72px]"
+          : `w-64 max-w-[85vw] ${sidebarOpen ? "translate-x-0" : "-translate-x-full shadow-none pointer-events-none"}`
+      }`} style={!isDesktop && !sidebarOpen ? { boxShadow: "none" } : undefined}>
         <div className="flex items-center gap-3 px-4 py-5 border-b border-white/8">
           <div className="shrink-0 w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-lg" onClick={() => setSidebarOpen(s => !s)}>
             <img src={logo} alt="Christ University" className="w-full h-full object-contain p-0.5" />
@@ -82,8 +101,8 @@ export const StudentShell: React.FC = () => {
       </aside>
 
       {/* ── Content ── */}
-      <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-[72px]"}`}>
-        <header className="sticky top-0 z-40 h-[70px] flex items-center justify-between px-6 gap-4" style={{ background: "var(--color-header-bg)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--color-border)" }}>
+      <main className={`flex-1 min-w-0 transition-all duration-300 ${isDesktop ? (sidebarOpen ? "ml-64" : "ml-[72px]") : "ml-0"}`}>
+        <header className="sticky top-0 z-30 h-[70px] flex items-center justify-between px-4 sm:px-6 gap-4" style={{ background: "var(--color-header-bg)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--color-border)" }}>
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(s => !s)} className="p-2 rounded-lg transition-colors text-slate-400 hover:text-blue-700 hover:bg-blue-50">
               <Menu size={20} />
@@ -143,7 +162,7 @@ export const StudentShell: React.FC = () => {
           </div>
         </header>
 
-        <div className="p-6 min-h-[calc(100vh-70px)]">
+        <div className="p-4 sm:p-6 min-h-[calc(100vh-70px)] min-h-[calc(100dvh-70px)]">
           <Outlet />
         </div>
         {profileModalOpen && (

@@ -973,8 +973,8 @@ export const MailStudentsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <div className="flex flex-wrap items-center gap-3">
                   <button 
                     onClick={handleDiscard}
                     className="flex items-center gap-2 px-5 py-2.5 text-red-600 bg-red-50 rounded-xl font-bold hover:bg-red-100 transition-colors border border-red-100"
@@ -992,7 +992,7 @@ export const MailStudentsPage: React.FC = () => {
               <button 
                 onClick={handleSendMailClick}
                 disabled={sending || selectedStudents.length === 0}
-                className="flex items-center gap-2 px-8 py-3 bg-brand-blue text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                className="flex items-center justify-center gap-2 px-4 sm:px-8 py-3 bg-brand-blue text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
               >
                 {sending ? "Sending..." : sendMode === "gmail" ? <><Mail size={18} /> Open in Gmail</> : <><Send size={18} /> Send via SMTP</>}
               </button>

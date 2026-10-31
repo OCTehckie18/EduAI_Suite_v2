@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { DESKTOP_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import {
   LayoutDashboard,
   BookOpen,
@@ -134,7 +135,9 @@ const getNotifHref = (feature: string) => {
 };
 
 export const DashboardShell: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  // Open by default on desktop; a closed drawer on phones and half-width windows.
+  const [sidebarOpen, setSidebarOpen] = useState(isDesktop);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -142,6 +145,14 @@ export const DashboardShell: React.FC = () => {
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
+
+  useEffect(() => {
+    setSidebarOpen(isDesktop);
+  }, [isDesktop]);
+
+  useEffect(() => {
+    if (!isDesktop) setSidebarOpen(false);
+  }, [location.pathname, isDesktop]);
   const navigate = useNavigate();
   const { user: authUser, logout } = useAuthStore();
   const [user, setUser] = useState<any>(null);
@@ -278,7 +289,7 @@ export const DashboardShell: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen min-h-dvh"
       style={{
         background: "var(--color-surface-base)",
         color: "var(--color-text-primary)",
@@ -475,7 +486,7 @@ export const DashboardShell: React.FC = () => {
             {/* Notifications Dropdown */}
             {notifOpen && (
               <div
-                className="absolute right-0 top-12 w-80 rounded-xl z-50 overflow-hidden animate-fade-in border shadow-lg"
+                className="fixed right-4 top-[72px] w-[calc(100vw-2rem)] sm:absolute sm:right-0 sm:top-12 sm:w-80 rounded-xl z-50 overflow-hidden animate-fade-in border shadow-lg"
                 style={{
                   background: "var(--color-surface-base)",
                   borderColor: "var(--color-border)",
@@ -765,9 +776,9 @@ export const DashboardShell: React.FC = () => {
 
       {/* ── Main Content ─────────────────────────────────────── */}
       <main
-        className={`flex-1 transition-all duration-300 pt-[64px] ${sidebarOpen ? "md:ml-[260px]" : "ml-0"}`}
+        className={`flex-1 min-w-0 transition-all duration-300 pt-[64px] ${sidebarOpen ? "lg:ml-[260px]" : "ml-0"}`}
       >
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <Outlet />
         </div>
         {profileModalOpen && (
@@ -785,7 +796,7 @@ export const DashboardShell: React.FC = () => {
       {/* Mobile Scrim */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/20 dark:bg-black/40 md:hidden backdrop-blur-sm"
+          className="fixed inset-0 z-30 bg-black/20 dark:bg-black/40 lg:hidden backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -804,9 +815,9 @@ export const DashboardShell: React.FC = () => {
       )}
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-20 right-6 z-[100] animate-slide-in-right">
+        <div className="fixed top-20 left-4 right-4 sm:left-auto sm:right-6 z-[100] animate-slide-in-right">
           <div
-            className="glass-card p-4 flex items-start gap-4 shadow-2xl border-l-4 border-l-[#264796] min-w-[300px] cursor-pointer"
+            className="glass-card p-4 flex items-start gap-4 shadow-2xl border-l-4 border-l-[#264796] sm:min-w-[300px] cursor-pointer"
             onClick={() => {
               navigate(toast.href);
               setToast(null);

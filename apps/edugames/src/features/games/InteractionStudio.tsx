@@ -257,16 +257,16 @@ const InteractionStudio: React.FC<Props> = ({
         </button>
       </div>
 
-      <div className="flex h-[calc(100vh-72px)]">
+      <div className="flex flex-col lg:flex-row lg:h-[calc(100dvh-72px)]">
         {/* ─── Left: PPTX Preview ─────────────────────────────── */}
-        <div className="flex-1 bg-slate-200/50 flex flex-col p-6 overflow-hidden">
+        <div className="flex-1 min-h-[50vh] bg-slate-200/50 flex flex-col p-4 sm:p-6 overflow-hidden">
           <div className="flex-1 rounded-2xl overflow-hidden shadow-2xl bg-black border-4 border-white">
             <PPTXViewer fileUrl={fileUrl} fileName={fileName} title="Preview Your Slides" />
           </div>
         </div>
 
         {/* ─── Right: Interaction Panel ───────────────────────── */}
-        <div className="w-[420px] flex flex-col overflow-hidden bg-white border-l border-slate-200 shadow-xl">
+        <div className="w-full lg:w-[420px] flex flex-col overflow-hidden bg-white border-l border-slate-200 shadow-xl">
           {/* Panel Header */}
           <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center gap-2">

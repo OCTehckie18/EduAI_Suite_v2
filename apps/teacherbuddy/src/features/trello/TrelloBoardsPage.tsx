@@ -41,7 +41,7 @@ export const TrelloBoardsPage: React.FC = () => {
   return (
     <div className="animate-fade-in-up">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
         <div>
           <h1 className="text-2xl font-bold font-display" style={{ color: 'var(--color-text-primary)' }}>
             Project Boards
@@ -50,7 +50,7 @@ export const TrelloBoardsPage: React.FC = () => {
             Organize your team projects with Kanban boards
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button onClick={() => setShowJoinModal(true)} className="btn bg-white border border-slate-200 hover:bg-slate-50 shadow-sm flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
             <LogIn size={18} />
             Join Board

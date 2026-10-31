@@ -668,10 +668,10 @@ export const ClassroomsPage: React.FC = () => {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <h1
-            className="text-3xl font-extrabold tracking-tight"
+            className="text-2xl sm:text-3xl font-extrabold tracking-tight"
             style={{ color: "var(--color-text-primary)" }}
           >
             Classroom Management
@@ -686,7 +686,7 @@ export const ClassroomsPage: React.FC = () => {
           </button>
         </div>
         <input
-          className="form-input w-72 rounded-xl border border-slate-300 shadow-sm bg-white text-slate-800 placeholder:text-slate-400"
+          className="form-input w-full sm:w-72 rounded-xl border border-slate-300 shadow-sm bg-white text-slate-800 placeholder:text-slate-400"
           placeholder="Search classrooms..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
