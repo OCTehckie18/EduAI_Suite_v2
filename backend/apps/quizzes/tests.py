@@ -370,3 +370,30 @@ class QuizLibraryTests(TestCase):
         quiz = self._create(is_public=True)
         res = self.client.put(f"/quizzes/{quiz['id']}", {"is_public": False}, format="json")
         self.assertFalse(res.json()["is_public"])
+
+
+class QuizRestJoinIdentityTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        quiz = Quiz.objects.create(title="Q", teacher_id=1)
+        self.session = QuizSession.objects.create(quiz=quiz, pin="123456")
+        self.student = get_user_model().objects.create_user(
+            email="joiner@example.com", password="x", role="STUDENT", register_no="REG42"
+        )
+        self.url = "/quizzes/session/123456/join"
+
+    def test_client_supplied_student_id_is_ignored_for_anonymous_join(self):
+        res = self.client.post(self.url, {"nickname": "Ann", "student_id": "REG42"}, format="json")
+        self.assertEqual(res.status_code, 201)
+        self.assertIsNone(self.session.players.get(nickname="Ann").student_id)
+
+    def test_authenticated_student_identity_comes_from_token(self):
+        self.client.force_authenticate(self.student)
+        res = self.client.post(self.url, {"nickname": "Bob", "student_id": "SOMEONE-ELSE"}, format="json")
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(self.session.players.get(nickname="Bob").student_id, "REG42")
+
+    def test_duplicate_nickname_returns_conflict(self):
+        self.client.post(self.url, {"nickname": "Cat"}, format="json")
+        res = self.client.post(self.url, {"nickname": "Cat"}, format="json")
+        self.assertEqual(res.status_code, 409)

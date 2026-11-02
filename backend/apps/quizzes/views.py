@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ..core.permissions import IsTeacher
+from ..core.services import student_key
 from .models import Quiz, QuizQuestion, QuizOption, QuizSession, QuizPlayer, QuizAnswer
 from .serializers import QuizSerializer, QuizSessionSerializer, QuizPlayerSerializer
 
@@ -191,14 +192,22 @@ class QuizSessionJoinView(APIView):
     def post(self, request, pin):
         session = get_object_or_404(QuizSession, pin=pin)
         data = request.data
-        nickname = data.get("nickname", "Player")
+        nickname = str(data.get("nickname") or "Player").strip()[:100] or "Player"
 
-        player = QuizPlayer.objects.create(
-            session=session,
-            student_id=data.get("student_id"),
-            nickname=nickname,
-            avatar=data.get("avatar"),
-        )
+        # Identity comes only from a verified token; a client-supplied student_id is ignored.
+        user = request.user
+        student_id = student_key(user) if user.is_authenticated and getattr(user, "role", "") == "STUDENT" else None
+
+        try:
+            with transaction.atomic():
+                player = QuizPlayer.objects.create(
+                    session=session,
+                    student_id=student_id,
+                    nickname=nickname,
+                    avatar=str(data.get("avatar") or "")[:255] or None,
+                )
+        except IntegrityError:
+            return Response({"detail": "That nickname is already taken in this session."}, status=status.HTTP_409_CONFLICT)
         return Response(QuizPlayerSerializer(player).data, status=status.HTTP_201_CREATED)
 
 
