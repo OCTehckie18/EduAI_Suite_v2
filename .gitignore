@@ -13,6 +13,7 @@ media/
 staticfiles/
 devOps_assignments/
 generate_ci_doc.py
+.claude/
 
 # Node / Frontends
 node_modules/
