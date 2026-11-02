@@ -5,7 +5,7 @@ import pandas as pd
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
-from rest_framework.permissions import AllowAny
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 
 class MailGenerateView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request):
         students = request.data.get("students", [])
@@ -68,7 +67,6 @@ Return ONLY the raw JSON string."""
 
 
 class MailFilterView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request):
         conditions = request.data.get("conditions", [])
@@ -104,7 +102,6 @@ class MailFilterView(APIView):
 
 
 class MailParseExcelView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
@@ -141,7 +138,6 @@ class MailParseExcelView(APIView):
 
 
 class MailDraftListCreateView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         drafts = MailDraft.objects.all()
@@ -159,7 +155,6 @@ class MailDraftListCreateView(APIView):
 
 
 class MailDraftDetailView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, draft_id):
         draft = get_object_or_404(MailDraft, pk=draft_id)
@@ -172,7 +167,6 @@ class MailDraftDetailView(APIView):
 
 
 class MailSendView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request):
         data = request.data
@@ -216,7 +210,6 @@ class MailSendView(APIView):
 
 
 class MailGmailLogView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request):
         data = request.data
@@ -246,7 +239,6 @@ class MailGmailLogView(APIView):
 
 
 class MailHistoryListView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         histories = MailHistory.objects.all()
@@ -254,7 +246,6 @@ class MailHistoryListView(APIView):
 
 
 class MailHistoryDetailView(APIView):
-    permission_classes = [AllowAny]
 
     def delete(self, request, history_id):
         history = get_object_or_404(MailHistory, pk=history_id)

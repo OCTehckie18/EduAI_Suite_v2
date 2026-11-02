@@ -11,7 +11,7 @@ from django.db.models import Q
 from openpyxl import Workbook, load_workbook
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -184,7 +184,6 @@ def _save_course_plan(uploaded_file):
 
 
 class LegacyCourseListCreateView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get(self, request):
@@ -222,7 +221,6 @@ class LegacyCourseListCreateView(APIView):
 
 
 class LegacyCourseDetailView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def _get(self, request, course_id):
@@ -273,7 +271,6 @@ class LegacyCourseDetailView(APIView):
 
 
 class LegacyCourseExtractDetailsView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
@@ -400,7 +397,6 @@ def _enroll_student(classroom, data):
 
 
 class LegacyCourseStudentsView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [JSONParser, FormParser]
 
     def get(self, request, course_id):
@@ -443,7 +439,6 @@ class LegacyCourseStudentsView(APIView):
 
 
 class LegacyStudentDetailView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [JSONParser, FormParser]
 
     def get(self, request, student_id):
@@ -486,7 +481,6 @@ class LegacyStudentDetailView(APIView):
 
 
 class LegacyStudentListView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [JSONParser, FormParser]
 
     def get(self, request):
@@ -620,7 +614,6 @@ def _legacy_dict_data(row):
 
 
 class LegacyBulkEnrollView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, course_id):
@@ -667,7 +660,6 @@ class LegacyBulkEnrollView(APIView):
 
 
 class LegacyEnrollByCodeView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [JSONParser, FormParser]
 
     def post(self, request):
@@ -692,7 +684,6 @@ class LegacyEnrollByCodeView(APIView):
 
 
 class LegacyActiveStudentsView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, course_id):
         classroom = Classroom.objects.filter(pk=course_id).first()
@@ -707,7 +698,6 @@ class LegacyActiveStudentsView(APIView):
 
 
 class LegacyStudentDeleteView(APIView):
-    permission_classes = [AllowAny]
 
     def delete(self, request, student_id):
         enrollments = Enrollment.objects.filter(student_id=student_id)
@@ -726,7 +716,6 @@ class LegacyStudentDeleteView(APIView):
 
 
 class LegacyResourceListView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, course_id):
         resources = Resource.objects.filter(course_id=course_id)

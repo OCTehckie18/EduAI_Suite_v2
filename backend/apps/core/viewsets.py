@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from .permissions import IsCampusAdmin
 
 class SoftDeleteModelViewSet(viewsets.ModelViewSet):
     """
@@ -33,7 +33,7 @@ class SoftDeleteModelViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post'], permission_classes=[IsCampusAdmin])
     def restore(self, request, pk=None):
         """Restore a soft-deleted record."""
         model = self.queryset.model

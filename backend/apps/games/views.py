@@ -5,7 +5,7 @@ import uuid
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -22,7 +22,6 @@ from .serializers import ChainAnswerGameSerializer, GameWordSerializer, GamePlay
 
 
 class ChainAnswerGameListCreateView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         games = ChainAnswerGame.objects.all().prefetch_related(
@@ -98,7 +97,6 @@ class ChainAnswerGameListCreateView(APIView):
 
 
 class WordCloudSessionListCreateView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request):
         prompt = str(request.data.get("prompt", "")).strip()
@@ -137,7 +135,7 @@ class WordCloudSessionListCreateView(APIView):
 
 
 class WordCloudSessionDetailView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, pin):
         session = get_object_or_404(WordCloudSession, pin=pin)
@@ -154,7 +152,7 @@ class WordCloudSessionDetailView(APIView):
 
 
 class ChainAnswerGameDetailView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, session_id):
         game = get_object_or_404(
@@ -199,7 +197,6 @@ class ChainAnswerGameJoinView(APIView):
 
 
 class ChainAnswerGameStartView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request, session_id):
         game = get_object_or_404(ChainAnswerGame, session_id=session_id)
@@ -222,7 +219,6 @@ class ChainAnswerGameStartView(APIView):
 
 
 class ChainAnswerGameEndView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request, session_id):
         game = get_object_or_404(ChainAnswerGame, session_id=session_id)

@@ -4,6 +4,7 @@ import { RouterProvider } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import "./index.css";
 import { router } from "./router";
+import { installAuthFetch } from "./shared/utils/installAuthFetch";
 
 // This is a public OAuth client identifier. Deployments can override it with
 // VITE_GOOGLE_CLIENT_ID, but the app remains functional if the frontend env
@@ -20,6 +21,8 @@ if ("serviceWorker" in navigator) {
     });
   }
 }
+
+installAuthFetch();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

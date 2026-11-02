@@ -19,3 +19,15 @@ class IsStudent(permissions.BasePermission):
     def has_permission(self, request, view):
         user = request.user
         return bool(user and user.is_authenticated and getattr(user, 'role', '') == 'STUDENT')
+
+
+class IsAdminOrAuthenticatedReadOnly(permissions.BasePermission):
+    """Any signed-in user may read; only campus/master admins may change data."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return user.is_superuser or getattr(user, 'role', '') in ['CAMPUS_ADMIN', 'MASTER_ADMIN']

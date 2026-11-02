@@ -42,6 +42,7 @@ class MigrationSmokeTestCase(TestCase):
             batch=self.batch,
             section=self.section,
         )
+        self.client.force_authenticate(user=self.teacher)
 
     def test_root_and_health(self):
         res = self.client.get("/")
@@ -109,6 +110,11 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(res.json()["grade"], 95.0)
 
     def test_appointments(self):
+        student = User.objects.create_user(
+            email="bob@cs.university.in", password="password123", first_name="Bob", last_name="Student",
+            role=User.Role.STUDENT,
+        )
+        self.client.force_authenticate(user=student)
         res = self.client.post("/appointments/", {
             "student_name": "Bob Student",
             "student_email": "bob@cs.university.in",
@@ -119,6 +125,7 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         appt_id = res.json()["id"]
 
+        self.client.force_authenticate(user=self.teacher)
         # Update status
         res = self.client.patch(f"/appointments/{appt_id}/status", {
             "status": "accepted",

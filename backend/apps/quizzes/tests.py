@@ -181,8 +181,13 @@ class QuizWebSocketFlowTests(TransactionTestCase):
         self.assertGreater(activity.score, 0)
 
         # The student's stats page sees the quiz even though the nickname was "Ana".
+        student_token = jwt.encode(
+            {"sub": str(student_user.pk), "type": "access"}, settings.JWT_SECRET_KEY, algorithm="HS256")
         profile = await sync_to_async(
-            lambda: self.client.get(f"/engagement/student/{student_user.pk}/").json())()
+            lambda: self.client.get(
+                f"/engagement/student/{student_user.pk}/",
+                HTTP_AUTHORIZATION=f"Bearer {student_token}",
+            ).json())()
         self.assertEqual(profile["games"]["sessions_played"], 1)
         self.assertEqual(profile["games"]["details"][0]["game_name"], "WebSocket smoke quiz")
 

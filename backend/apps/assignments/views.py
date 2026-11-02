@@ -2,7 +2,7 @@ from datetime import datetime
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -14,7 +14,6 @@ from .serializers import AssignmentSerializer, SubmissionSerializer
 
 
 class AssignmentListCreateView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request, course_id):
@@ -56,7 +55,6 @@ class AssignmentListCreateView(APIView):
 
 
 class AssignmentDetailView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def put(self, request, assignment_id):
@@ -104,7 +102,6 @@ class AssignmentDetailView(APIView):
 
 
 class SubmissionListCreateView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request, assignment_id):
@@ -134,7 +131,6 @@ class SubmissionListCreateView(APIView):
 
 
 class SubmissionDetailView(APIView):
-    permission_classes = [AllowAny]
 
     def delete(self, request, submission_id):
         sub = get_object_or_404(Submission, pk=submission_id)
@@ -143,7 +139,6 @@ class SubmissionDetailView(APIView):
 
 
 class UnsubmitAssignmentView(APIView):
-    permission_classes = [AllowAny]
 
     def delete(self, request, assignment_id, student_name):
         subs = Submission.objects.filter(assignment_id=assignment_id, student_name=student_name)
@@ -152,7 +147,6 @@ class UnsubmitAssignmentView(APIView):
 
 
 class GradeSubmissionView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def put(self, request, submission_id):

@@ -1,5 +1,4 @@
-from rest_framework.permissions import AllowAny
-
+from apps.core.permissions import IsAdminOrAuthenticatedReadOnly
 from apps.core.viewsets import SoftDeleteModelViewSet
 
 from .models import Batch, Campus, Department, Program, School, Section
@@ -14,7 +13,7 @@ from .serializers import (
 
 
 class InstitutionViewSet(SoftDeleteModelViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAdminOrAuthenticatedReadOnly]
 
 
 class CampusViewSet(InstitutionViewSet):

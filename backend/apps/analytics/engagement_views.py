@@ -1,5 +1,5 @@
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Q
@@ -10,6 +10,7 @@ from apps.assignments.models import Assignment, Submission
 from apps.exams.models import Exam, ExamAttempt
 from apps.games.models import ChainAnswerGame, GamePlayer
 from apps.core.models import StudentActivity
+from apps.core.permissions import IsTeacher
 from apps.core.services import student_keys
 from apps.quizzes.models import QuizPlayer
 
@@ -265,7 +266,7 @@ def _get_student_engagement(student: User, course_id: int):
 
 
 class CourseEngagementSummaryView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsTeacher]
 
     def get(self, request, course_id):
         classroom = Classroom.objects.filter(pk=course_id).first()
@@ -322,9 +323,10 @@ class CourseEngagementSummaryView(APIView):
 
 
 class StudentEngagementProfileView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, student_id):
+        if request.user.role == User.Role.STUDENT and request.user.pk != student_id:
+            return Response({"detail": "You can only view your own engagement profile."}, status=status.HTTP_403_FORBIDDEN)
         student = User.objects.filter(pk=student_id).first()
         if not student:
             return Response({"detail": "Student not found"}, status=status.HTTP_404_NOT_FOUND)

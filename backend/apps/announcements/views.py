@@ -2,7 +2,7 @@ from datetime import datetime
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
-from rest_framework.permissions import AllowAny
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -13,7 +13,6 @@ from .serializers import AnnouncementSerializer
 
 
 class AnnouncementListCreateView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request, course_id):
@@ -51,7 +50,6 @@ class AnnouncementListCreateView(APIView):
 
 
 class AnnouncementDetailView(APIView):
-    permission_classes = [AllowAny]
 
     def delete(self, request, announcement_id):
         announcement = get_object_or_404(Announcement, pk=announcement_id)

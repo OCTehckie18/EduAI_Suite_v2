@@ -8,9 +8,12 @@ from .models import WordCloudSession
 
 class WordCloudApiTests(TestCase):
     def test_create_and_read_session(self):
+        from django.contrib.auth import get_user_model
         from rest_framework.test import APIClient
 
+        teacher = get_user_model().objects.create_user(email="wc-teacher@example.com", password="x", role="TEACHER")
         client = APIClient()
+        client.force_authenticate(teacher)
         response = client.post(
             "/api/v1/wordcloud/create",
             {"prompt": "Name one renewable energy source"},
