@@ -1,7 +1,11 @@
 from .base import *
+from .base import _require
 import dj_database_url
 
 DEBUG = False
+SECRET_KEY = _require('DJANGO_SECRET_KEY')
+JWT_SECRET_KEY = _require('JWT_SECRET_KEY')
+CORS_ALLOW_ALL_ORIGINS = False
 ALLOWED_HOSTS = [h.strip() for h in _require('DJANGO_ALLOWED_HOSTS').split(',') if h.strip()]
 
 DATABASES = {

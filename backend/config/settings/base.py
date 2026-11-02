@@ -1,12 +1,24 @@
 import os
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management.utils import get_random_secret_key
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'eduai-default-insecure-key-2026')
-DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
+
+def _require(name):
+    value = os.getenv(name)
+    if not value:
+        raise ImproperlyConfigured(f'Environment variable {name} must be set.')
+    return value
+
+
+# A random per-process key is used when none is configured, so no known key ever
+# signs sessions or JWTs. Production settings require an explicit value.
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY') or get_random_secret_key()
+DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS',
                           'localhost,127.0.0.1,0.0.0.0').split(',')
 
@@ -147,19 +159,9 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
-JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', SECRET_KEY)
-JWT_ACCESS_TOKEN_LIFETIME_MINUTES = int(
-    os.getenv('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', '60'))
-JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(
-    os.getenv('JWT_REFRESH_TOKEN_LIFETIME_DAYS', '7'))
-
 # Shared settings consumed by the OAuth, calendar, and AI integrations as
 # they are ported from the previous backend.
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-GOOGLE_CLIENT_ID = os.getenv(
-    'GOOGLE_CLIENT_ID',
-    '',
-)
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
 GOOGLE_CALENDAR_REDIRECT_URI = os.getenv(
     'GOOGLE_CALENDAR_REDIRECT_URI',
