@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
-from rest_framework.permissions import AllowAny
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 class LessonGenerateView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request):
         topic = request.data.get("topic", "")
@@ -39,7 +38,6 @@ class LessonGenerateView(APIView):
 
 
 class LessonParsePlanView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
@@ -73,7 +71,6 @@ class LessonParsePlanView(APIView):
 
 
 class LessonListCreateView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         course_id = request.query_params.get("course_id")
@@ -121,7 +118,6 @@ class LessonListCreateView(APIView):
 
 
 class LessonDetailView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, lesson_id):
         lesson = get_object_or_404(Lesson, pk=lesson_id)
@@ -145,7 +141,6 @@ class LessonDetailView(APIView):
 
 
 class LessonPostView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request, lesson_id):
         lesson = get_object_or_404(Lesson, pk=lesson_id)
@@ -165,7 +160,6 @@ class LessonPostView(APIView):
 
 
 class LessonEduGamesView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request, lesson_id):
         lesson = get_object_or_404(

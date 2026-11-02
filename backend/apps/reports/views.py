@@ -3,7 +3,7 @@ from datetime import datetime
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, FileResponse
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -15,7 +15,6 @@ from .serializers import ReportSerializer
 
 
 class ReportListCreateView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         reports = Report.objects.all()
@@ -49,7 +48,6 @@ class ReportListCreateView(APIView):
 
 
 class ReportDetailView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, report_id):
         report = Report.objects.filter(report_id=report_id).first()
@@ -66,7 +64,6 @@ class ReportDetailView(APIView):
 
 
 class ReportSendView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request, report_id):
         report = Report.objects.filter(report_id=report_id).first()
@@ -85,7 +82,6 @@ class ReportSendView(APIView):
 
 
 class ReportDownloadView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, report_id):
         report = Report.objects.filter(report_id=report_id).first()

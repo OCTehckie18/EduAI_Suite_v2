@@ -2,7 +2,7 @@ import uuid
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -11,7 +11,6 @@ from .serializers import TrelloBoardSerializer, TrelloColumnSerializer, TrelloCa
 
 
 class TrelloBoardListCreateView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         email = request.query_params.get("user_email")
@@ -50,7 +49,6 @@ class TrelloBoardListCreateView(APIView):
 
 
 class TrelloBoardDetailView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, board_id):
         board = get_object_or_404(TrelloBoard, pk=board_id)
@@ -72,7 +70,6 @@ class TrelloBoardDetailView(APIView):
 
 
 class TrelloSyncView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request):
         data = request.data
@@ -134,7 +131,6 @@ class TrelloSyncView(APIView):
 
 
 class TrelloToggleStarView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request, board_id):
         board = get_object_or_404(TrelloBoard, pk=board_id)

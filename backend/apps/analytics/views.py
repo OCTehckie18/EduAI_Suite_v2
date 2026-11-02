@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.db.models import Q, Avg, Count
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
-from rest_framework.permissions import AllowAny
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -74,7 +74,6 @@ def format_relative_time(dt):
 
 
 class DashboardSummaryView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         teacher_name = request.query_params.get("teacher_name")
@@ -458,7 +457,6 @@ class DashboardSummaryView(APIView):
 
 
 class DiscoverableClassroomsView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         courses = Classroom.objects.exclude(enrollment_code="")
@@ -482,7 +480,6 @@ class DiscoverableClassroomsView(APIView):
 
 
 class StudentDashboardSummaryView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         student_name = request.query_params.get("student_name", "Student")
@@ -567,7 +564,6 @@ class StudentDashboardSummaryView(APIView):
 
 
 class GlobalRiskView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         teacher_name = request.query_params.get("teacher_name", "")
@@ -608,7 +604,6 @@ class GlobalRiskView(APIView):
 
 
 class CourseAnalyticsView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, course_id):
         classroom = Classroom.objects.filter(pk=course_id).first()

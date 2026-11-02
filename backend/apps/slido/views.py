@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -34,7 +34,6 @@ def _generate_pin() -> str:
 
 
 class PresentationAssignmentListCreateView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         qs = PresentationAssignment.objects.all()
@@ -53,7 +52,6 @@ class PresentationAssignmentListCreateView(APIView):
 
 
 class PresentationAssignmentDetailView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, assignment_id):
         asgn = get_object_or_404(PresentationAssignment, pk=assignment_id)
@@ -61,7 +59,6 @@ class PresentationAssignmentDetailView(APIView):
 
 
 class PresentationSubmissionListCreateView(APIView):
-    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request, assignment_id):
@@ -95,7 +92,6 @@ class PresentationSubmissionListCreateView(APIView):
 
 
 class SlidoSessionListCreateView(APIView):
-    permission_classes = [AllowAny]
 
     def post(self, request):
         data = request.data
@@ -122,7 +118,7 @@ class SlidoSessionDetailView(APIView):
 
 
 class SlidoPollListCreateView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, pin):
         session = get_object_or_404(SlidoSession, pin=pin)

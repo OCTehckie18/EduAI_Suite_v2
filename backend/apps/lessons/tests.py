@@ -66,6 +66,7 @@ class LessonEduGamesTests(TestCase):
             posted_at=timezone.now(),
         )
 
+        self.client.force_authenticate(self.teacher)
         response = self.client.post(f"/api/v1/lessons/{lesson.id}/edugames")
 
         self.assertEqual(response.status_code, 201)
@@ -85,6 +86,7 @@ class LessonEduGamesTests(TestCase):
             created_by=self.teacher.id,
         )
 
+        self.client.force_authenticate(self.teacher)
         response = self.client.post(f"/api/v1/lessons/{lesson.id}/edugames")
 
         self.assertEqual(response.status_code, 400)

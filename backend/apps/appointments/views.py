@@ -1,7 +1,7 @@
 from datetime import datetime
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -16,7 +16,6 @@ def _normalize_name(name):
 
 
 class AppointmentListCreateView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request):
         status_filter = request.query_params.get("status_filter")
@@ -91,7 +90,6 @@ class AppointmentListCreateView(APIView):
 
 
 class TeacherAppointmentListView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, teacher_name):
         qs = Appointment.objects.all()
@@ -101,7 +99,6 @@ class TeacherAppointmentListView(APIView):
 
 
 class StudentAppointmentListView(APIView):
-    permission_classes = [AllowAny]
 
     def get(self, request, student_name):
         user = getattr(request, "user", None)
@@ -113,7 +110,6 @@ class StudentAppointmentListView(APIView):
 
 
 class AppointmentStatusUpdateView(APIView):
-    permission_classes = [AllowAny]
 
     def patch(self, request, appointment_id):
         appointment = get_object_or_404(Appointment, pk=appointment_id)
