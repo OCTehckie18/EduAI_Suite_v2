@@ -6,11 +6,19 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.permissions import IsTeacher
 from apps.core.viewsets import SoftDeleteModelViewSet
 
 from .models import Classroom, Enrollment
 from .serializers import ClassroomSerializer, EnrollmentSerializer
 from .services import import_enrollments
+
+
+ADMIN_ROLES = {"CAMPUS_ADMIN", "MASTER_ADMIN"}
+
+
+def _is_admin(user):
+    return user.is_superuser or getattr(user, "role", "") in ADMIN_ROLES
 
 
 class ClassroomViewSet(SoftDeleteModelViewSet):
@@ -20,8 +28,31 @@ class ClassroomViewSet(SoftDeleteModelViewSet):
     serializer_class = ClassroomSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_permissions(self):
+        if self.action in {"create", "update", "partial_update", "destroy", "enroll_upload"}:
+            return [IsTeacher()]
+        return super().get_permissions()
+
+    def perform_create(self, serializer):
+        if _is_admin(self.request.user):
+            serializer.save()
+        else:
+            serializer.save(teacher=self.request.user)
+
+    def perform_update(self, serializer):
+        if _is_admin(self.request.user):
+            serializer.save()
+        else:
+            serializer.save(teacher=self.request.user)
+
     def get_queryset(self):
         queryset = super().get_queryset()
+        user = self.request.user
+        if not _is_admin(user):
+            if getattr(user, "role", "") == "TEACHER":
+                queryset = queryset.filter(teacher=user)
+            else:
+                queryset = queryset.filter(enrollments__student=user, enrollments__is_active=True).distinct()
         for field in ("department_id", "program_id", "batch_id", "section_id", "teacher_id"):
             value = self.request.query_params.get(field)
             if value:
@@ -67,6 +98,12 @@ class EnrollmentViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        user = self.request.user
+        if not _is_admin(user):
+            if getattr(user, "role", "") == "TEACHER":
+                queryset = queryset.filter(classroom__teacher=user)
+            else:
+                queryset = queryset.filter(student=user)
         classroom_id = self.request.query_params.get("classroom_id")
         student_id = self.request.query_params.get("student_id")
         if classroom_id:

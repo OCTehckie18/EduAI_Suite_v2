@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 from apps.accounts.models import User
 from apps.institution.models import Batch, Department, Program, Section
 from apps.core.models import ActionHistory
+from apps.core.permissions import IsTeacher
 from apps.core.utils.file_uploads import safe_upload_name, validate_upload
 from apps.assignments.models import Submission
 
@@ -29,6 +30,26 @@ ADMIN_ROLES = {User.Role.MASTER_ADMIN, User.Role.CAMPUS_ADMIN}
 
 def _is_admin(user):
     return getattr(user, "role", None) in ADMIN_ROLES or getattr(user, "is_superuser", False)
+
+
+def _forbidden():
+    return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+
+def _manages(user, classroom):
+    return _is_admin(user) or classroom.teacher_id == user.pk
+
+
+def _manages_student(user, student):
+    if student.role != User.Role.STUDENT:
+        return False
+    return _is_admin(user) or Enrollment.objects.filter(
+        student=student, is_active=True, classroom__teacher=user
+    ).exists()
+
+
+def _is_enrolled(user, classroom):
+    return Enrollment.objects.filter(classroom=classroom, student=user, is_active=True).exists()
 
 
 def _visible_classrooms(user):
@@ -196,10 +217,14 @@ class LegacyCourseListCreateView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        if not (_is_admin(request.user) or request.user.role == User.Role.TEACHER):
+            return _forbidden()
         try:
             teacher, department, program, batch, section = _resolve_classroom_context(request.data, request.user)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        if not _is_admin(request.user):
+            teacher = request.user
 
         code = str(request.data.get("code") or request.data.get("subject_code") or "").strip()
         name = str(request.data.get("name") or "").strip()
@@ -225,10 +250,13 @@ class LegacyCourseListCreateView(APIView):
 class LegacyCourseDetailView(APIView):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
-    def _get(self, request, course_id):
+    def _get(self, request, course_id, write=False):
         classroom = _visible_classroom(request.user, course_id)
         if classroom is None:
             return None, Response({"detail": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
+        allowed = _manages(request.user, classroom) or (not write and _is_enrolled(request.user, classroom))
+        if not allowed:
+            return None, _forbidden()
         return classroom, None
 
     def get(self, request, course_id):
@@ -237,7 +265,7 @@ class LegacyCourseDetailView(APIView):
 
     @transaction.atomic
     def put(self, request, course_id):
-        classroom, error = self._get(request, course_id)
+        classroom, error = self._get(request, course_id, write=True)
         if error:
             return error
         data = request.data
@@ -265,7 +293,7 @@ class LegacyCourseDetailView(APIView):
         return self.put(request, course_id)
 
     def delete(self, request, course_id):
-        classroom, error = self._get(request, course_id)
+        classroom, error = self._get(request, course_id, write=True)
         if error:
             return error
         classroom.delete()
@@ -273,6 +301,7 @@ class LegacyCourseDetailView(APIView):
 
 
 class LegacyCourseExtractDetailsView(APIView):
+    permission_classes = [IsTeacher]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
@@ -399,11 +428,14 @@ def _enroll_student(classroom, data):
 
 
 class LegacyCourseStudentsView(APIView):
+    permission_classes = [IsTeacher]
     parser_classes = [JSONParser, FormParser]
 
     def get(self, request, course_id):
         classroom = Classroom.objects.filter(pk=course_id).first()
         if classroom:
+            if not _manages(request.user, classroom):
+                return _forbidden()
             students = User.objects.filter(
                 enrollments__classroom=classroom,
                 enrollments__is_active=True,
@@ -414,6 +446,8 @@ class LegacyCourseStudentsView(APIView):
         # If not a course, check if course_id is actually a student ID
         student = User.objects.filter(pk=course_id, role=User.Role.STUDENT).first()
         if student:
+            if not _manages_student(request.user, student):
+                return _forbidden()
             enrollment = Enrollment.objects.filter(student=student, is_active=True).first()
             return Response([_student_payload(student, enrollment.classroom_id if enrollment else 0)])
 
@@ -423,6 +457,8 @@ class LegacyCourseStudentsView(APIView):
         classroom = Classroom.objects.filter(pk=course_id).first()
         if classroom is None:
             return Response({"detail": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _manages(request.user, classroom):
+            return _forbidden()
         try:
             student = _enroll_student(classroom, request.data)
         except ValueError as exc:
@@ -447,6 +483,8 @@ class LegacyStudentDetailView(APIView):
         student = User.objects.filter(pk=student_id).first()
         if not student:
             return Response({"detail": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+        if student.pk != request.user.pk and not _manages_student(request.user, student):
+            return _forbidden()
         enrollment = Enrollment.objects.filter(student=student, is_active=True).first()
         course_id = enrollment.classroom_id if enrollment else 0
         return Response(_student_payload(student, course_id))
@@ -455,6 +493,8 @@ class LegacyStudentDetailView(APIView):
         student = User.objects.filter(pk=student_id).first()
         if not student:
             return Response({"detail": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _manages_student(request.user, student):
+            return _forbidden()
         data = request.data
         if "name" in data:
             fn, ln = _split_name(data["name"])
@@ -483,6 +523,7 @@ class LegacyStudentDetailView(APIView):
 
 
 class LegacyStudentListView(APIView):
+    permission_classes = [IsTeacher]
     parser_classes = [JSONParser, FormParser]
 
     def get(self, request):
@@ -490,6 +531,8 @@ class LegacyStudentListView(APIView):
         if course_id:
             classroom = Classroom.objects.filter(pk=course_id).first()
             if classroom:
+                if not _manages(request.user, classroom):
+                    return _forbidden()
                 students = User.objects.filter(
                     enrollments__classroom=classroom,
                     enrollments__is_active=True,
@@ -501,6 +544,8 @@ class LegacyStudentListView(APIView):
             is_active=True,
             student__role=User.Role.STUDENT,
         ).select_related("student", "classroom")
+        if not _is_admin(request.user):
+            enrollments = enrollments.filter(classroom__teacher=request.user)
 
         payload = []
         seen = set()
@@ -510,9 +555,8 @@ class LegacyStudentListView(APIView):
             seen.add(enrollment.student_id)
             payload.append(_student_payload(enrollment.student, enrollment.classroom_id))
 
-        if not payload:
-            all_students = User.objects.filter(role=User.Role.STUDENT)
-            for s in all_students:
+        if not payload and _is_admin(request.user):
+            for s in User.objects.filter(role=User.Role.STUDENT):
                 payload.append(_student_payload(s, 0))
 
         return Response(payload)
@@ -520,13 +564,12 @@ class LegacyStudentListView(APIView):
     def post(self, request):
         course_id = request.data.get("course_id") or request.query_params.get("course_id")
         if not course_id:
-            classroom = Classroom.objects.first()
-            if not classroom:
-                return Response({"detail": "No classrooms exist to enroll student."}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            classroom = Classroom.objects.filter(pk=course_id).first()
-            if not classroom:
-                return Response({"detail": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "course_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        classroom = Classroom.objects.filter(pk=course_id).first()
+        if not classroom:
+            return Response({"detail": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _manages(request.user, classroom):
+            return _forbidden()
 
         try:
             student = _enroll_student(classroom, request.data)
@@ -616,12 +659,15 @@ def _legacy_dict_data(row):
 
 
 class LegacyBulkEnrollView(APIView):
+    permission_classes = [IsTeacher]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, course_id):
         classroom = Classroom.objects.filter(pk=course_id).first()
         if classroom is None:
             return Response({"detail": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _manages(request.user, classroom):
+            return _forbidden()
 
         uploaded_file = request.FILES.get("file")
         if not uploaded_file:
@@ -686,11 +732,14 @@ class LegacyEnrollByCodeView(APIView):
 
 
 class LegacyActiveStudentsView(APIView):
+    permission_classes = [IsTeacher]
 
     def get(self, request, course_id):
         classroom = Classroom.objects.filter(pk=course_id).first()
         if classroom is None:
             return Response({"detail": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not _manages(request.user, classroom):
+            return _forbidden()
         students = User.objects.filter(
             enrollments__classroom=classroom,
             enrollments__is_active=True,
@@ -700,12 +749,17 @@ class LegacyActiveStudentsView(APIView):
 
 
 class LegacyStudentDeleteView(APIView):
+    permission_classes = [IsTeacher]
 
     def delete(self, request, student_id):
         enrollments = Enrollment.objects.filter(student_id=student_id)
         user = User.objects.filter(pk=student_id).first()
         if not enrollments.exists() and not user:
             return Response({"detail": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+        if user is None or not _manages_student(request.user, user):
+            return _forbidden()
+        if not _is_admin(request.user):
+            enrollments = enrollments.filter(classroom__teacher=request.user)
         if enrollments.exists():
             enrollments.delete()
         ActionHistory.objects.create(
