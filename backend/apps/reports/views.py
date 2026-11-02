@@ -7,6 +7,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.permissions import IsTeacher
+
 from apps.accounts.models import User
 from apps.classrooms.models import Classroom
 from apps.core.utils.email_utils import send_email
@@ -15,6 +17,7 @@ from .serializers import ReportSerializer
 
 
 class ReportListCreateView(APIView):
+    permission_classes = [IsTeacher]
 
     def get(self, request):
         reports = Report.objects.all()
@@ -48,6 +51,7 @@ class ReportListCreateView(APIView):
 
 
 class ReportDetailView(APIView):
+    permission_classes = [IsTeacher]
 
     def get(self, request, report_id):
         report = Report.objects.filter(report_id=report_id).first()
@@ -64,6 +68,7 @@ class ReportDetailView(APIView):
 
 
 class ReportSendView(APIView):
+    permission_classes = [IsTeacher]
 
     def post(self, request, report_id):
         report = Report.objects.filter(report_id=report_id).first()
@@ -82,6 +87,7 @@ class ReportSendView(APIView):
 
 
 class ReportDownloadView(APIView):
+    permission_classes = [IsTeacher]
 
     def get(self, request, report_id):
         report = Report.objects.filter(report_id=report_id).first()

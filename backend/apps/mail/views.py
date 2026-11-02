@@ -9,6 +9,11 @@ from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from rest_framework.exceptions import ValidationError
+
+from apps.core.permissions import IsTeacher
+from apps.core.utils.file_uploads import MAX_SPREADSHEET_BYTES, validate_upload
+
 from apps.accounts.models import User
 from apps.core.models import ActionHistory
 from apps.core.utils.email_utils import send_email
@@ -20,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class MailGenerateView(APIView):
+    permission_classes = [IsTeacher]
 
     def post(self, request):
         students = request.data.get("students", [])
@@ -67,6 +73,7 @@ Return ONLY the raw JSON string."""
 
 
 class MailFilterView(APIView):
+    permission_classes = [IsTeacher]
 
     def post(self, request):
         conditions = request.data.get("conditions", [])
@@ -102,6 +109,7 @@ class MailFilterView(APIView):
 
 
 class MailParseExcelView(APIView):
+    permission_classes = [IsTeacher]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
@@ -109,6 +117,10 @@ class MailParseExcelView(APIView):
         if not file_obj:
             return Response({"detail": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            validate_upload(file_obj, {".xlsx", ".xls", ".csv"}, MAX_SPREADSHEET_BYTES)
+        except ValidationError as exc:
+            return Response({"detail": exc.detail[0]}, status=status.HTTP_400_BAD_REQUEST)
         filename = file_obj.name.lower()
         content = file_obj.read()
 
@@ -138,6 +150,7 @@ class MailParseExcelView(APIView):
 
 
 class MailDraftListCreateView(APIView):
+    permission_classes = [IsTeacher]
 
     def get(self, request):
         drafts = MailDraft.objects.all()
@@ -155,6 +168,7 @@ class MailDraftListCreateView(APIView):
 
 
 class MailDraftDetailView(APIView):
+    permission_classes = [IsTeacher]
 
     def get(self, request, draft_id):
         draft = get_object_or_404(MailDraft, pk=draft_id)
@@ -167,6 +181,7 @@ class MailDraftDetailView(APIView):
 
 
 class MailSendView(APIView):
+    permission_classes = [IsTeacher]
 
     def post(self, request):
         data = request.data
@@ -210,6 +225,7 @@ class MailSendView(APIView):
 
 
 class MailGmailLogView(APIView):
+    permission_classes = [IsTeacher]
 
     def post(self, request):
         data = request.data
@@ -239,6 +255,7 @@ class MailGmailLogView(APIView):
 
 
 class MailHistoryListView(APIView):
+    permission_classes = [IsTeacher]
 
     def get(self, request):
         histories = MailHistory.objects.all()
@@ -246,6 +263,7 @@ class MailHistoryListView(APIView):
 
 
 class MailHistoryDetailView(APIView):
+    permission_classes = [IsTeacher]
 
     def delete(self, request, history_id):
         history = get_object_or_404(MailHistory, pk=history_id)
