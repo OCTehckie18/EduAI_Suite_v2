@@ -3,10 +3,43 @@ from unittest.mock import patch
 import jwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
+
+
+class LoginHardeningTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = get_user_model().objects.create_user(
+            email="active@example.com", password="secure-pass", register_no="REG1"
+        )
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_inactive_user_cannot_login_or_refresh(self):
+        login = self.client.post(reverse("password-login"), {"username": "REG1", "password": "secure-pass"}, format="json")
+        self.assertEqual(login.status_code, 200)
+        refresh_token = login.data["refresh"]
+
+        self.user.is_active = False
+        self.user.save(update_fields=["is_active"])
+
+        login = self.client.post(reverse("password-login"), {"username": "REG1", "password": "secure-pass"}, format="json")
+        self.assertEqual(login.status_code, 401)
+        refresh = self.client.post(reverse("refresh-token"), {"refresh": refresh_token}, format="json")
+        self.assertEqual(refresh.status_code, 401)
+
+    def test_password_login_is_rate_limited(self):
+        statuses = [
+            self.client.post(reverse("password-login"), {"username": "REG1", "password": "wrong"}, format="json").status_code
+            for _ in range(12)
+        ]
+        self.assertEqual(statuses[:10], [401] * 10)
+        self.assertIn(429, statuses[10:])
 
 
 class GoogleAuthenticationTests(APITestCase):

@@ -9,6 +9,7 @@ from google.oauth2 import id_token
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
@@ -111,6 +112,8 @@ class GoogleLoginView(APIView):
 
 class PasswordLoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
 
     def post(self, request):
         username = str(request.data.get("username", "")).strip()
@@ -119,13 +122,15 @@ class PasswordLoginView(APIView):
             return Response({"detail": "Username and password are required."}, status=status.HTTP_400_BAD_REQUEST)
         User = get_user_model()
         user = User.objects.filter(email__iexact=username).first() or User.objects.filter(register_no__iexact=username).first() or User.objects.filter(emp_no__iexact=username).first()
-        if user is None or not user.check_password(password):
+        if user is None or not user.is_active or not user.check_password(password):
             return Response({"detail": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
         return Response(_auth_response(user), status=status.HTTP_200_OK)
 
 
 class RefreshTokenView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "refresh"
 
     def post(self, request):
         try:
@@ -134,6 +139,8 @@ class RefreshTokenView(APIView):
                 raise jwt.InvalidTokenError
             user = get_user_model().objects.get(pk=payload["sub"])
         except (jwt.PyJWTError, KeyError, get_user_model().DoesNotExist, TypeError):
+            return Response({"detail": "Invalid or expired refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not user.is_active:
             return Response({"detail": "Invalid or expired refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
         return Response(_auth_response(user, payload.get("role", user.role)), status=status.HTTP_200_OK)
 
