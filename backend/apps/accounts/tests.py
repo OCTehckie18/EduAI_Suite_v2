@@ -58,6 +58,25 @@ class GoogleAuthenticationTests(APITestCase):
         self.assertEqual(login_response.data["user"]["role"], "teacher")
 
     @patch("apps.accounts.views.id_token.verify_oauth2_token")
+    def test_profile_setup_rejects_admin_role_escalation(self, verify_token):
+        verify_token.return_value = {"email": "sneaky@example.com", "email_verified": True, "given_name": "Sneaky"}
+        google_response = self.client.post(reverse("google-login"), {"id_token": "t", "app": "edugames"}, format="json")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {google_response.data['access']}")
+
+        campus = Campus.objects.create(name="Central", code="CENTRAL", city="Bengaluru")
+        school = School.objects.create(name="Sciences", code="SCI", campus=campus)
+        department = Department.objects.create(name="Computer Science", code="CSE", school=school)
+        for role in ("MASTER_ADMIN", "CAMPUS_ADMIN"):
+            response = self.client.post(
+                reverse("profile-setup"),
+                {"role": role, "campus": campus.pk, "school": school.pk, "department": department.pk, "password": "secure-pass"},
+                format="json",
+            )
+            self.assertEqual(response.status_code, 400)
+        user = get_user_model().objects.get(email="sneaky@example.com")
+        self.assertEqual(user.role, "STUDENT")
+
+    @patch("apps.accounts.views.id_token.verify_oauth2_token")
     def test_student_register_number_can_login_after_profile_setup(self, verify_token):
         verify_token.return_value = {"email": "student2@example.com", "email_verified": True, "given_name": "Test"}
         google_response = self.client.post(
