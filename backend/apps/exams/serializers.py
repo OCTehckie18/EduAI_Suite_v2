@@ -7,6 +7,12 @@ class ExamChoiceSerializer(serializers.ModelSerializer):
         model = ExamChoice
         fields = ["id", "choice_text", "is_correct"]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if self.context.get("hide_answers"):
+            data.pop("is_correct", None)
+        return data
+
 
 class ExamQuestionSerializer(serializers.ModelSerializer):
     choices = ExamChoiceSerializer(many=True, required=False)
@@ -35,7 +41,14 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
 class ExamSerializer(serializers.ModelSerializer):
     course_id = serializers.IntegerField(source="course.id", read_only=True)
     questions = ExamQuestionSerializer(many=True, required=False)
-    attempts = ExamAttemptSerializer(many=True, read_only=True)
+    attempts = serializers.SerializerMethodField()
+
+    def get_attempts(self, exam):
+        attempts = exam.attempts.all()
+        student_id = self.context.get("attempts_for_student")
+        if student_id is not None:
+            attempts = [a for a in attempts if a.student_id == student_id]
+        return ExamAttemptSerializer(attempts, many=True, context=self.context).data
 
     class Meta:
         model = Exam

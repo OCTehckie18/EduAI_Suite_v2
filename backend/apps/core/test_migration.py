@@ -143,6 +143,7 @@ class MigrationSmokeTestCase(TestCase):
         self.assertIsNotNone(res.json()["posted_at"])
 
     def test_exams(self):
+        self.client.force_authenticate(user=self.teacher)
         res = self.client.post("/exams/", {
             "course_id": self.course.id,
             "title": "Midterm Exam",
