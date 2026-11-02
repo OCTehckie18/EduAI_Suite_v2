@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 from apps.accounts.models import User
 from apps.institution.models import Batch, Department, Program, Section
 from apps.core.models import ActionHistory
+from apps.core.utils.file_uploads import safe_upload_name, validate_upload
 from apps.assignments.models import Submission
 
 from .models import Classroom, Enrollment, Resource
@@ -179,8 +180,9 @@ def _resolve_classroom_context(data, current_user):
 def _save_course_plan(uploaded_file):
     if not uploaded_file:
         return ""
-    path = default_storage.save(f"courses/{uploaded_file.name}", ContentFile(uploaded_file.read()))
-    return path
+    validate_upload(uploaded_file, {".pdf", ".docx", ".pptx", ".txt", ".md"})
+    name = safe_upload_name(uploaded_file.name)
+    return default_storage.save(f"courses/{name}", ContentFile(uploaded_file.read()))
 
 
 class LegacyCourseListCreateView(APIView):

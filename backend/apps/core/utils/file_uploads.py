@@ -9,9 +9,23 @@ from rest_framework.exceptions import ValidationError
 ALLOWED_FILE_EXTENSIONS = {
     ".pdf", ".pptx", ".docx", ".png", ".jpg", ".jpeg", ".zip", ".xlsx", ".csv", ".txt", ".md"
 }
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_MB", "25")) * 1024 * 1024
+MAX_SPREADSHEET_BYTES = 5 * 1024 * 1024
 
 
-def _safe_filename(filename: str) -> str:
+def validate_upload(file, allowed_extensions=None, max_bytes=MAX_UPLOAD_BYTES) -> str:
+    """Reject uploads with a disallowed extension or an oversized body; returns the extension."""
+    extension = Path(getattr(file, "name", "") or "").suffix.lower()
+    allowed = allowed_extensions if allowed_extensions is not None else ALLOWED_FILE_EXTENSIONS
+    if extension not in allowed:
+        raise ValidationError(f"File extension '{extension}' is not allowed.")
+    size = getattr(file, "size", None)
+    if size is not None and size > max_bytes:
+        raise ValidationError(f"File is too large (limit {max_bytes // (1024 * 1024)} MB).")
+    return extension
+
+
+def safe_upload_name(filename: str) -> str:
     name = Path(filename).name
     name = re.sub(r"[^A-Za-z0-9._-]", "_", name)
     return name or "upload"
@@ -26,11 +40,9 @@ def save_optional_upload(file, folder: str) -> Optional[str]:
         return None
 
     filename = getattr(file, "name", "upload")
-    extension = Path(filename).suffix.lower()
-    if extension not in ALLOWED_FILE_EXTENSIONS:
-        raise ValidationError(f"File extension '{extension}' is not allowed.")
+    validate_upload(file)
 
-    safe_name = _safe_filename(filename)
+    safe_name = safe_upload_name(filename)
     saved_name = f"{uuid4().hex}_{safe_name}"
 
     upload_dir = Path(settings.UPLOADS_ROOT) / folder

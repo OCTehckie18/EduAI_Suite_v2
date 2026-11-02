@@ -5,12 +5,15 @@ from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.permissions import IsTeacher
+
 from apps.core.utils.file_uploads import save_optional_upload
 from .models import OMRJob, OMRSubmission
 from .serializers import OMRJobSerializer, OMRSubmissionSerializer
 
 
 class OMRJobListCreateView(APIView):
+    permission_classes = [IsTeacher]
 
     def get(self, request):
         jobs = OMRJob.objects.all()
@@ -26,6 +29,7 @@ class OMRJobListCreateView(APIView):
 
 
 class OMRJobDetailView(APIView):
+    permission_classes = [IsTeacher]
 
     def get(self, request, job_id):
         job = get_object_or_404(OMRJob, pk=job_id)
@@ -33,6 +37,7 @@ class OMRJobDetailView(APIView):
 
 
 class OMRSubmissionListCreateView(APIView):
+    permission_classes = [IsTeacher]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request, job_id):
@@ -75,6 +80,7 @@ class OMRSubmissionListCreateView(APIView):
 
 
 class OMRSubmissionDetailView(APIView):
+    permission_classes = [IsTeacher]
 
     def get(self, request, submission_id):
         sub = get_object_or_404(OMRSubmission, pk=submission_id)
