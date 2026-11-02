@@ -105,7 +105,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
       if (!token) {
         throw new Error("You are not logged in. Please log in to take the exam.");
       }
-      const response = await fetch(`${API_BASE_URL}/exams/${exam.id}/start`, {
+      const response = await fetch(`${API_BASE_URL}/exams/${exam.id}/attempts/start`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`

@@ -38,7 +38,11 @@ export const StudentExams: React.FC = () => {
 
   const startExam = async (examId: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/exams/${examId}`);
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/exams/${examId}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error("Failed to load exam");
       const data = await response.json();
       setActiveExam(data);
     } catch (err) {
