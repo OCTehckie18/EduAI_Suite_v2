@@ -144,7 +144,7 @@ class ProfileSetupView(APIView):
     def post(self, request):
         user = request.user
         data = request.data
-        valid_roles = {choice[0] for choice in user.Role.choices}
+        valid_roles = {user.Role.STUDENT, user.Role.TEACHER, user.role}
         requested_role = data.get("role", user.role)
         if requested_role not in valid_roles:
             return Response({"detail": "Invalid role."}, status=status.HTTP_400_BAD_REQUEST)
