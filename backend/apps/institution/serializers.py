@@ -2,11 +2,14 @@ from rest_framework import serializers
 
 from .models import Batch, Campus, Department, Program, School, Section
 
+AUDIT_FIELDS = ["created_at", "updated_at", "is_active", "deleted_at"]
+
 
 class CampusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Campus
         fields = "__all__"
+        read_only_fields = AUDIT_FIELDS
 
 
 class SchoolSerializer(serializers.ModelSerializer):
@@ -16,6 +19,7 @@ class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
         fields = ["id", "created_at", "updated_at", "is_active", "deleted_at", "name", "code", "campus", "campus_detail"]
+        read_only_fields = AUDIT_FIELDS
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -25,6 +29,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
         fields = ["id", "created_at", "updated_at", "is_active", "deleted_at", "name", "code", "school", "school_detail"]
+        read_only_fields = AUDIT_FIELDS
 
 
 class ProgramSerializer(serializers.ModelSerializer):
@@ -34,6 +39,12 @@ class ProgramSerializer(serializers.ModelSerializer):
     class Meta:
         model = Program
         fields = ["id", "created_at", "updated_at", "is_active", "deleted_at", "name", "code", "department", "degree_level", "duration_years", "department_detail"]
+        read_only_fields = AUDIT_FIELDS
+
+    def validate_duration_years(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Duration must be at least one year.")
+        return value
 
 
 class BatchSerializer(serializers.ModelSerializer):
@@ -43,6 +54,14 @@ class BatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Batch
         fields = ["id", "created_at", "updated_at", "is_active", "deleted_at", "name", "program", "start_year", "end_year", "academic_year", "program_detail"]
+        read_only_fields = AUDIT_FIELDS
+
+    def validate(self, attrs):
+        start = attrs.get("start_year", getattr(self.instance, "start_year", None))
+        end = attrs.get("end_year", getattr(self.instance, "end_year", None))
+        if start is not None and end is not None and start > end:
+            raise serializers.ValidationError({"end_year": "End year cannot be before the start year."})
+        return attrs
 
 
 class SectionSerializer(serializers.ModelSerializer):
@@ -52,3 +71,9 @@ class SectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Section
         fields = ["id", "created_at", "updated_at", "is_active", "deleted_at", "name", "batch", "max_capacity", "batch_detail"]
+        read_only_fields = AUDIT_FIELDS
+
+    def validate_max_capacity(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Capacity must be at least 1.")
+        return value

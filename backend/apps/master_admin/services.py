@@ -9,6 +9,7 @@ def soft_delete_models():
     return [
         model for model in django_apps.get_models()
         if issubclass(model, SoftDeleteModel) and not model._meta.abstract
+        and ".tests" not in model.__module__
     ]
 
 

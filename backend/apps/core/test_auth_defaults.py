@@ -27,7 +27,7 @@ class AuthRequiredByDefaultTests(TestCase):
         self.client = APIClient()
         User = get_user_model()
         self.student = User.objects.create_user(email="s@example.com", password="x", role="STUDENT")
-        self.admin = User.objects.create_user(email="a@example.com", password="x", role="CAMPUS_ADMIN")
+        self.admin = User.objects.create_user(email="a@example.com", password="x", role="TEACHER")
 
     def test_anonymous_requests_are_rejected(self):
         for method, url in PROTECTED:
@@ -47,6 +47,11 @@ class AuthRequiredByDefaultTests(TestCase):
         self.assertFalse(Campus.objects.filter(code="X").exists())
 
         self.client.force_authenticate(self.admin)
+        res = self.client.post("/api/v1/institution/campuses/", {"name": "X", "code": "X", "city": "Y"}, format="json")
+        self.assertEqual(res.status_code, 403)  # campuses are master-admin only
+
+        master = get_user_model().objects.create_user(email="m@example.com", password="x", role="MASTER_ADMIN")
+        self.client.force_authenticate(master)
         res = self.client.post("/api/v1/institution/campuses/", {"name": "X", "code": "X", "city": "Y"}, format="json")
         self.assertEqual(res.status_code, 201)
 

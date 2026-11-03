@@ -22,7 +22,7 @@ MAX_CONTEXT_CHARS = 30000
 
 
 def _is_admin(user):
-    return user.role in (User.Role.MASTER_ADMIN, User.Role.CAMPUS_ADMIN)
+    return user.role in (User.Role.MASTER_ADMIN,)
 
 
 def _clip(value, limit=280):

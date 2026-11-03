@@ -20,7 +20,7 @@ def _generate_pin() -> str:
 
 
 def _managed_quizzes(user):
-    if getattr(user, "role", "") in {"CAMPUS_ADMIN", "MASTER_ADMIN"}:
+    if getattr(user, "role", "") in {"MASTER_ADMIN"}:
         return Quiz.objects.all()
     return Quiz.objects.filter(teacher_id=user.pk)
 
@@ -78,7 +78,7 @@ class QuizListCreateView(APIView):
         data = request.data
         teacher_id = (
             data.get("teacher_id")
-            if getattr(request.user, "role", "") in {"CAMPUS_ADMIN", "MASTER_ADMIN"}
+            if getattr(request.user, "role", "") in {"MASTER_ADMIN"}
             else request.user.pk
         )
         quiz = Quiz.objects.create(

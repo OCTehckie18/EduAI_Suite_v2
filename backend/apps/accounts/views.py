@@ -39,7 +39,7 @@ def _password_error(password, user=None):
 
 
 def _role_label(role):
-    if role in {"MASTER_ADMIN", "CAMPUS_ADMIN"}:
+    if role in {"MASTER_ADMIN"}:
         return "admin"
     return role.lower().replace("_", "-")
 

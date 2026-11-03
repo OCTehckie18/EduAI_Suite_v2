@@ -1,4 +1,7 @@
-from apps.core.permissions import IsAdminOrAuthenticatedReadOnly
+from django.db import IntegrityError, transaction
+from rest_framework.exceptions import ValidationError
+
+from apps.core.access import IsMasterAdminOrReadOnly
 from apps.core.viewsets import SoftDeleteModelViewSet
 
 from .models import Batch, Campus, Department, Program, School, Section
@@ -13,7 +16,23 @@ from .serializers import (
 
 
 class InstitutionViewSet(SoftDeleteModelViewSet):
-    permission_classes = [IsAdminOrAuthenticatedReadOnly]
+    """Reads are open to signed-in users (profile setup needs the hierarchy); only master admins write."""
+    permission_classes = [IsMasterAdminOrReadOnly]
+
+    def _save(self, serializer):
+        try:
+            with transaction.atomic():
+                serializer.save()
+        except IntegrityError:
+            raise ValidationError(
+                {"detail": "A record with these identifying values already exists (it may be in the recycle bin)."}
+            )
+
+    def perform_create(self, serializer):
+        self._save(serializer)
+
+    def perform_update(self, serializer):
+        self._save(serializer)
 
 
 class CampusViewSet(InstitutionViewSet):

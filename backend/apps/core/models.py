@@ -62,6 +62,20 @@ class SoftDeleteModel(TimeStampedModel):
         """Permanent removal from database (for tests)."""
         super().delete(using=using, keep_parents=keep_parents)
 
+    def restore_blockers(self):
+        """Soft-deleted parents that must be restored before this record can be."""
+        blockers = []
+        for field in self._meta.concrete_fields:
+            if not field.is_relation or not field.many_to_one:
+                continue
+            related_model = field.related_model
+            if not hasattr(related_model, "all_objects") or related_model is type(self):
+                continue
+            parent = getattr(self, field.name, None)
+            if parent is not None and parent.is_active is False:
+                blockers.append(f"{related_model.__name__}: {parent}")
+        return blockers
+
     def restore(self):
         """Re-activate a soft-deleted item."""
         self.is_active = True

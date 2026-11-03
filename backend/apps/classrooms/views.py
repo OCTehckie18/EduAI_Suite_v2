@@ -14,7 +14,7 @@ from .serializers import ClassroomSerializer, EnrollmentSerializer
 from .services import import_enrollments
 
 
-ADMIN_ROLES = {"CAMPUS_ADMIN", "MASTER_ADMIN"}
+ADMIN_ROLES = {"MASTER_ADMIN"}
 
 
 def _is_admin(user):

@@ -1,4 +1,8 @@
+from datetime import datetime, timezone as dt_timezone
+
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
@@ -12,6 +16,10 @@ from apps.core.models import ActionHistory
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
 
 from .services import content_type_key, model_for_key, soft_delete_models
+
+
+_EPOCH = datetime(1970, 1, 1, tzinfo=dt_timezone.utc)
+MAX_RECYCLE_ITEMS_PER_MODEL = 200
 
 
 def _record_admin_action(request, action, target, metadata=None):
@@ -47,7 +55,6 @@ class MasterAdminOverviewView(APIView):
             "users": {
                 "total": User.objects.count(),
                 "master_admins": User.objects.filter(role=User.Role.MASTER_ADMIN).count(),
-                "campus_admins": User.objects.filter(role=User.Role.CAMPUS_ADMIN).count(),
                 "teachers": User.objects.filter(role=User.Role.TEACHER).count(),
                 "students": User.objects.filter(role=User.Role.STUDENT).count(),
             },
@@ -70,7 +77,9 @@ class RecycleBinListView(APIView):
         items = []
         for model in models:
             key = content_type_key(model)
-            for instance in model.all_objects.filter(is_active=False).order_by("-deleted_at")[:200]:
+            matched = 0
+            # Search first, then cap, so older deleted records stay findable.
+            for instance in model.all_objects.filter(is_active=False).order_by("-deleted_at", "-pk").iterator():
                 label = str(instance)
                 if search and search not in label.lower() and search not in key.lower():
                     continue
@@ -80,7 +89,10 @@ class RecycleBinListView(APIView):
                     "label": label,
                     "deleted_at": instance.deleted_at,
                 })
-        items.sort(key=lambda entry: entry["deleted_at"] or "", reverse=True)
+                matched += 1
+                if matched >= MAX_RECYCLE_ITEMS_PER_MODEL:
+                    break
+        items.sort(key=lambda entry: entry["deleted_at"] or _EPOCH, reverse=True)
         return Response({"count": len(items), "results": items})
 
 
@@ -98,10 +110,23 @@ class RecycleBinRestoreView(APIView):
             return Response({"detail": "Record not found."}, status=404)
         if instance.is_active:
             return Response({"detail": "Record is already active."}, status=400)
-        instance.restore()
-        _record_admin_action(
-            request, "restore_record", f"{content_type}:{instance.pk}"
-        )
+        blockers = instance.restore_blockers()
+        if blockers:
+            return Response(
+                {"detail": "Restore the parent records first: " + "; ".join(blockers)},
+                status=409,
+            )
+        try:
+            with transaction.atomic():
+                instance.restore()
+                _record_admin_action(
+                    request, "restore_record", f"{content_type}:{instance.pk}"
+                )
+        except IntegrityError:
+            return Response(
+                {"detail": "This record conflicts with an existing active record."},
+                status=409,
+            )
         return Response({"success": True, "content_type": content_type, "id": instance.pk})
 
 
@@ -288,6 +313,13 @@ class UserDirectoryView(APIView):
             return Response(
                 {"detail": "Email and password are required."}, status=400
             )
+        role = data.get("role", User.Role.STUDENT)
+        if role not in {choice[0] for choice in User.Role.choices}:
+            return Response({"detail": "Invalid role."}, status=400)
+        try:
+            validate_password(str(data["password"]))
+        except DjangoValidationError as exc:
+            return Response({"detail": " ".join(exc.messages)}, status=400)
         try:
             with transaction.atomic():
                 user = User.objects.create_user(
@@ -295,7 +327,7 @@ class UserDirectoryView(APIView):
                     password=data["password"],
                     first_name=str(data.get("first_name", "")).strip(),
                     last_name=str(data.get("last_name", "")).strip(),
-                    role=data.get("role", User.Role.STUDENT),
+                    role=role,
                     campus_id=data.get("campus"),
                     register_no=data.get("register_no") or None,
                     emp_no=data.get("emp_no") or None,
@@ -328,13 +360,25 @@ class UserDirectoryDetailView(APIView):
                 {"detail": "You cannot change your own Master Admin role."},
                 status=400,
             )
-        for field in ("first_name", "last_name", "phone_number", "register_no", "emp_no"):
+        for field in ("first_name", "last_name", "phone_number"):
             if field in data:
-                setattr(user, field, data[field] or None)
+                setattr(user, field, str(data[field] or "").strip())
+        for field in ("register_no", "emp_no"):
+            if field in data:
+                setattr(user, field, str(data[field] or "").strip() or None)
         if "role" in data:
             valid_roles = {choice[0] for choice in user.Role.choices}
             if data["role"] not in valid_roles:
                 return Response({"detail": "Invalid role."}, status=400)
+            if user.role == user.Role.MASTER_ADMIN and data["role"] != user.role:
+                if not self._has_another_admin(user):
+                    return Response(
+                        {"detail": "At least one active Master Admin must remain."},
+                        status=400,
+                    )
+                # A demoted admin must not keep superuser access through the flag.
+                user.is_superuser = False
+                user.is_staff = False
             user.role = data["role"]
         if "campus" in data:
             campus_id = data["campus"]

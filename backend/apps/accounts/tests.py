@@ -179,7 +179,7 @@ class GoogleAuthenticationTests(APITestCase):
         campus = Campus.objects.create(name="Central", code="CENTRAL", city="Bengaluru")
         school = School.objects.create(name="Sciences", code="SCI", campus=campus)
         department = Department.objects.create(name="Computer Science", code="CSE", school=school)
-        for role in ("MASTER_ADMIN", "CAMPUS_ADMIN"):
+        for role in ("MASTER_ADMIN",):
             response = self.client.post(
                 reverse("profile-setup"),
                 {"role": role, "campus": campus.pk, "school": school.pk, "department": department.pk, "password": "secure-pass"},

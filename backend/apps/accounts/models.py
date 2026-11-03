@@ -32,7 +32,6 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin, SoftDeleteModel):
     class Role(models.TextChoices):
         MASTER_ADMIN = "MASTER_ADMIN", "Master Admin"
-        CAMPUS_ADMIN = "CAMPUS_ADMIN", "Campus Admin"
         TEACHER = "TEACHER", "Teacher"
         STUDENT = "STUDENT", "Student"
 

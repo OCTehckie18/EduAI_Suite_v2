@@ -51,7 +51,7 @@ class ClassroomSerializer(serializers.ModelSerializer):
         batch = attrs.get("batch", getattr(self.instance, "batch", None))
         section = attrs.get("section", getattr(self.instance, "section", None))
         teacher = attrs.get("teacher", getattr(self.instance, "teacher", None))
-        if teacher and teacher.role not in {User.Role.TEACHER, User.Role.MASTER_ADMIN, User.Role.CAMPUS_ADMIN}:
+        if teacher and teacher.role not in {User.Role.TEACHER, User.Role.MASTER_ADMIN}:
             raise serializers.ValidationError({"teacher": "The selected user is not a teacher or administrator."})
         if program and department and program.department_id != department.id:
             raise serializers.ValidationError({"program": "Program must belong to the selected department."})

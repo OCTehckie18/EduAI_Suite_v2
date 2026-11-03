@@ -42,7 +42,7 @@ class InstitutionModelTests(APITestCase):
 
 class InstitutionApiTests(APITestCase):
     def test_create_and_filter_hierarchy(self):
-        admin = get_user_model().objects.create_user(email="inst-admin@example.com", password="x", role="CAMPUS_ADMIN")
+        admin = get_user_model().objects.create_user(email="inst-admin@example.com", password="x", role="MASTER_ADMIN")
         self.client.force_authenticate(admin)
         campus_response = self.client.post(
             reverse("campus-list"),
