@@ -1,3 +1,4 @@
+from django.db import IntegrityError, transaction
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -33,6 +34,9 @@ class SoftDeleteModelViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
 
+    def check_restore_scope(self, instance):
+        """Hook for subclasses that need to limit who may restore which record."""
+
     @action(detail=True, methods=['post'], permission_classes=[IsCampusAdmin])
     def restore(self, request, pk=None):
         """Restore a soft-deleted record."""
@@ -45,7 +49,26 @@ class SoftDeleteModelViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        instance.restore()
+        self.check_restore_scope(instance)
+        if instance.is_active:
+            return Response(
+                {"success": False, "error": f"{model.__name__} is already active."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        blockers = instance.restore_blockers()
+        if blockers:
+            return Response(
+                {"success": False, "error": "Restore the parent records first: " + "; ".join(blockers)},
+                status=status.HTTP_409_CONFLICT
+            )
+        try:
+            with transaction.atomic():
+                instance.restore()
+        except IntegrityError:
+            return Response(
+                {"success": False, "error": f"{model.__name__} conflicts with an existing active record."},
+                status=status.HTTP_409_CONFLICT
+            )
         return Response(
             {
                 "success": True,

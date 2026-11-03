@@ -48,6 +48,11 @@ class AuthRequiredByDefaultTests(TestCase):
 
         self.client.force_authenticate(self.admin)
         res = self.client.post("/api/v1/institution/campuses/", {"name": "X", "code": "X", "city": "Y"}, format="json")
+        self.assertEqual(res.status_code, 403)  # campuses are master-admin only
+
+        master = get_user_model().objects.create_user(email="m@example.com", password="x", role="MASTER_ADMIN")
+        self.client.force_authenticate(master)
+        res = self.client.post("/api/v1/institution/campuses/", {"name": "X", "code": "X", "city": "Y"}, format="json")
         self.assertEqual(res.status_code, 201)
 
     def test_student_cannot_read_another_students_engagement(self):
