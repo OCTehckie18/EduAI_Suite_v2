@@ -25,7 +25,6 @@ import { MailStudentsPage } from "../features/mail/MailStudentsPage";
 import { ConstructionPage } from "../shared/components/ConstructionPage";
 import { TrelloBoardsPage } from "../features/trello/TrelloBoardsPage";
 import { TrelloBoardView } from "../features/trello/TrelloBoardView";
-import { AdminUsersPage } from "../features/admin/AdminUsersPage";
 
 import { WaitingPage } from "../features/auth/WaitingPage";
 import { ProfileSetupPage } from "../features/auth/ProfileSetupPage";
@@ -73,7 +72,6 @@ export const router = createBrowserRouter([
       { path: "chat", element: <AIChatPage /> },
       { path: "settings", element: <ConstructionPage /> },
       { path: "exams", element: <ExamsPage /> },
-      { path: "admin/users", element: <AdminUsersPage /> },
       { path: "games/trello", element: <TrelloBoardsPage /> },
       { path: "games/trello/:boardId", element: <TrelloBoardView /> },
       { path: "tools/trello", element: <TrelloBoardsPage /> },

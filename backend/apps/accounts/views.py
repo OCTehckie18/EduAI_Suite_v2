@@ -24,6 +24,13 @@ logger = logging.getLogger(__name__)
 GOOGLE_CLOCK_SKEW_SECONDS = 120
 
 
+_STATUS_LABELS = {"APPROVED": "approved", "PENDING": "pending", "REJECTED": "denied"}
+
+
+def _approval_label(user):
+    return _STATUS_LABELS.get(user.approval_status, "pending")
+
+
 def _clean_identifier(value):
     """Blank register/employee numbers are stored as NULL so the unique constraint ignores them."""
     value = str(value).strip() if value is not None else ""
@@ -72,6 +79,7 @@ def _user_payload(user, role=None):
         "emp_no": user.emp_no,
         "phone_number": user.phone_number,
         "is_profile_complete": user.is_profile_complete,
+        "rejection_reason": user.rejection_reason,
         "hierarchy": {
             "campus": _hierarchy_item(user.campus),
             "school": _hierarchy_item(user.school),
@@ -89,7 +97,7 @@ def _auth_response(user, role=None):
         "access": _issue_token(user, role, "access", timedelta(minutes=settings.JWT_ACCESS_TOKEN_LIFETIME_MINUTES)),
         "refresh": _issue_token(user, role, "refresh", timedelta(days=settings.JWT_REFRESH_TOKEN_LIFETIME_DAYS)),
         "is_profile_complete": user.is_profile_complete,
-        "status": "approved",
+        "status": _approval_label(user),
         "user": _user_payload(user, role),
     }
 
@@ -114,14 +122,19 @@ class GoogleLoginView(APIView):
         if not email or not claims.get("email_verified", False):
             return Response({"detail": "Google account email is not verified."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Role is never derived from the client: new accounts are students and an
-        # administrator grants every other role.
+        # Only the teacher app can create a (pending) teacher account; students sign in
+        # through EduGames and an administrator grants every other role.
         User = get_user_model()
         user = User.all_objects.filter(email__iexact=email).first()
         if user is None:
+            # Signing in on the teacher app is an application: it creates a teacher account
+            # that stays unusable until the master admin approves it. Existing accounts never
+            # change role here.
+            applying = request.data.get("app") == "teacherbuddy"
             user = User.objects.create_user(
                 email=email,
-                role=User.Role.STUDENT,
+                role=User.Role.TEACHER if applying else User.Role.STUDENT,
+                approval_status=User.ApprovalStatus.PENDING if applying else User.ApprovalStatus.APPROVED,
                 first_name=claims.get("given_name", ""),
                 last_name=claims.get("family_name", ""),
                 avatar_url=claims.get("picture", ""),
@@ -235,7 +248,7 @@ class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response({"user": _user_payload(request.user), "status": "approved"})
+        return Response({"user": _user_payload(request.user), "status": _approval_label(request.user)})
 
     def patch(self, request):
         user = request.user

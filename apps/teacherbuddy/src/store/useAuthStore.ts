@@ -6,6 +6,7 @@ interface UserInfo {
   name: string;
   picture?: string;
   role?: string;
+  rejection_reason?: string;
 }
 
 interface AuthState {

@@ -70,7 +70,8 @@ export const ProfileSetupPage: React.FC = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Unable to complete registration.");
       googleLogin(data.access, data.user, data.status);
-      navigate("/", { replace: true });
+      localStorage.setItem("refresh_token", data.refresh ?? localStorage.getItem("refresh_token") ?? "");
+      navigate(data.status === "approved" ? "/" : "/waiting", { replace: true });
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to complete registration."); }
     finally { setLoading(false); }
   };

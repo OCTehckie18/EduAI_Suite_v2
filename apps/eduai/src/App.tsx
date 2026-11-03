@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
 import {
   BarChart3,
   Building2,
@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  UserCheck,
   Users,
 } from "lucide-react";
 import logo from "../../logo/eduai_logo.png";
@@ -52,6 +53,23 @@ interface DirectoryUser {
   emp_no?: string;
   is_active: boolean;
   campus?: { id: number; name: string } | null;
+}
+
+interface TeacherApplication {
+  id: number;
+  name: string;
+  email: string;
+  emp_no: string | null;
+  phone_number: string;
+  profile_complete: boolean;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  rejection_reason: string;
+  campus: string | null;
+  school: string | null;
+  department: string | null;
+  applied_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
 }
 
 interface DeletedItem {
@@ -158,7 +176,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 export default function App() {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "campuses" | "users" | "recycle_bin">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "campuses" | "users" | "approvals" | "recycle_bin">("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -240,10 +258,11 @@ export default function App() {
               { tab: "overview" as const, label: "Overview & Analytics", Icon: BarChart3, color: "text-amber-400" },
               { tab: "campuses" as const, label: "Campus Governance", Icon: Building2, color: "text-emerald-400" },
               { tab: "users" as const, label: "Global User Directory", Icon: Users, color: "text-sky-400" },
+              { tab: "approvals" as const, label: "Teacher Approvals", Icon: UserCheck, color: "text-violet-400" },
               { tab: "recycle_bin" as const, label: "Universal Recycle Bin", Icon: Trash2, color: "text-rose-400" },
             ].map(({ tab, label, Icon, color }) => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${activeTab === tab ? "bg-stone-800 text-white shadow-md border border-stone-700/60" : "text-stone-400 hover:text-white hover:bg-stone-900/60"}`}>
-                <Icon className={`h-4 w-4 ${color}`} />{label}
+                <Icon className={`h-4 w-4 ${color}`} />{label}{tab === "approvals" && (overview?.users.pending_teacher_approvals ?? 0) > 0 && <span className="ml-auto rounded-full bg-violet-500 px-2 py-0.5 text-[11px] font-bold text-white">{overview?.users.pending_teacher_approvals}</span>}
               </button>
             ))}
           </nav>
@@ -281,6 +300,7 @@ export default function App() {
 
         {activeTab === "campuses" && <CampusPanel campuses={filteredCampuses} onCreate={() => { setEditingCampus(null); setModal("campus"); }} onEdit={(campus) => { setEditingCampus(campus); setModal("campus"); }} onRefresh={refresh} />}
         {activeTab === "users" && <UserPanel users={filteredUsers} onCreate={() => { setEditingUser(null); setModal("user"); }} onEdit={(directoryUser) => { setEditingUser(directoryUser); setModal("user"); }} onRefresh={refresh} />}
+        {activeTab === "approvals" && <ApprovalsPanel search={searchQuery} onChanged={refresh} />}
         {activeTab === "recycle_bin" && <RecycleBinPanel items={deletedItems.filter((item) => `${item.label} ${item.content_type}`.toLowerCase().includes(searchQuery.toLowerCase()))} onRefresh={refresh} />}
 
         {modal === "campus" && <CampusForm campus={editingCampus} onClose={() => setModal(null)} onSaved={() => { setModal(null); refresh(); }} />}
@@ -310,6 +330,81 @@ function UserPanel({ users, onCreate, onEdit, onRefresh }: { users: DirectoryUse
     } catch (err) { window.alert(err instanceof Error ? err.message : "Could not deactivate the user."); }
   };
   return <section className="glass-card p-6 rounded-2xl space-y-5"><div className="flex justify-between items-center"><div><h3 className="text-base font-semibold">Global User Directory</h3><p className="text-xs text-stone-400 mt-1">Search and manage active users across campuses.</p></div><button onClick={onCreate} className="flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold hover:bg-sky-500"><Plus className="h-4 w-4" />New User</button></div><div className="overflow-x-auto rounded-xl border border-stone-800"><table className="w-full text-left text-sm"><thead className="bg-stone-900 text-xs uppercase text-stone-400"><tr><th className="p-4">User</th><th className="p-4">Role</th><th className="p-4">Campus</th><th className="p-4">Identifiers</th><th className="p-4 text-right">Actions</th></tr></thead><tbody className="divide-y divide-stone-800">{users.map((user) => <tr key={user.id} className="hover:bg-stone-900/40"><td className="p-4"><p className="font-semibold">{user.name || user.email}</p><p className="text-xs text-stone-500">{user.email}</p></td><td className="p-4 text-stone-300">{user.role}</td><td className="p-4 text-stone-300">{user.campus?.name || "Unassigned"}</td><td className="p-4 text-xs text-stone-400">{user.register_no || user.emp_no || "—"}</td><td className="p-4 text-right"><button onClick={() => onEdit(user)} className="mr-3 text-amber-300 hover:text-amber-200">Edit</button><button onClick={() => void deactivate(user)} className="text-rose-300 hover:text-rose-200">Deactivate</button></td></tr>)}</tbody></table>{!users.length && <p className="p-8 text-center text-stone-500">No users match this search.</p>}</div></section>;
+}
+
+function ApprovalsPanel({ search, onChanged }: { search: string; onChanged: () => void }) {
+  const [status, setStatus] = useState<"pending" | "approved" | "rejected">("pending");
+  const [rows, setRows] = useState<TeacherApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await requestJson<{ results: TeacherApplication[] }>(
+        `${API_ENDPOINTS.MASTER_ADMIN}/teacher-approvals/?status=${status}&search=${encodeURIComponent(search)}`,
+      );
+      setRows(data.results);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load teacher applications.");
+    } finally {
+      setLoading(false);
+    }
+  }, [status, search]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const decide = async (row: TeacherApplication, decision: "approve" | "reject") => {
+    let body: string | undefined;
+    if (decision === "reject") {
+      const reason = window.prompt(`Reject ${row.name}? You can give a reason they will see (optional):`, "");
+      if (reason === null) return;
+      body = JSON.stringify({ reason });
+    } else if (!window.confirm(`Approve ${row.name} (${row.email}) as a teacher?`)) {
+      return;
+    }
+    setBusyId(row.id);
+    try {
+      await requestJson(`${API_ENDPOINTS.MASTER_ADMIN}/teacher-approvals/${row.id}/${decision}/`, { method: "POST", body });
+      await load();
+      onChanged();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Could not save the decision.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const where = (row: TeacherApplication) => [row.campus, row.school, row.department].filter(Boolean).join(" › ") || "Profile not completed yet";
+
+  return <section className="glass-card p-6 rounded-2xl space-y-5">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div><h3 className="text-base font-semibold">Teacher Applications</h3><p className="text-xs text-stone-400 mt-1">Teachers sign in on TeacherBuddy and wait here until you approve them.</p></div>
+      <div className="flex gap-2">{(["pending", "approved", "rejected"] as const).map((option) => <button key={option} onClick={() => setStatus(option)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize ${status === option ? "bg-violet-600 text-white" : "border border-stone-700 text-stone-300 hover:text-white"}`}>{option}</button>)}</div>
+    </div>
+    {error && <ErrorState message={error} onRetry={() => void load()} />}
+    <div className="overflow-x-auto rounded-xl border border-stone-800">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-stone-900 text-xs uppercase text-stone-400"><tr><th className="p-4">Applicant</th><th className="p-4">Employee no.</th><th className="p-4">Campus › School › Department</th><th className="p-4">Applied</th><th className="p-4 text-right">{status === "pending" ? "Decision" : "Reviewed"}</th></tr></thead>
+        <tbody className="divide-y divide-stone-800">
+          {rows.map((row) => <tr key={row.id} className="hover:bg-stone-900/40">
+            <td className="p-4"><p className="font-semibold">{row.name}</p><p className="text-xs text-stone-500">{row.email}</p></td>
+            <td className="p-4 text-stone-300">{row.emp_no || "—"}</td>
+            <td className="p-4 text-stone-300">{where(row)}</td>
+            <td className="p-4 text-xs text-stone-400">{new Date(row.applied_at).toLocaleDateString()}</td>
+            <td className="p-4 text-right">{status === "pending"
+              ? <><button disabled={busyId === row.id || !row.profile_complete} title={row.profile_complete ? "" : "The applicant has not finished their profile"} onClick={() => void decide(row, "approve")} className="mr-2 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-40">Approve</button><button disabled={busyId === row.id} onClick={() => void decide(row, "reject")} className="rounded-lg border border-rose-500/40 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/10 disabled:opacity-40">Reject</button></>
+              : <span className="text-xs text-stone-400">{row.reviewed_at ? new Date(row.reviewed_at).toLocaleDateString() : "—"}{row.reviewed_by ? ` by ${row.reviewed_by}` : ""}{row.rejection_reason ? ` · "${row.rejection_reason}"` : ""}</span>}
+            </td>
+          </tr>)}
+        </tbody>
+      </table>
+      {loading && <p className="p-8 text-center text-stone-500">Loading applications...</p>}
+      {!loading && !rows.length && <p className="p-8 text-center text-stone-500">{status === "pending" ? "No applications are waiting for review." : `No ${status} teachers.`}</p>}
+    </div>
+  </section>;
 }
 
 function RecycleBinPanel({ items, onRefresh }: { items: DeletedItem[]; onRefresh: () => void }) {
