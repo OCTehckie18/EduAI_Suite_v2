@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import logging
+
 import jwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -15,6 +17,11 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
+
+logger = logging.getLogger(__name__)
+
+# Docker Desktop hosts drift from real time; Google tokens are checked against the server clock.
+GOOGLE_CLOCK_SKEW_SECONDS = 120
 
 
 def _clean_identifier(value):
@@ -96,8 +103,11 @@ class GoogleLoginView(APIView):
         if not credential or not client_id:
             return Response({"detail": "Google authentication is not configured."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         try:
-            claims = id_token.verify_oauth2_token(credential, google_requests.Request(), audience=client_id)
-        except ValueError:
+            claims = id_token.verify_oauth2_token(
+                credential, google_requests.Request(), audience=client_id, clock_skew_in_seconds=GOOGLE_CLOCK_SKEW_SECONDS,
+            )
+        except ValueError as exc:
+            logger.warning("Google credential rejected: %s", exc)
             return Response({"detail": "Invalid Google credential."}, status=status.HTTP_401_UNAUTHORIZED)
 
         email = claims.get("email", "").strip().lower()
