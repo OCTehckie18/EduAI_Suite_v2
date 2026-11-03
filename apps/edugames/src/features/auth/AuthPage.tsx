@@ -45,6 +45,7 @@ export const AuthPage: React.FC = () => {
           return;
         }
 
+        localStorage.setItem("refresh_token", data.refresh ?? "");
         googleLogin(data.access, data.user, data.user.role || "student", data.status);
 
         if (!data.user.is_profile_complete) {
@@ -91,6 +92,7 @@ export const AuthPage: React.FC = () => {
         throw new Error("Access Denied: This portal is strictly for Students.");
       }
 
+      localStorage.setItem("refresh_token", data.refresh ?? "");
       googleLogin(data.access, data.user, data.user.role, data.status);
 
       if (!data.user.is_profile_complete) {

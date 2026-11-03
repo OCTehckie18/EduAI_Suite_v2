@@ -19,6 +19,7 @@ interface AdminUser {
   email: string;
   name?: string;
   role: string;
+  role_code?: string;
 }
 
 interface Overview {
@@ -104,7 +105,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: AdminUser) => void }) {
           body: JSON.stringify({ username: username.trim(), password }),
         },
       );
-      if (data.user.role !== "admin" && data.user.role !== "MASTER_ADMIN") {
+      if (data.user.role_code !== "MASTER_ADMIN") {
         throw new Error("Access denied. Master Admin privileges are required.");
       }
       localStorage.setItem("token", data.access);
@@ -177,7 +178,7 @@ export default function App() {
     }
     requestJson<{ user: AdminUser }>(`${API_ENDPOINTS.AUTH}/me/`)
       .then((data) => {
-        if (data.user.role !== "admin" && data.user.role !== "MASTER_ADMIN") {
+        if (data.user.role_code !== "MASTER_ADMIN") {
           throw new Error("Access denied.");
         }
         setUser(data.user);
@@ -292,8 +293,10 @@ export default function App() {
 function CampusPanel({ campuses, onCreate, onEdit, onRefresh }: { campuses: Campus[]; onCreate: () => void; onEdit: (campus: Campus) => void; onRefresh: () => void }) {
   const deactivate = async (campus: Campus) => {
     if (!window.confirm(`Deactivate ${campus.name}? Its hierarchy will be soft-deleted.`)) return;
-    await requestJson(`${API_ENDPOINTS.MASTER_ADMIN}/campuses/${campus.id}/`, { method: "DELETE" });
-    onRefresh();
+    try {
+      await requestJson(`${API_ENDPOINTS.MASTER_ADMIN}/campuses/${campus.id}/`, { method: "DELETE" });
+      onRefresh();
+    } catch (err) { window.alert(err instanceof Error ? err.message : "Could not deactivate the campus."); }
   };
   return <section className="glass-card p-6 rounded-2xl space-y-5"><div className="flex justify-between items-center"><div><h3 className="text-base font-semibold">Campus Governance</h3><p className="text-xs text-stone-400 mt-1">Campus-level mutations; lower hierarchy levels remain read-only.</p></div><button onClick={onCreate} className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold hover:bg-rose-500"><Plus className="h-4 w-4" />New Campus</button></div><div className="overflow-x-auto rounded-xl border border-stone-800"><table className="w-full text-left text-sm"><thead className="bg-stone-900 text-xs uppercase text-stone-400"><tr><th className="p-4">Campus</th><th className="p-4">City</th><th className="p-4">Schools</th><th className="p-4">Departments</th><th className="p-4">Students</th><th className="p-4 text-right">Actions</th></tr></thead><tbody className="divide-y divide-stone-800">{campuses.map((campus) => <tr key={campus.id} className="hover:bg-stone-900/40"><td className="p-4"><p className="font-semibold">{campus.name}</p><p className="text-xs text-stone-500">{campus.code}</p></td><td className="p-4 text-stone-300">{campus.city}</td><td className="p-4">{campus.schools}</td><td className="p-4">{campus.departments}</td><td className="p-4">{campus.students}</td><td className="p-4 text-right"><button onClick={() => onEdit(campus)} className="mr-3 text-amber-300 hover:text-amber-200">Edit</button><button onClick={() => void deactivate(campus)} className="text-rose-300 hover:text-rose-200">Deactivate</button></td></tr>)}</tbody></table>{!campuses.length && <p className="p-8 text-center text-stone-500">No campuses match this search.</p>}</div></section>;
 }
@@ -301,8 +304,10 @@ function CampusPanel({ campuses, onCreate, onEdit, onRefresh }: { campuses: Camp
 function UserPanel({ users, onCreate, onEdit, onRefresh }: { users: DirectoryUser[]; onCreate: () => void; onEdit: (user: DirectoryUser) => void; onRefresh: () => void }) {
   const deactivate = async (user: DirectoryUser) => {
     if (!window.confirm(`Deactivate ${user.name || user.email}?`)) return;
-    await requestJson(`${API_ENDPOINTS.MASTER_ADMIN}/users/${user.id}/`, { method: "DELETE" });
-    onRefresh();
+    try {
+      await requestJson(`${API_ENDPOINTS.MASTER_ADMIN}/users/${user.id}/`, { method: "DELETE" });
+      onRefresh();
+    } catch (err) { window.alert(err instanceof Error ? err.message : "Could not deactivate the user."); }
   };
   return <section className="glass-card p-6 rounded-2xl space-y-5"><div className="flex justify-between items-center"><div><h3 className="text-base font-semibold">Global User Directory</h3><p className="text-xs text-stone-400 mt-1">Search and manage active users across campuses.</p></div><button onClick={onCreate} className="flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold hover:bg-sky-500"><Plus className="h-4 w-4" />New User</button></div><div className="overflow-x-auto rounded-xl border border-stone-800"><table className="w-full text-left text-sm"><thead className="bg-stone-900 text-xs uppercase text-stone-400"><tr><th className="p-4">User</th><th className="p-4">Role</th><th className="p-4">Campus</th><th className="p-4">Identifiers</th><th className="p-4 text-right">Actions</th></tr></thead><tbody className="divide-y divide-stone-800">{users.map((user) => <tr key={user.id} className="hover:bg-stone-900/40"><td className="p-4"><p className="font-semibold">{user.name || user.email}</p><p className="text-xs text-stone-500">{user.email}</p></td><td className="p-4 text-stone-300">{user.role}</td><td className="p-4 text-stone-300">{user.campus?.name || "Unassigned"}</td><td className="p-4 text-xs text-stone-400">{user.register_no || user.emp_no || "—"}</td><td className="p-4 text-right"><button onClick={() => onEdit(user)} className="mr-3 text-amber-300 hover:text-amber-200">Edit</button><button onClick={() => void deactivate(user)} className="text-rose-300 hover:text-rose-200">Deactivate</button></td></tr>)}</tbody></table>{!users.length && <p className="p-8 text-center text-stone-500">No users match this search.</p>}</div></section>;
 }
@@ -310,8 +315,10 @@ function UserPanel({ users, onCreate, onEdit, onRefresh }: { users: DirectoryUse
 function RecycleBinPanel({ items, onRefresh }: { items: DeletedItem[]; onRefresh: () => void }) {
   const restore = async (item: DeletedItem) => {
     if (!window.confirm(`Restore ${item.label}?`)) return;
-    await requestJson(`${API_ENDPOINTS.MASTER_ADMIN}/recycle-bin/${item.content_type}/${item.id}/restore/`, { method: "POST" });
-    onRefresh();
+    try {
+      await requestJson(`${API_ENDPOINTS.MASTER_ADMIN}/recycle-bin/${item.content_type}/${item.id}/restore/`, { method: "POST" });
+      onRefresh();
+    } catch (err) { window.alert(err instanceof Error ? err.message : "Could not restore the record."); }
   };
   return <section className="glass-card p-6 rounded-2xl space-y-5"><div><h3 className="text-base font-semibold flex items-center gap-2"><Trash2 className="h-5 w-5 text-rose-400" />Universal Recycle Bin</h3><p className="text-xs text-stone-400 mt-1">Soft-deleted records can be restored without hard deletion.</p></div><div className="overflow-x-auto rounded-xl border border-stone-800"><table className="w-full text-left text-sm"><thead className="bg-stone-900 text-xs uppercase text-stone-400"><tr><th className="p-4">Entity</th><th className="p-4">Resource</th><th className="p-4">Deleted</th><th className="p-4 text-right">Action</th></tr></thead><tbody className="divide-y divide-stone-800">{items.map((item) => <tr key={`${item.content_type}-${item.id}`}><td className="p-4 text-xs text-stone-400">{item.content_type}</td><td className="p-4 font-medium">{item.label}</td><td className="p-4 text-xs text-stone-400">{new Date(item.deleted_at).toLocaleString()}</td><td className="p-4 text-right"><button onClick={() => void restore(item)} className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/10"><RefreshCw className="h-3 w-3" />Restore</button></td></tr>)}</tbody></table>{!items.length && <p className="p-8 text-center text-stone-500">Recycle bin is empty.</p>}</div></section>;
 }

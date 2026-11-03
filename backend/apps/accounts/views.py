@@ -3,7 +3,9 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db import IntegrityError
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError, transaction
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from rest_framework import status
@@ -15,8 +17,18 @@ from rest_framework.views import APIView
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
 
 
-def _role_for_app(app_name):
-    return "TEACHER" if app_name == "teacherbuddy" else "STUDENT"
+def _clean_identifier(value):
+    """Blank register/employee numbers are stored as NULL so the unique constraint ignores them."""
+    value = str(value).strip() if value is not None else ""
+    return value or None
+
+
+def _password_error(password, user=None):
+    try:
+        validate_password(password, user)
+    except DjangoValidationError as exc:
+        return " ".join(exc.messages)
+    return None
 
 
 def _role_label(role):
@@ -48,6 +60,7 @@ def _user_payload(user, role=None):
         "last_name": user.last_name,
         "picture": user.avatar_url,
         "role": _role_label(role),
+        "role_code": role,
         "register_no": user.register_no,
         "emp_no": user.emp_no,
         "phone_number": user.phone_number,
@@ -91,23 +104,29 @@ class GoogleLoginView(APIView):
         if not email or not claims.get("email_verified", False):
             return Response({"detail": "Google account email is not verified."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Role is never derived from the client: new accounts are students and an
+        # administrator grants every other role.
         User = get_user_model()
-        role = _role_for_app(request.data.get("app", "edugames"))
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={"role": role, "first_name": claims.get("given_name", ""), "last_name": claims.get("family_name", ""), "avatar_url": claims.get("picture", "")},
-        )
-        changed = []
-        for field, value in (("first_name", claims.get("given_name", "")), ("last_name", claims.get("family_name", "")), ("avatar_url", claims.get("picture", ""))):
-            if getattr(user, field) != value:
-                setattr(user, field, value)
-                changed.append(field)
-        if not user.is_profile_complete and user.role != role:
-            user.role = role
-            changed.append("role")
-        if changed and not created:
-            user.save(update_fields=changed)
-        return Response(_auth_response(user, user.role), status=status.HTTP_200_OK)
+        user = User.all_objects.filter(email__iexact=email).first()
+        if user is None:
+            user = User.objects.create_user(
+                email=email,
+                role=User.Role.STUDENT,
+                first_name=claims.get("given_name", ""),
+                last_name=claims.get("family_name", ""),
+                avatar_url=claims.get("picture", ""),
+            )
+        elif not user.is_active:
+            return Response({"detail": "This account has been deactivated."}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            changed = []
+            for field, value in (("first_name", claims.get("given_name", "")), ("last_name", claims.get("family_name", "")), ("avatar_url", claims.get("picture", ""))):
+                if value and getattr(user, field) != value and not user.is_profile_complete:
+                    setattr(user, field, value)
+                    changed.append(field)
+            if changed:
+                user.save(update_fields=changed)
+        return Response(_auth_response(user), status=status.HTTP_200_OK)
 
 
 class PasswordLoginView(APIView):
@@ -142,19 +161,21 @@ class RefreshTokenView(APIView):
             return Response({"detail": "Invalid or expired refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
         if not user.is_active:
             return Response({"detail": "Invalid or expired refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
-        return Response(_auth_response(user, payload.get("role", user.role)), status=status.HTTP_200_OK)
+        return Response(_auth_response(user), status=status.HTTP_200_OK)
 
 
 class ProfileSetupView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         user = request.user
         data = request.data
-        valid_roles = {user.Role.STUDENT, user.Role.TEACHER, user.role}
+        if user.is_profile_complete:
+            return Response({"detail": "Profile is already complete. Use the profile editor to update it."}, status=status.HTTP_409_CONFLICT)
         requested_role = data.get("role", user.role)
-        if requested_role not in valid_roles:
-            return Response({"detail": "Invalid role."}, status=status.HTTP_400_BAD_REQUEST)
+        if requested_role != user.role:
+            return Response({"detail": "Roles are assigned by an administrator."}, status=status.HTTP_400_BAD_REQUEST)
         try:
             campus = Campus.objects.get(pk=data.get("campus"))
             school = School.objects.get(pk=data.get("school"), campus=campus)
@@ -162,16 +183,23 @@ class ProfileSetupView(APIView):
         except (Campus.DoesNotExist, School.DoesNotExist, Department.DoesNotExist, TypeError, ValueError):
             return Response({"detail": "Invalid campus, school, or department hierarchy."}, status=status.HTTP_400_BAD_REQUEST)
 
-        user.role, user.campus, user.school, user.department = requested_role, campus, school, department
-        for field in ("first_name", "last_name", "phone_number", "register_no", "emp_no"):
-            if field in data:
-                setattr(user, field, data[field] or "")
         password = data.get("password", "")
-        if len(password) < 6:
-            return Response({"detail": "A password of at least 6 characters is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not password:
+            return Response({"detail": "A password is required."}, status=status.HTTP_400_BAD_REQUEST)
+        password_error = _password_error(password, user)
+        if password_error:
+            return Response({"detail": password_error}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.campus, user.school, user.department = campus, school, department
+        for field in ("first_name", "last_name", "phone_number"):
+            if field in data:
+                setattr(user, field, str(data[field] or "").strip())
+        for field in ("register_no", "emp_no"):
+            if field in data:
+                setattr(user, field, _clean_identifier(data[field]))
         user.set_password(password)
 
-        if requested_role == user.Role.STUDENT:
+        if user.role == user.Role.STUDENT:
             try:
                 program = Program.objects.get(pk=data.get("program"), department=department)
                 batch = Batch.objects.get(pk=data.get("batch"), program=program)
@@ -179,14 +207,17 @@ class ProfileSetupView(APIView):
             except (Program.DoesNotExist, Batch.DoesNotExist, Section.DoesNotExist, TypeError, ValueError):
                 return Response({"detail": "Invalid student program, batch, or section hierarchy."}, status=status.HTTP_400_BAD_REQUEST)
             user.program, user.batch, user.section = program, batch, section
-            user.teaching_programs.clear()
-            user.teaching_batches.clear()
-        elif requested_role == user.Role.TEACHER:
+        elif user.role == user.Role.TEACHER:
             user.program = user.batch = user.section = None
+        user.is_profile_complete = True
+        try:
+            user.save()
+        except IntegrityError:
+            transaction.set_rollback(True)
+            return Response({"detail": "Register number or employee number is already in use."}, status=status.HTTP_400_BAD_REQUEST)
+        if user.role == user.Role.TEACHER:
             user.teaching_programs.set(Program.objects.filter(pk__in=data.get("programs", []), department=department))
             user.teaching_batches.set(Batch.objects.filter(pk__in=data.get("batches", []), program__department=department))
-        user.is_profile_complete = True
-        user.save()
         return Response(_auth_response(user), status=status.HTTP_200_OK)
 
 
@@ -194,21 +225,31 @@ class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        role = request.auth.get("role", request.user.role) if isinstance(request.auth, dict) else request.user.role
-        return Response({"user": _user_payload(request.user, role), "status": "approved"})
+        return Response({"user": _user_payload(request.user), "status": "approved"})
 
     def patch(self, request):
         user = request.user
         data = request.data
         changed = []
         for field in self.EDITABLE_FIELDS:
-            if field in data:
-                value = data[field].strip() if isinstance(data[field], str) else ""
-                setattr(user, field, value or (None if field in ("register_no", "emp_no") else ""))
-                changed.append(field)
+            if field not in data:
+                continue
+            value = data[field].strip() if isinstance(data[field], str) else ""
+            if field in self.LOCKED_ONCE_SET:
+                value = value or None
+                current = getattr(user, field)
+                if current and value != current:
+                    return Response({"detail": f"{field} can only be changed by an administrator."}, status=status.HTTP_403_FORBIDDEN)
+                setattr(user, field, value)
+            else:
+                setattr(user, field, value or "")
+            changed.append(field)
         if "password" in data:
-            if len(data["password"] or "") < 6:
-                return Response({"detail": "A password of at least 6 characters is required."}, status=status.HTTP_400_BAD_REQUEST)
+            if not user.check_password(data.get("current_password") or ""):
+                return Response({"detail": "Current password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+            password_error = _password_error(data["password"] or "", user)
+            if password_error:
+                return Response({"detail": password_error}, status=status.HTTP_400_BAD_REQUEST)
             user.set_password(data["password"])
             changed.append("password")
         if changed:
@@ -224,3 +265,4 @@ class CurrentUserView(APIView):
         return Response({"detail": "Account deletion is not allowed."}, status=status.HTTP_403_FORBIDDEN)
 
     EDITABLE_FIELDS = ("first_name", "last_name", "phone_number", "register_no", "emp_no")
+    LOCKED_ONCE_SET = ("register_no", "emp_no")

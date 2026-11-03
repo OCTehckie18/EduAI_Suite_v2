@@ -43,6 +43,7 @@ export const AuthPage: React.FC = () => {
           return;
         }
 
+        localStorage.setItem("refresh_token", data.refresh ?? "");
         googleLogin(data.access, data.user, data.status);
 
         if (!data.user.is_profile_complete) {
@@ -93,7 +94,8 @@ export const AuthPage: React.FC = () => {
         throw new Error("Access Denied: This portal is strictly for Teachers and Administrators.");
       }
 
-      googleLogin(data.access, data.user, data.status);
+      localStorage.setItem("refresh_token", data.refresh ?? "");
+        googleLogin(data.access, data.user, data.status);
 
       if (!data.user.is_profile_complete) {
         window.location.href = "/profile/setup";

@@ -69,9 +69,12 @@ class GoogleAuthenticationTests(APITestCase):
         self.assertEqual(response.status_code, 403)
 
     @patch("apps.accounts.views.id_token.verify_oauth2_token")
-    def test_profile_setup_and_password_login(self, verify_token):
+    def test_admin_granted_teacher_profile_setup_and_password_login(self, verify_token):
+        User = get_user_model()
+        User.objects.create_user(email="teacher@example.com", role=User.Role.TEACHER)
         verify_token.return_value = {"email": "teacher@example.com", "email_verified": True, "given_name": "Test"}
-        google_response = self.client.post(reverse("google-login"), {"id_token": "google-id-token", "app": "teacherbuddy"}, format="json")
+        google_response = self.client.post(reverse("google-login"), {"id_token": "google-id-token", "app": "edugames"}, format="json")
+        self.assertEqual(google_response.data["user"]["role"], "teacher")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {google_response.data['access']}")
 
         campus = Campus.objects.create(name="Central", code="CENTRAL", city="Bengaluru")
@@ -79,7 +82,7 @@ class GoogleAuthenticationTests(APITestCase):
         department = Department.objects.create(name="Computer Science", code="CSE", school=school)
         profile_response = self.client.post(
             reverse("profile-setup"),
-            {"role": "TEACHER", "campus": campus.pk, "school": school.pk, "department": department.pk, "emp_no": "EMP001", "password": "secure-pass"},
+            {"campus": campus.pk, "school": school.pk, "department": department.pk, "emp_no": "EMP001", "password": "secure-pass"},
             format="json",
         )
         self.assertEqual(profile_response.status_code, 200)
@@ -89,6 +92,83 @@ class GoogleAuthenticationTests(APITestCase):
         login_response = self.client.post(reverse("password-login"), {"username": "EMP001", "password": "secure-pass"}, format="json")
         self.assertEqual(login_response.status_code, 200)
         self.assertEqual(login_response.data["user"]["role"], "teacher")
+
+    @patch("apps.accounts.views.id_token.verify_oauth2_token")
+    def test_teacher_app_signup_and_self_promotion_are_blocked(self, verify_token):
+        verify_token.return_value = {"email": "wannabe@example.com", "email_verified": True, "given_name": "Wannabe"}
+        google_response = self.client.post(reverse("google-login"), {"id_token": "t", "app": "teacherbuddy"}, format="json")
+        self.assertEqual(google_response.data["user"]["role"], "student")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {google_response.data['access']}")
+
+        campus = Campus.objects.create(name="Central", code="CENTRAL", city="Bengaluru")
+        school = School.objects.create(name="Sciences", code="SCI", campus=campus)
+        department = Department.objects.create(name="Computer Science", code="CSE", school=school)
+        response = self.client.post(
+            reverse("profile-setup"),
+            {"role": "TEACHER", "campus": campus.pk, "school": school.pk, "department": department.pk, "password": "secure-pass"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(get_user_model().objects.get(email="wannabe@example.com").role, "STUDENT")
+
+    @patch("apps.accounts.views.id_token.verify_oauth2_token")
+    def test_completed_profile_cannot_be_set_up_again(self, verify_token):
+        User = get_user_model()
+        user = User.objects.create_user(email="done@example.com", role=User.Role.STUDENT, is_profile_complete=True)
+        verify_token.return_value = {"email": "done@example.com", "email_verified": True}
+        google_response = self.client.post(reverse("google-login"), {"id_token": "t"}, format="json")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {google_response.data['access']}")
+        response = self.client.post(reverse("profile-setup"), {"password": "secure-pass"}, format="json")
+        self.assertEqual(response.status_code, 409)
+        user.refresh_from_db()
+        self.assertTrue(user.is_profile_complete)
+
+    @patch("apps.accounts.views.id_token.verify_oauth2_token")
+    def test_deactivated_user_google_login_is_forbidden(self, verify_token):
+        User = get_user_model()
+        user = User.objects.create_user(email="gone@example.com", role=User.Role.STUDENT)
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+        verify_token.return_value = {"email": "gone@example.com", "email_verified": True}
+        response = self.client.post(reverse("google-login"), {"id_token": "t"}, format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_refresh_and_me_use_current_database_role(self):
+        User = get_user_model()
+        user = User.objects.create_user(email="demoted@example.com", password="secure-pass", role=User.Role.TEACHER)
+        login = self.client.post(reverse("password-login"), {"username": "demoted@example.com", "password": "secure-pass"}, format="json")
+        user.role = User.Role.STUDENT
+        user.save(update_fields=["role"])
+        refreshed = self.client.post(reverse("refresh-token"), {"refresh": login.data["refresh"]}, format="json")
+        self.assertEqual(refreshed.data["user"]["role"], "student")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+        self.assertEqual(self.client.get(reverse("current-user")).data["user"]["role"], "student")
+
+    def test_password_change_requires_current_password_and_strength(self):
+        User = get_user_model()
+        User.objects.create_user(email="pw@example.com", password="secure-pass", role=User.Role.STUDENT)
+        login = self.client.post(reverse("password-login"), {"username": "pw@example.com", "password": "secure-pass"}, format="json")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+        url = reverse("current-user")
+        self.assertEqual(self.client.patch(url, {"password": "brand-new-pass"}, format="json").status_code, 400)
+        self.assertEqual(self.client.patch(url, {"password": "brand-new-pass", "current_password": "wrong"}, format="json").status_code, 400)
+        self.assertEqual(self.client.patch(url, {"password": "123456", "current_password": "secure-pass"}, format="json").status_code, 400)
+        self.assertEqual(self.client.patch(url, {"password": "brand-new-pass", "current_password": "secure-pass"}, format="json").status_code, 200)
+        self.client.credentials()
+        ok = self.client.post(reverse("password-login"), {"username": "pw@example.com", "password": "brand-new-pass"}, format="json")
+        self.assertEqual(ok.status_code, 200)
+
+    def test_register_number_is_locked_once_set_and_blank_is_null(self):
+        User = get_user_model()
+        User.objects.create_user(email="a@example.com", password="secure-pass", role=User.Role.STUDENT, register_no="REG1")
+        User.objects.create_user(email="b@example.com", password="secure-pass", role=User.Role.STUDENT)
+        login = self.client.post(reverse("password-login"), {"username": "a@example.com", "password": "secure-pass"}, format="json")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+        self.assertEqual(self.client.patch(reverse("current-user"), {"register_no": "OTHER"}, format="json").status_code, 403)
+        login_b = self.client.post(reverse("password-login"), {"username": "b@example.com", "password": "secure-pass"}, format="json")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_b.data['access']}")
+        self.assertEqual(self.client.patch(reverse("current-user"), {"register_no": "  "}, format="json").status_code, 200)
+        self.assertIsNone(User.objects.get(email="b@example.com").register_no)
 
     @patch("apps.accounts.views.id_token.verify_oauth2_token")
     def test_profile_setup_rejects_admin_role_escalation(self, verify_token):

@@ -2,11 +2,12 @@
  * Centralized API configuration.
  *
  * VITE_API_URL should be the public backend origin in deployed frontends, e.g.
- * https://your-backend.example.com. When it is not set, default to /api. The
- * Vercel deployment rewrites /api/* to the public backend as a fallback.
+ * https://your-backend.example.com/api/v1. When it is not set, default to the
+ * same-origin /api/v1 path, which the Vite dev proxy and the Vercel rewrite
+ * forward to the backend.
  */
 export const API_BASE_URL = (
-  import.meta.env.VITE_API_URL || "/api"
+  import.meta.env.VITE_API_URL || "/api/v1"
 ).replace(/\/$/, "");
 
 export const buildWsUrl = (path: string): string => {
@@ -14,11 +15,9 @@ export const buildWsUrl = (path: string): string => {
     ? new URL(API_BASE_URL, window.location.origin)
     : new URL(API_BASE_URL);
   const protocol = abs.protocol === "https:" ? "wss:" : "ws:";
-  // HTTP endpoints are mounted below /api or /api/v1, but ASGI WebSockets
-  // are mounted at /ws directly.
-  const prefix = API_BASE_URL.startsWith("/")
-    ? abs.pathname.replace(/\/$/, "")
-    : abs.pathname.replace(/\/api(?:\/v\d+)?\/?$/, "");
+  // HTTP endpoints are mounted below /api/v1, but ASGI WebSockets are
+  // mounted at /ws directly (the dev proxy forwards /ws as well).
+  const prefix = abs.pathname.replace(/\/api(?:\/v\d+)?\/?$/, "").replace(/\/$/, "");
   return `${protocol}//${abs.host}${prefix}${path}`;
 };
 
