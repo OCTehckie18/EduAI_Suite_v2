@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import models
 
 from apps.core.models import SoftDeleteModel
@@ -105,6 +107,18 @@ class Batch(SoftDeleteModel):
     def __str__(self):
         return f"{self.program.code} {self.name}"
 
+    def restore(self):
+        """Bring the class back together with the sections that were removed alongside it."""
+        removed_at = self.deleted_at
+        super().restore()
+        if removed_at:
+            cascade = Section.all_objects.filter(
+                batch=self, is_active=False, deleted_at__gte=removed_at - timedelta(seconds=5)
+            )
+            for section in cascade:
+                section.restore()
+        ensure_default_section(self)
+
     def delete(self, using=None, keep_parents=False):
         for section in Section.all_objects.filter(batch=self):
             section.delete(using=using)
@@ -124,3 +138,17 @@ class Section(SoftDeleteModel):
 
     def __str__(self):
         return f"{self.batch} - {self.name}"
+
+
+DEFAULT_SECTION_NAME = "A"
+
+
+def ensure_default_section(batch):
+    """Every class keeps at least one section; revive or create one when it has none."""
+    if Section.objects.filter(batch=batch).exists():
+        return
+    dormant = Section.all_objects.filter(batch=batch).order_by("name").first()
+    if dormant:
+        dormant.restore()
+    else:
+        Section.objects.create(batch=batch, name=DEFAULT_SECTION_NAME)

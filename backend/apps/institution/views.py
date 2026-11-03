@@ -1,10 +1,13 @@
 from django.db import IntegrityError, transaction
+from django.db.models import Count, Q
+from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 
 from apps.core.access import IsMasterAdminOrReadOnly
 from apps.core.viewsets import SoftDeleteModelViewSet
 
-from .models import Batch, Campus, Department, Program, School, Section
+from .models import Batch, Campus, Department, Program, School, Section, ensure_default_section
 from .serializers import (
     BatchSerializer,
     CampusSerializer,
@@ -36,12 +39,14 @@ class InstitutionViewSet(SoftDeleteModelViewSet):
 
 
 class CampusViewSet(InstitutionViewSet):
-    queryset = Campus.objects.all()
+    queryset = Campus.objects.annotate(child_count=Count("schools", filter=Q(schools__is_active=True)))
     serializer_class = CampusSerializer
 
 
 class SchoolViewSet(InstitutionViewSet):
-    queryset = School.objects.select_related("campus").all()
+    queryset = School.objects.select_related("campus").annotate(
+        child_count=Count("departments", filter=Q(departments__is_active=True))
+    )
     serializer_class = SchoolSerializer
 
     def get_queryset(self):
@@ -51,7 +56,9 @@ class SchoolViewSet(InstitutionViewSet):
 
 
 class DepartmentViewSet(InstitutionViewSet):
-    queryset = Department.objects.select_related("school", "school__campus").all()
+    queryset = Department.objects.select_related("school", "school__campus").annotate(
+        child_count=Count("programs", filter=Q(programs__is_active=True))
+    )
     serializer_class = DepartmentSerializer
 
     def get_queryset(self):
@@ -66,7 +73,9 @@ class DepartmentViewSet(InstitutionViewSet):
 
 
 class ProgramViewSet(InstitutionViewSet):
-    queryset = Program.objects.select_related("department", "department__school").all()
+    queryset = Program.objects.select_related("department", "department__school").annotate(
+        child_count=Count("batches", filter=Q(batches__is_active=True))
+    )
     serializer_class = ProgramSerializer
 
     def get_queryset(self):
@@ -79,7 +88,9 @@ class ProgramViewSet(InstitutionViewSet):
 
 
 class BatchViewSet(InstitutionViewSet):
-    queryset = Batch.objects.select_related("program", "program__department").all()
+    queryset = Batch.objects.select_related("program", "program__department").annotate(
+        child_count=Count("sections", filter=Q(sections__is_active=True))
+    )
     serializer_class = BatchSerializer
 
     def get_queryset(self):
@@ -87,12 +98,28 @@ class BatchViewSet(InstitutionViewSet):
         program_id = self.request.query_params.get("program_id")
         return queryset.filter(program_id=program_id) if program_id else queryset
 
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            super().perform_create(serializer)
+            ensure_default_section(serializer.instance)  # a class always starts with Section A
+
 
 class SectionViewSet(InstitutionViewSet):
-    queryset = Section.objects.select_related("batch", "batch__program").all()
+    queryset = Section.objects.select_related("batch", "batch__program").annotate(
+        child_count=Count("students", filter=Q(students__is_active=True))
+    )
     serializer_class = SectionSerializer
 
     def get_queryset(self):
         queryset = super().get_queryset()
         batch_id = self.request.query_params.get("batch_id")
         return queryset.filter(batch_id=batch_id) if batch_id else queryset
+
+    def destroy(self, request, *args, **kwargs):
+        section = self.get_object()
+        if not Section.objects.filter(batch=section.batch).exclude(pk=section.pk).exists():
+            return Response(
+                {"detail": "A class must keep at least one section. Add another section first, or remove the whole class."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
