@@ -2,7 +2,7 @@ from django.db import IntegrityError, transaction
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from .permissions import IsCampusAdmin
+from .permissions import IsMasterAdmin
 
 class SoftDeleteModelViewSet(viewsets.ModelViewSet):
     """
@@ -34,10 +34,7 @@ class SoftDeleteModelViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
 
-    def check_restore_scope(self, instance):
-        """Hook for subclasses that need to limit who may restore which record."""
-
-    @action(detail=True, methods=['post'], permission_classes=[IsCampusAdmin])
+    @action(detail=True, methods=['post'], permission_classes=[IsMasterAdmin])
     def restore(self, request, pk=None):
         """Restore a soft-deleted record."""
         model = self.queryset.model
@@ -49,7 +46,6 @@ class SoftDeleteModelViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        self.check_restore_scope(instance)
         if instance.is_active:
             return Response(
                 {"success": False, "error": f"{model.__name__} is already active."},

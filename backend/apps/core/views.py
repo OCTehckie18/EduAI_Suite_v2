@@ -1,6 +1,5 @@
 import logging
 
-from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -8,7 +7,7 @@ from rest_framework import status
 from django.utils import timezone
 from django.db import connection
 from django.http import JsonResponse
-from apps.core.access import is_campus_admin, is_master_admin
+from apps.core.access import is_master_admin
 from apps.core.models import ActionHistory
 
 logger = logging.getLogger(__name__)
@@ -67,7 +66,7 @@ def _short(value):
 
 
 class ActionHistoryListCreateView(APIView):
-    """Audit trail. Everyone sees their own entries; admins see the people in their scope."""
+    """Audit trail. Everyone sees their own entries; master admins see everything."""
     permission_classes = [IsAuthenticated]
     MAX_RESULTS = 500
 
@@ -75,12 +74,6 @@ class ActionHistoryListCreateView(APIView):
         entries = ActionHistory.objects.all()
         if is_master_admin(user):
             return entries
-        if is_campus_admin(user) and user.campus_id:
-            campus_user_ids = [
-                str(pk)
-                for pk in get_user_model().all_objects.filter(campus_id=user.campus_id).values_list("pk", flat=True)
-            ]
-            return entries.filter(user_id__in=campus_user_ids)
         return entries.filter(user_id=str(user.pk))
 
     def get(self, request):

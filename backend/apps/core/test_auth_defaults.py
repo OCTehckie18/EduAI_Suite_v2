@@ -27,7 +27,7 @@ class AuthRequiredByDefaultTests(TestCase):
         self.client = APIClient()
         User = get_user_model()
         self.student = User.objects.create_user(email="s@example.com", password="x", role="STUDENT")
-        self.admin = User.objects.create_user(email="a@example.com", password="x", role="CAMPUS_ADMIN")
+        self.admin = User.objects.create_user(email="a@example.com", password="x", role="TEACHER")
 
     def test_anonymous_requests_are_rejected(self):
         for method, url in PROTECTED:

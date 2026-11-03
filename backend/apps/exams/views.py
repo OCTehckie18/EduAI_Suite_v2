@@ -11,7 +11,7 @@ from apps.core.services import record_student_activity
 from .models import Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer
 from .serializers import ExamSerializer, ExamAttemptSerializer
 
-ADMIN_ROLES = {"CAMPUS_ADMIN", "MASTER_ADMIN"}
+ADMIN_ROLES = {"MASTER_ADMIN"}
 
 
 def _is_admin(user):

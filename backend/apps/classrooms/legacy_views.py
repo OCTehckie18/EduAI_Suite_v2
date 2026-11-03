@@ -25,7 +25,7 @@ from apps.assignments.models import Submission
 from .models import Classroom, Enrollment, Resource
 
 
-ADMIN_ROLES = {User.Role.MASTER_ADMIN, User.Role.CAMPUS_ADMIN}
+ADMIN_ROLES = {User.Role.MASTER_ADMIN}
 
 
 def _is_admin(user):

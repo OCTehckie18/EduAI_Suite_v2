@@ -13,7 +13,7 @@ interface DirectoryUser {
 }
 
 const GRANTABLE_ROLES = ["STUDENT", "TEACHER"];
-const ADMIN_ROLES = ["MASTER_ADMIN", "CAMPUS_ADMIN"];
+const ADMIN_ROLES = ["MASTER_ADMIN"];
 const jsonHeaders = (): HeadersInit => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${localStorage.getItem("token") ?? ""}`,

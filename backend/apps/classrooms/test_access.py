@@ -24,7 +24,7 @@ class ClassroomAccessTests(TestCase):
 
         self.owner = User.objects.create_user(email="owner@example.com", password="x", role="TEACHER")
         self.other_teacher = User.objects.create_user(email="other@example.com", password="x", role="TEACHER")
-        self.admin = User.objects.create_user(email="admin@example.com", password="x", role="CAMPUS_ADMIN")
+        self.admin = User.objects.create_user(email="admin@example.com", password="x", role="MASTER_ADMIN")
         self.student = User.objects.create_user(
             email="stu@example.com", password="x", role="STUDENT", register_no="R1", first_name="Stu"
         )

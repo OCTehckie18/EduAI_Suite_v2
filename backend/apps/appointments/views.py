@@ -32,7 +32,7 @@ class AppointmentListCreateView(APIView):
 
         user = getattr(request, "user", None)
         if user and user.is_authenticated:
-            if user.role in (User.Role.MASTER_ADMIN, User.Role.CAMPUS_ADMIN):
+            if user.role in (User.Role.MASTER_ADMIN,):
                 pass
             elif user.role == User.Role.TEACHER:
                 norm = _normalize_name(user.full_name)

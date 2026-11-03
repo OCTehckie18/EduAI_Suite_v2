@@ -55,7 +55,6 @@ class MasterAdminOverviewView(APIView):
             "users": {
                 "total": User.objects.count(),
                 "master_admins": User.objects.filter(role=User.Role.MASTER_ADMIN).count(),
-                "campus_admins": User.objects.filter(role=User.Role.CAMPUS_ADMIN).count(),
                 "teachers": User.objects.filter(role=User.Role.TEACHER).count(),
                 "students": User.objects.filter(role=User.Role.STUDENT).count(),
             },

@@ -1,7 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 
-from apps.classrooms.models import Classroom
 from apps.core.models import ActionHistory
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
 
@@ -27,7 +26,6 @@ class AuditLogAccessTests(APITestCase):
         self.campus_b, *_ = build_campus("B")
         self.student = User.objects.create_user(email="s@x.com", password="pw", role="STUDENT", campus=self.campus_a)
         self.teacher_b = User.objects.create_user(email="t@x.com", password="pw", role="TEACHER", campus=self.campus_b)
-        self.campus_admin = User.objects.create_user(email="ca@x.com", password="pw", role="CAMPUS_ADMIN", campus=self.campus_a)
         self.master = User.objects.create_user(email="m@x.com", password="pw", role="MASTER_ADMIN")
         ActionHistory.objects.create(feature="mail", action="send", user_id=str(self.student.pk))
         ActionHistory.objects.create(feature="mail", action="send", user_id=str(self.teacher_b.pk))
@@ -44,9 +42,7 @@ class AuditLogAccessTests(APITestCase):
         entries = self.client.get("/api/v1/history/").json()
         self.assertEqual({e["user_id"] for e in entries}, {str(self.student.pk)})
 
-    def test_campus_admin_sees_only_campus_users_and_master_sees_all(self):
-        self.client.force_authenticate(self.campus_admin)
-        self.assertEqual({e["user_id"] for e in self.client.get("/api/v1/history/").json()}, {str(self.student.pk)})
+    def test_master_admin_sees_every_entry(self):
         self.client.force_authenticate(self.master)
         self.assertEqual(len(self.client.get("/api/v1/history/").json()), 2)
 
@@ -64,36 +60,26 @@ class AuditLogAccessTests(APITestCase):
         self.assertEqual(body["database"], "connected")
 
 
-class CampusScopeTests(APITestCase):
+class HierarchyAccessTests(APITestCase):
     def setUp(self):
         self.campus_a, self.school_a, self.dept_a, self.program_a, self.batch_a, self.section_a = build_campus("A")
-        self.campus_b, self.school_b, self.dept_b, self.program_b, self.batch_b, self.section_b = build_campus("B")
-        self.admin_a = User.objects.create_user(email="ca@x.com", password="pw", role="CAMPUS_ADMIN", campus=self.campus_a)
         self.master = User.objects.create_user(email="m@x.com", password="pw", role="MASTER_ADMIN")
+        self.teacher = User.objects.create_user(email="t@x.com", password="pw", role="TEACHER", campus=self.campus_a)
+        self.student = User.objects.create_user(email="s@x.com", password="pw", role="STUDENT", campus=self.campus_a)
 
-    def test_campus_admin_manages_only_own_campus_tree(self):
-        self.client.force_authenticate(self.admin_a)
-        own = self.client.post("/api/v1/institution/schools/", {"name": "New", "code": "NEW", "campus": self.campus_a.pk}, format="json")
-        self.assertEqual(own.status_code, 201)
-        other = self.client.post("/api/v1/institution/schools/", {"name": "New", "code": "NEW", "campus": self.campus_b.pk}, format="json")
-        self.assertEqual(other.status_code, 403)
-        self.assertEqual(self.client.patch(f"/api/v1/institution/schools/{self.school_b.pk}/", {"name": "Hacked"}, format="json").status_code, 403)
-        self.assertEqual(self.client.delete(f"/api/v1/institution/departments/{self.dept_b.pk}/").status_code, 403)
-        # Moving an owned school under another campus is also refused.
-        move = self.client.patch(f"/api/v1/institution/schools/{self.school_a.pk}/", {"campus": self.campus_b.pk}, format="json")
-        self.assertEqual(move.status_code, 403)
+    def test_only_master_admin_can_change_the_hierarchy(self):
+        for user in (self.teacher, self.student):
+            self.client.force_authenticate(user)
+            self.assertEqual(self.client.get("/api/v1/institution/schools/").status_code, 200)
+            create = self.client.post("/api/v1/institution/schools/", {"name": "N", "code": "N", "campus": self.campus_a.pk}, format="json")
+            self.assertEqual(create.status_code, 403)
+            self.assertEqual(self.client.patch(f"/api/v1/institution/schools/{self.school_a.pk}/", {"name": "x"}, format="json").status_code, 403)
+            self.assertEqual(self.client.delete(f"/api/v1/institution/departments/{self.dept_a.pk}/").status_code, 403)
         self.school_a.refresh_from_db()
-        self.assertEqual(self.school_a.campus_id, self.campus_a.pk)
-
-    def test_campus_admin_cannot_edit_or_delete_campuses(self):
-        self.client.force_authenticate(self.admin_a)
-        self.assertEqual(self.client.patch(f"/api/v1/institution/campuses/{self.campus_a.pk}/", {"name": "Mine"}, format="json").status_code, 403)
-        self.assertEqual(self.client.delete(f"/api/v1/institution/campuses/{self.campus_a.pk}/").status_code, 403)
-
-    def test_campus_admin_cannot_restore_other_campus_records(self):
-        self.school_b.delete()
-        self.client.force_authenticate(self.admin_a)
-        self.assertEqual(self.client.post(f"/api/v1/institution/schools/{self.school_b.pk}/restore/").status_code, 403)
+        self.assertNotEqual(self.school_a.name, "x")
+        self.client.force_authenticate(self.master)
+        ok = self.client.post("/api/v1/institution/schools/", {"name": "N", "code": "N", "campus": self.campus_a.pk}, format="json")
+        self.assertEqual(ok.status_code, 201)
 
     def test_audit_fields_are_read_only(self):
         self.client.force_authenticate(self.master)
@@ -133,27 +119,6 @@ class CampusScopeTests(APITestCase):
         self.assertEqual(blocked.status_code, 409)
         self.assertEqual(self.client.post(f"/api/v1/institution/schools/{self.school_a.pk}/restore/").status_code, 200)
         self.assertEqual(self.client.post(f"/api/v1/institution/departments/{self.dept_a.pk}/restore/").status_code, 200)
-
-    def test_classrooms_are_scoped_to_the_campus_admin(self):
-        teacher_a = User.objects.create_user(email="ta@x.com", password="pw", role="TEACHER", campus=self.campus_a)
-        teacher_b = User.objects.create_user(email="tb@x.com", password="pw", role="TEACHER", campus=self.campus_b)
-        mine = Classroom.objects.create(name="Mine", subject_code="M1", teacher=teacher_a, department=self.dept_a, program=self.program_a, batch=self.batch_a)
-        Classroom.objects.create(name="Theirs", subject_code="T1", teacher=teacher_b, department=self.dept_b, program=self.program_b, batch=self.batch_b)
-        self.client.force_authenticate(self.admin_a)
-        self.assertEqual([c["name"] for c in self._rows(self.client.get("/api/v1/classrooms/"))], ["Mine"])
-        payload = {
-            "name": "Sneaky", "subject_code": "S1", "teacher": teacher_b.pk, "department": self.dept_b.pk,
-            "program": self.program_b.pk, "batch": self.batch_b.pk,
-        }
-        self.assertEqual(self.client.post("/api/v1/classrooms/", payload, format="json").status_code, 403)
-        self.client.force_authenticate(self.master)
-        self.assertEqual(len(self._rows(self.client.get("/api/v1/classrooms/"))), 2)
-        self.assertTrue(mine.pk)
-
-    @staticmethod
-    def _rows(response):
-        body = response.json()
-        return body["results"] if isinstance(body, dict) else body
 
 
 class MasterAdminHardeningTests(APITestCase):

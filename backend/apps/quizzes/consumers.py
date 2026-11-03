@@ -48,7 +48,6 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 return
             if getattr(self.user, "role", "") not in {
                 "TEACHER",
-                "CAMPUS_ADMIN",
                 "MASTER_ADMIN",
             }:
                 await self.close(code=4403)

@@ -22,7 +22,7 @@ from apps.quizzes.models import QuizSession
 
 from .models import CalendarEvent
 
-ADMIN_ROLES = {"MASTER_ADMIN", "CAMPUS_ADMIN"}
+ADMIN_ROLES = {"MASTER_ADMIN"}
 
 COLORS = {
     "custom": "#264796",

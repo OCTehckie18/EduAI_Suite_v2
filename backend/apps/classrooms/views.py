@@ -6,9 +6,6 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from rest_framework.exceptions import PermissionDenied
-
-from apps.core.access import campus_id_of, can_manage_campus, is_campus_admin, is_master_admin, scope_to_campus
 from apps.core.permissions import IsTeacher
 from apps.core.viewsets import SoftDeleteModelViewSet
 
@@ -17,7 +14,7 @@ from .serializers import ClassroomSerializer, EnrollmentSerializer
 from .services import import_enrollments
 
 
-ADMIN_ROLES = {"CAMPUS_ADMIN", "MASTER_ADMIN"}
+ADMIN_ROLES = {"MASTER_ADMIN"}
 
 
 def _is_admin(user):
@@ -36,27 +33,14 @@ class ClassroomViewSet(SoftDeleteModelViewSet):
             return [IsTeacher()]
         return super().get_permissions()
 
-    def _check_campus(self, department):
-        user = self.request.user
-        if is_master_admin(user) or department is None:
-            return
-        if not can_manage_campus(user, department.school.campus_id):
-            raise PermissionDenied("You can only manage classrooms inside your own campus.")
-
-    def check_restore_scope(self, instance):
-        if not can_manage_campus(self.request.user, campus_id_of(instance)):
-            raise PermissionDenied("You can only restore classrooms inside your own campus.")
-
     def perform_create(self, serializer):
         if _is_admin(self.request.user):
-            self._check_campus(serializer.validated_data.get("department"))
             serializer.save()
         else:
             serializer.save(teacher=self.request.user)
 
     def perform_update(self, serializer):
         if _is_admin(self.request.user):
-            self._check_campus(serializer.validated_data.get("department") or serializer.instance.department)
             serializer.save()
         else:
             serializer.save(teacher=self.request.user)
@@ -64,9 +48,7 @@ class ClassroomViewSet(SoftDeleteModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
-        if is_campus_admin(user):
-            queryset = scope_to_campus(queryset, user, "department__school__campus_id")
-        elif not _is_admin(user):
+        if not _is_admin(user):
             if getattr(user, "role", "") == "TEACHER":
                 queryset = queryset.filter(teacher=user)
             else:
@@ -117,9 +99,7 @@ class EnrollmentViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
-        if is_campus_admin(user):
-            queryset = scope_to_campus(queryset, user, "classroom__department__school__campus_id")
-        elif not _is_admin(user):
+        if not _is_admin(user):
             if getattr(user, "role", "") == "TEACHER":
                 queryset = queryset.filter(classroom__teacher=user)
             else:
