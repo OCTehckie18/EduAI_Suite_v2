@@ -94,9 +94,9 @@ class GoogleAuthenticationTests(APITestCase):
         self.assertEqual(login_response.data["user"]["role"], "teacher")
 
     @patch("apps.accounts.views.id_token.verify_oauth2_token")
-    def test_teacher_app_signup_and_self_promotion_are_blocked(self, verify_token):
+    def test_student_cannot_promote_themselves_via_profile_setup(self, verify_token):
         verify_token.return_value = {"email": "wannabe@example.com", "email_verified": True, "given_name": "Wannabe"}
-        google_response = self.client.post(reverse("google-login"), {"id_token": "t", "app": "teacherbuddy"}, format="json")
+        google_response = self.client.post(reverse("google-login"), {"id_token": "t", "app": "edugames"}, format="json")
         self.assertEqual(google_response.data["user"]["role"], "student")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {google_response.data['access']}")
 

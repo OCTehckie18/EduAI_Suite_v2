@@ -1,5 +1,7 @@
 from datetime import datetime, timezone as dt_timezone
 
+from django.utils import timezone
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -55,7 +57,8 @@ class MasterAdminOverviewView(APIView):
             "users": {
                 "total": User.objects.count(),
                 "master_admins": User.objects.filter(role=User.Role.MASTER_ADMIN).count(),
-                "teachers": User.objects.filter(role=User.Role.TEACHER).count(),
+                "teachers": User.objects.filter(role=User.Role.TEACHER, approval_status=User.ApprovalStatus.APPROVED).count(),
+                "pending_teacher_approvals": User.objects.filter(role=User.Role.TEACHER, approval_status=User.ApprovalStatus.PENDING).count(),
                 "students": User.objects.filter(role=User.Role.STUDENT).count(),
             },
         })
@@ -263,6 +266,7 @@ def _user_payload(user):
         "register_no": user.register_no,
         "emp_no": user.emp_no,
         "role": user.role,
+        "approval_status": user.approval_status,
         "is_active": user.is_active,
         "campus": (
             {"id": user.campus_id, "name": user.campus.name}
@@ -380,6 +384,12 @@ class UserDirectoryDetailView(APIView):
                 user.is_superuser = False
                 user.is_staff = False
             user.role = data["role"]
+            if user.role == user.Role.TEACHER and user.approval_status != user.ApprovalStatus.APPROVED:
+                # Making someone a teacher here is itself the approval.
+                user.approval_status = user.ApprovalStatus.APPROVED
+                user.rejection_reason = ""
+                user.approval_reviewed_at = timezone.now()
+                user.approval_reviewed_by = request.user
         if "campus" in data:
             campus_id = data["campus"]
             if campus_id is None:
@@ -425,3 +435,86 @@ class UserDirectoryDetailView(APIView):
         user.restore()
         _record_admin_action(request, "restore_user", f"accounts.user:{user.pk}")
         return Response({"success": True, "user": _user_payload(user)})
+
+
+def _hierarchy_name(value):
+    return str(value) if value else None
+
+
+def _application_payload(user):
+    return {
+        "id": user.pk,
+        "name": user.full_name,
+        "email": user.email,
+        "emp_no": user.emp_no,
+        "phone_number": user.phone_number,
+        "profile_complete": user.is_profile_complete,
+        "status": user.approval_status,
+        "rejection_reason": user.rejection_reason,
+        "campus": _hierarchy_name(user.campus),
+        "school": _hierarchy_name(user.school),
+        "department": _hierarchy_name(user.department),
+        "applied_at": user.created_at,
+        "reviewed_at": user.approval_reviewed_at,
+        "reviewed_by": user.approval_reviewed_by.full_name if user.approval_reviewed_by_id else None,
+    }
+
+
+class TeacherApprovalListView(APIView):
+    """Teacher applications from TeacherBuddy, awaiting the master admin's decision."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def get(self, request):
+        User = get_user_model()
+        applications = User.objects.filter(role=User.Role.TEACHER).select_related(
+            "campus", "school", "department", "approval_reviewed_by"
+        )
+        wanted = request.query_params.get("status", "pending").upper()
+        if wanted in {choice[0] for choice in User.ApprovalStatus.choices}:
+            applications = applications.filter(approval_status=wanted)
+        search = request.query_params.get("search", "").strip()
+        if search:
+            applications = applications.filter(
+                Q(email__icontains=search) | Q(first_name__icontains=search)
+                | Q(last_name__icontains=search) | Q(emp_no__icontains=search)
+            )
+        applications = applications.order_by("created_at")
+        return Response({
+            "count": applications.count(),
+            "pending_count": User.objects.filter(
+                role=User.Role.TEACHER, approval_status=User.ApprovalStatus.PENDING
+            ).count(),
+            "results": [_application_payload(user) for user in applications[:200]],
+        })
+
+
+class TeacherApprovalDecisionView(APIView):
+    """Approve or reject one teacher application."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+    decision = None  # set by as_view(decision="approve"|"reject")
+
+    def post(self, request, pk):
+        User = get_user_model()
+        teacher = get_object_or_404(User.objects.filter(role=User.Role.TEACHER), pk=pk)
+        if self.decision == "approve":
+            if not teacher.is_profile_complete or not teacher.emp_no:
+                return Response(
+                    {"detail": "This applicant has not completed their profile (employee number and department) yet."},
+                    status=409,
+                )
+            teacher.approval_status = User.ApprovalStatus.APPROVED
+            teacher.rejection_reason = ""
+        else:
+            teacher.approval_status = User.ApprovalStatus.REJECTED
+            teacher.rejection_reason = str(request.data.get("reason", "")).strip()[:500]
+        teacher.approval_reviewed_at = timezone.now()
+        teacher.approval_reviewed_by = request.user
+        with transaction.atomic():
+            teacher.save(update_fields=[
+                "approval_status", "rejection_reason", "approval_reviewed_at", "approval_reviewed_by", "updated_at",
+            ])
+            _record_admin_action(
+                request, f"{self.decision}_teacher", f"accounts.user:{teacher.pk}",
+                {"reason": teacher.rejection_reason} if self.decision == "reject" else None,
+            )
+        return Response(_application_payload(teacher))

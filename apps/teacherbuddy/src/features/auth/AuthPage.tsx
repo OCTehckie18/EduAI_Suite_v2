@@ -37,23 +37,19 @@ export const AuthPage: React.FC = () => {
 
       if (res.ok) {
         // Enforce app-specific role restrictions
-        if (data.user.role !== "teacher" && data.user.role !== "admin") {
-          setError("Access Denied: This portal is strictly for Teachers and Administrators.");
+        if (data.user.role !== "teacher") {
+          setError("Access Denied: This portal is for faculty. Students use EduGames and administrators use the Master Admin portal.");
           setLoading(false);
           return;
         }
 
         localStorage.setItem("refresh_token", data.refresh ?? "");
-        googleLogin(data.access, data.user, data.status);
+      googleLogin(data.access, data.user, data.status);
 
         if (!data.user.is_profile_complete) {
           window.location.href = "/profile/setup";
         } else if (data.status === "approved") {
-          if (data.user.role === "admin") {
-            window.location.href = "/admin/users";
-          } else {
-            window.location.href = "/";
-          }
+          window.location.href = "/";
         } else {
           window.location.href = "/waiting";
         }
@@ -90,19 +86,19 @@ export const AuthPage: React.FC = () => {
         throw new Error(data.detail || "Invalid employee number or password.");
       }
 
-      if (data.user.role !== "teacher" && data.user.role !== "admin") {
-        throw new Error("Access Denied: This portal is strictly for Teachers and Administrators.");
+      if (data.user.role !== "teacher") {
+        throw new Error("Access Denied: This portal is for faculty. Students use EduGames and administrators use the Master Admin portal.");
       }
 
       localStorage.setItem("refresh_token", data.refresh ?? "");
-        googleLogin(data.access, data.user, data.status);
+      googleLogin(data.access, data.user, data.status);
 
       if (!data.user.is_profile_complete) {
         window.location.href = "/profile/setup";
-      } else if (data.user.role === "admin") {
-        window.location.href = "/admin/users";
-      } else {
+      } else if (data.status === "approved") {
         window.location.href = "/";
+      } else {
+        window.location.href = "/waiting";
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Password login failed. Please try again.");

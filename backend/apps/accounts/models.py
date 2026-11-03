@@ -35,6 +35,11 @@ class User(AbstractBaseUser, PermissionsMixin, SoftDeleteModel):
         TEACHER = "TEACHER", "Teacher"
         STUDENT = "STUDENT", "Student"
 
+    class ApprovalStatus(models.TextChoices):
+        PENDING = "PENDING", "Pending approval"
+        APPROVED = "APPROVED", "Approved"
+        REJECTED = "REJECTED", "Rejected"
+
     email = models.EmailField(unique=True, db_index=True)
     register_no = models.CharField(max_length=50, unique=True, null=True, blank=True)
     emp_no = models.CharField(max_length=50, unique=True, null=True, blank=True)
@@ -52,6 +57,16 @@ class User(AbstractBaseUser, PermissionsMixin, SoftDeleteModel):
     section = models.ForeignKey(Section, null=True, blank=True, on_delete=models.SET_NULL, related_name="students")
     teaching_programs = models.ManyToManyField(Program, blank=True, related_name="teachers")
     teaching_batches = models.ManyToManyField(Batch, blank=True, related_name="teachers")
+
+    # Teachers apply and wait for the master admin; every other account is approved on creation.
+    approval_status = models.CharField(
+        max_length=10, choices=ApprovalStatus.choices, default=ApprovalStatus.APPROVED, db_index=True
+    )
+    rejection_reason = models.TextField(blank=True)
+    approval_reviewed_at = models.DateTimeField(null=True, blank=True)
+    approval_reviewed_by = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
 
     is_profile_complete = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)

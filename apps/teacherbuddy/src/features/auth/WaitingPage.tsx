@@ -98,14 +98,19 @@ export const WaitingPage: React.FC = () => {
           >
             {isDenied ? (
               <>
-                Your account has been denied access. If you believe this is an
+                Your teacher application was not approved. If you believe this is an
                 error, please contact your administrator.
+                {user?.rejection_reason && (
+                  <span className="mt-3 block rounded-lg p-3 text-left text-xs" style={{ background: "rgba(239,68,68,0.08)", color: "var(--color-text-secondary)" }}>
+                    <strong>Reason given:</strong> {user.rejection_reason}
+                  </span>
+                )}
               </>
             ) : (
               <>
                 Your account <strong style={{ color: "var(--color-text-secondary)" }}>{user?.email}</strong> has been
-                registered successfully. An administrator will review and
-                approve your access shortly.
+                registered as a teacher application. The Master Admin will review
+                your details and approve your access; use "Check Again" to see the latest status.
               </>
             )}
           </p>
