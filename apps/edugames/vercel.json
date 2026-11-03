@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://eduai-suite-development.onrender.com/:path*"
+      "destination": "https://eduai-suite-development.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",

@@ -38,7 +38,7 @@ export const StudentShell: React.FC = () => {
   }, [location.pathname, isDesktop]);
 
   useEffect(() => {
-    if (!role) {
+    if (!role || !localStorage.getItem("token")) {
       navigate("/login");
     } else {
       const storedUser = localStorage.getItem("user");

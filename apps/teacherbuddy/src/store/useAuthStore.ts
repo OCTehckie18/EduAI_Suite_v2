@@ -24,14 +24,10 @@ export const useAuthStore = create<AuthState>((set) => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       const parsed = JSON.parse(userStr);
-      initialUser = { 
-        id: parsed.id || 1,
-        email: parsed.email || parsed.sub || 'teacher@eduai.com', 
-        name: parsed.name || 'Teacher',
-        picture: parsed.picture,
-        role: parsed.role,
-      };
-      initialStatus = (parsed.status as AuthState['status']) || 'approved';
+      if (parsed.email && localStorage.getItem('token')) {
+        initialUser = { id: parsed.id, email: parsed.email, name: parsed.name || parsed.email, picture: parsed.picture, role: parsed.role };
+        initialStatus = (parsed.status as AuthState['status']) || 'approved';
+      }
     }
   } catch (e) {}
 
@@ -51,6 +47,7 @@ export const useAuthStore = create<AuthState>((set) => {
     logout: () => {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('lastActivity');
       set({ user: null, status: null });
     }

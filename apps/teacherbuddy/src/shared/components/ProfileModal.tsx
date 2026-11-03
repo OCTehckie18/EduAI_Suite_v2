@@ -32,7 +32,7 @@ const authHeaders = () => ({
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) => {
   const [profile, setProfile] = useState<ProfileUser | null>(null);
-  const [form, setForm] = useState({ first_name: "", last_name: "", phone_number: "", register_no: "", emp_no: "", password: "" });
+  const [form, setForm] = useState({ first_name: "", last_name: "", phone_number: "", register_no: "", emp_no: "", password: "", current_password: "" });
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -51,6 +51,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) 
           register_no: data.user.register_no ?? "",
           emp_no: data.user.emp_no ?? "",
           password: "",
+          current_password: "",
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not load profile.");
@@ -66,15 +67,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) 
     setSaving(true);
     setError("");
     setMessage("");
-    const { password, ...fields } = form;
+    const { password, current_password, register_no, emp_no, ...fields } = form;
     const body: Record<string, string> = { ...fields };
-    if (password) body.password = password;
+    // Identifiers are fixed once set; only an administrator can change them.
+    if (!profile?.register_no && register_no) body.register_no = register_no;
+    if (!profile?.emp_no && emp_no) body.emp_no = emp_no;
+    if (password) {
+      body.password = password;
+      body.current_password = current_password;
+    }
     try {
-      const res = await fetch(`${API_ENDPOINTS.AUTH}/me/`, { method: "PATCH", headers: authHeaders(), body: JSON.stringify(body) });
+      const res = await fetch(`${API_ENDPOINTS.AUTH}/me/`, { method: "PATCH", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Could not save changes.");
       setProfile(data.user);
-      setForm((f) => ({ ...f, password: "" }));
+      setForm((f) => ({ ...f, password: "", current_password: "" }));
       setMessage("Profile updated.");
       onSaved(data.user);
     } catch (err) {
@@ -119,17 +126,22 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) 
             </label>
             {isStudent && (
               <label className="block text-xs font-semibold text-slate-500">Register number
-                <input className={`${inputClass} mt-1`} value={form.register_no} onChange={set("register_no")} />
+                <input className={`${inputClass} mt-1`} value={form.register_no} onChange={set("register_no")} disabled={Boolean(profile.register_no)} />
               </label>
             )}
             {isTeacher && (
               <label className="block text-xs font-semibold text-slate-500">Employee number
-                <input className={`${inputClass} mt-1`} value={form.emp_no} onChange={set("emp_no")} />
+                <input className={`${inputClass} mt-1`} value={form.emp_no} onChange={set("emp_no")} disabled={Boolean(profile.emp_no)} />
               </label>
             )}
             <label className="block text-xs font-semibold text-slate-500">New password (leave blank to keep current)
               <input type="password" minLength={6} className={`${inputClass} mt-1`} value={form.password} onChange={set("password")} autoComplete="new-password" />
             </label>
+            {form.password && (
+              <label className="block text-xs font-semibold text-slate-500">Current password
+                <input type="password" required className={`${inputClass} mt-1`} value={form.current_password} onChange={set("current_password")} autoComplete="current-password" />
+              </label>
+            )}
             {hierarchy.length > 0 && (
               <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600 space-y-1">
                 {hierarchy.map(([key, v]) => (

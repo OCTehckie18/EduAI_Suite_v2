@@ -28,6 +28,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import logo from "../../../logo/eduai_logo.png";
 import { API_ENDPOINTS } from "../shared/utils/apiConfig";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
+import { tokenIsFresh } from "../shared/utils/installAuthFetch";
 import { ProfileModal } from "../shared/components/ProfileModal";
 
 // uncomment to view the modesl
@@ -218,7 +219,7 @@ export const DashboardShell: React.FC = () => {
     const storedUser = localStorage.getItem("user");
     const token = localStorage.getItem("token");
 
-    if (storedUser && token) {
+    if (storedUser && token && (tokenIsFresh(token) || localStorage.getItem("refresh_token"))) {
       try {
         setUser(JSON.parse(storedUser));
       } catch {
