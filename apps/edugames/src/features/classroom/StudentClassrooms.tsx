@@ -117,9 +117,7 @@ export const StudentClassrooms: React.FC = () => {
   };
 
   const loadCourses = async (): Promise<Course[]> => {
-    const user = get_user();
-    const studentName = user.name;
-    const response = await fetch(`${API_BASE_URL}/api/dashboard/student-summary?student_name=${encodeURIComponent(studentName)}`);
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/student-summary`);
     if (!response.ok) {
       throw new Error(`Failed to load classrooms (${response.status})`);
     }
@@ -191,9 +189,13 @@ export const StudentClassrooms: React.FC = () => {
 
     try {
       const data = await loadCourses();
-      const nextSelectedId = selectedId && data.some(course => course.id === selectedId)
-        ? selectedId
-        : data[0]?.id ?? null;
+      // A link from the dashboard names the course to open; otherwise keep the current one, or the first.
+      const wanted = (location.state as { courseId?: number } | null)?.courseId;
+      const nextSelectedId = wanted && data.some(course => course.id === wanted)
+        ? wanted
+        : selectedId && data.some(course => course.id === selectedId)
+          ? selectedId
+          : data[0]?.id ?? null;
 
       if (nextSelectedId) {
         setSelectedId(nextSelectedId);
@@ -316,6 +318,8 @@ export const StudentClassrooms: React.FC = () => {
 
 
   useEffect(() => {
+    const tab = (location.state as { tab?: "assignments" | "announcements" } | null)?.tab;
+    if (tab) setActiveTab(tab);
     refresh();
   }, []);
 

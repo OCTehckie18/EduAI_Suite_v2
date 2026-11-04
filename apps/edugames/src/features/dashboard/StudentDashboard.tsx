@@ -11,6 +11,7 @@ import {
   Users,
   KeyRound,
   Lightbulb,
+  AlertCircle,
 } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
 import { Link, useNavigate } from "react-router-dom";
@@ -65,45 +66,65 @@ export const StudentDashboard: React.FC = () => {
     null
   );
   const [loading, setLoading] = useState(true);
+  // A failed load must say so; it must not look like "no assignments, no classes".
+  const [loadError, setLoadError] = useState("");
   const [lessonLoading, setLessonLoading] = useState(false);
   const [lessonError, setLessonError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const loadDashboard = async () => {
-      setLoading(true);
-      try {
-        // The server works out who you are from your login, so nothing about you is sent.
-        const [lessonsRes, summaryRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/lessons?status=posted`),
-          fetch(`${API_BASE_URL}/api/dashboard/student-summary`),
-        ]);
-
-        const lessons = await lessonsRes.json();
-        const summaryData = await summaryRes.json();
-
-        if (summaryData && Array.isArray(summaryData.courses)) {
-          setEnrolledCourses(summaryData.courses);
-        }
-
-        if (Array.isArray(lessons)) {
-          const sortedLessons = [...lessons].sort(
-            (a, b) =>
-              new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime()
-          );
-          setPostedLessons(sortedLessons.slice(0, 5));
-        }
-
-        setSummary(summaryData);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
+  const loadDashboard = async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      // The server works out who you are from your login, so nothing about you is sent.
+      const [lessonsRes, summaryRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/lessons?status=posted`),
+        fetch(`${API_BASE_URL}/api/dashboard/student-summary`),
+      ]);
+      if (!summaryRes.ok) {
+        const body = await summaryRes.json().catch(() => ({}));
+        throw new Error(body.detail || body.error?.message || "Could not load your dashboard.");
       }
-    };
+      const summaryData = await summaryRes.json();
+      const lessons = lessonsRes.ok ? await lessonsRes.json() : [];
 
-    loadDashboard();
+      if (summaryData && Array.isArray(summaryData.courses)) {
+        setEnrolledCourses(summaryData.courses);
+      }
+      if (Array.isArray(lessons)) {
+        const sortedLessons = [...lessons].sort(
+          (a, b) => new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime()
+        );
+        setPostedLessons(sortedLessons.slice(0, 5));
+      }
+      setSummary(summaryData);
+    } catch (error) {
+      console.error(error);
+      setLoadError(error instanceof Error ? error.message : "Could not load your dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadDashboard();
+    // Deadlines and results change while a student works, so refresh when the tab is shown again.
+    const onVisible = () => { if (document.visibilityState === "visible") void quietRefresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
+
+  const quietRefresh = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/dashboard/student-summary`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setSummary(data);
+      if (Array.isArray(data.courses)) setEnrolledCourses(data.courses);
+    } catch {
+      /* keep what is on screen */
+    }
+  };
 
   const enrolledCourseIds = new Set(enrolledCourses.map((course) => course.id));
   const visibleLessons =
@@ -148,6 +169,17 @@ export const StudentDashboard: React.FC = () => {
   const average: number | null = summary?.student?.average ?? null;
   const pendingCount = summary?.student?.pendingAssignments || 0;
   const liveGamesCount = summary?.student?.liveGames || 0;
+
+  if (loadError && !summary) {
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-24 text-center" role="alert">
+        <AlertCircle className="text-red-500" size={40} />
+        <h2 className="text-lg font-bold" style={{ color: "var(--color-text-primary)" }}>Your dashboard could not be loaded</h2>
+        <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{loadError}</p>
+        <button onClick={() => void loadDashboard()} className="btn btn-primary">Try again</button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-7 animate-fade-in">
@@ -308,8 +340,8 @@ export const StudentDashboard: React.FC = () => {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {enrolledCourses.map((course: any) => (
                 <GlassCard
-                  key={course.code}
-                  onClick={() => navigate("/classroom")}
+                  key={course.id}
+                  onClick={() => navigate("/classroom", { state: { courseId: course.id } })}
                   className="p-5 hover:border-blue-500/30 transition-colors cursor-pointer group"
                 >
                   <div className="flex justify-between items-start mb-4">
@@ -371,7 +403,10 @@ export const StudentDashboard: React.FC = () => {
                   key={`late-${deadline.id}`}
                   className="flex border-l-2 pl-3 py-1 cursor-pointer hover:bg-slate-50 transition-colors rounded-r-md"
                   style={{ borderColor: "#ef4444" }}
-                  onClick={() => navigate("/classroom")}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => navigate("/classroom", { state: { courseId: deadline.course_id, tab: "assignments" } })}
+                  onKeyDown={(e) => { if (e.key === "Enter") navigate("/classroom", { state: { courseId: deadline.course_id, tab: "assignments" } }); }}
                 >
                   <div>
                     <h4 className="text-sm font-bold" style={{ color: "var(--color-text-primary)" }}>{deadline.title}</h4>
@@ -387,7 +422,10 @@ export const StudentDashboard: React.FC = () => {
                     key={deadline.id}
                     className="flex border-l-2 pl-3 py-1 cursor-pointer hover:bg-slate-50 transition-colors rounded-r-md"
                     style={{ borderColor: deadline.is_urgent ? "#f59e0b" : "var(--color-brand-blue)" }}
-                    onClick={() => navigate("/classroom")}
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => navigate("/classroom", { state: { courseId: deadline.course_id, tab: "assignments" } })}
+                    onKeyDown={(e) => { if (e.key === "Enter") navigate("/classroom", { state: { courseId: deadline.course_id, tab: "assignments" } }); }}
                   >
                     <div>
                       <h4 className="text-sm font-bold" style={{ color: "var(--color-text-primary)" }}>{deadline.title}</h4>
@@ -407,7 +445,14 @@ export const StudentDashboard: React.FC = () => {
       </div>
 
       {selectedLesson && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          role="dialog"
+          aria-modal="true"
+          aria-label={selectedLesson.title || selectedLesson.topic || "Lesson"}
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedLesson(null); }}
+          onKeyDown={(e) => { if (e.key === "Escape") setSelectedLesson(null); }}
+        >
           <GlassCard className="w-full max-w-4xl max-h-[85vh] overflow-y-auto p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
@@ -427,6 +472,7 @@ export const StudentDashboard: React.FC = () => {
               <button
                 onClick={() => setSelectedLesson(null)}
                 className="btn btn-sm"
+                autoFocus
               >
                 Close
               </button>
@@ -460,14 +506,6 @@ export const StudentDashboard: React.FC = () => {
                 </div>
               )}
 
-              {selectedLesson.quiz_questions && (
-                <div>
-                  <h4 className="font-bold text-sm mb-2">Quiz Questions</h4>
-                  <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-text-secondary)" }}>
-                    {selectedLesson.quiz_questions}
-                  </p>
-                </div>
-              )}
             </div>
           </GlassCard>
         </div>

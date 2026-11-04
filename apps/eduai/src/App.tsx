@@ -86,7 +86,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
   const displayName = user.name || user.email;
 
   const panel = {
-    overview: <OverviewPanel overview={overview} onNavigate={go} refreshKey={refreshKey} />,
+    overview: <OverviewPanel overview={overview} loadFailed={overviewError} onRetry={refresh} onNavigate={go} refreshKey={refreshKey} />,
     university: <UniversityPanel />,
     campuses: <CampusPanel key={refreshKey} search={search} onChanged={loadOverview} />,
     structure: <StructurePanel key={refreshKey} search={search} onChanged={loadOverview} />,

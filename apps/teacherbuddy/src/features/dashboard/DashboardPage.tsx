@@ -33,8 +33,14 @@ export const DashboardPage: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Approve/Reject problems belong to that widget: they must not replace the whole dashboard.
+  const [appointmentError, setAppointmentError] = useState("");
+  const [busyAppointment, setBusyAppointment] = useState<number | null>(null);
 
   const updateAppointment = async (appointmentId: number, status: "approved" | "rejected") => {
+    if (busyAppointment !== null) return; // ignore a second click while one request is running
+    setBusyAppointment(appointmentId);
+    setAppointmentError("");
     try {
       const response = await fetch(`${API_ENDPOINTS.APPOINTMENTS}/${appointmentId}/status`, {
         method: "PATCH",
@@ -49,7 +55,10 @@ export const DashboardPage: React.FC = () => {
           notes: status === "approved" ? "Approved from dashboard." : "Rejected from dashboard.",
         }),
       });
-      if (!response.ok) throw new Error("Could not update appointment");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || body.error?.message || "Could not update that appointment.");
+      }
       setData((previous: any) => ({
         ...previous,
         pendingAppointments: (previous.pendingAppointments || []).filter(
@@ -57,29 +66,48 @@ export const DashboardPage: React.FC = () => {
         ),
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update appointment");
+      setAppointmentError(err instanceof Error ? err.message : "Could not update that appointment.");
+    } finally {
+      setBusyAppointment(null);
+    }
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      // The server works out which teacher you are from your login; nothing about you is sent.
+      const response = await fetch(`${API_ENDPOINTS.DASHBOARD}/summary`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || body.error?.message || "Failed to fetch dashboard data");
+      }
+      setData(await response.json());
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        // The server works out which teacher you are from your login; nothing about you is sent.
-        const response = await fetch(`${API_ENDPOINTS.DASHBOARD}/summary`);
-        if (!response.ok) throw new Error("Failed to fetch dashboard data");
-        const json = await response.json();
-        setData(json);
-      } catch (err: any) {
-        console.error(err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
+    void fetchDashboardData();
+    // The counts that change while a teacher works (requests, submissions) are refreshed when the tab is shown again.
+    const onVisible = () => { if (document.visibilityState === "visible") void refreshQuietly(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
+
+  /** Reload in the background: the page keeps showing what it has, and only updates if the reload works. */
+  const refreshQuietly = async () => {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.DASHBOARD}/summary`);
+      if (response.ok) setData(await response.json());
+    } catch {
+      /* keep the data already on screen */
+    }
+  };
 
   if (loading) {
     return (
@@ -96,7 +124,7 @@ export const DashboardPage: React.FC = () => {
         <AlertTriangle className="w-12 h-12 text-destructive" />
         <h2 className="text-xl font-bold">Something went wrong</h2>
         <p className="text-muted-foreground">{error || "Failed to load dashboard data"}</p>
-        <button onClick={() => window.location.reload()} className="btn btn-primary mt-2">
+        <button onClick={() => void fetchDashboardData()} className="btn btn-primary mt-2">
           Try Again
         </button>
       </div>
@@ -128,12 +156,6 @@ export const DashboardPage: React.FC = () => {
           <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
             {getFormattedDate()} — Here's your academic overview for today.
           </p>
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <Link to="/exams" className="btn btn-outline text-xs"><Plus size={13} /> Create Exam</Link>
-          <Link to="/mail" className="btn btn-outline text-xs"><Mail size={13} /> Send Mail</Link>
-          <Link to="/reports" className="btn btn-outline text-xs"><FileText size={13} /> Generate Report</Link>
-          <Link to="/appointments" className="btn btn-primary text-xs"><Calendar size={13} /> Schedule Appointment</Link>
         </div>
       </div>
 
@@ -248,8 +270,8 @@ export const DashboardPage: React.FC = () => {
               </Link>
             </div>
             <div className="space-y-2.5">
-              {schedule.map((s: any) => (
-                <div key={s.name} className="flex items-center gap-3 p-2.5 rounded-lg border"
+              {schedule.map((s: any, index: number) => (
+                <div key={`${s.name}-${index}`} className="flex items-center gap-3 p-2.5 rounded-lg border"
                   style={{ borderColor: "var(--color-border)", background: "var(--color-bg-grad1)" }}>
                   <div className="flex flex-col items-center w-12 shrink-0">
                     <p className="text-[10px] font-bold" style={{ color: "var(--color-brand-blue)" }}>{s.time.split(" ")[0]}</p>
@@ -283,11 +305,7 @@ export const DashboardPage: React.FC = () => {
                 </p>
               )}
               {riskAlerts.map((alert: any) => (
-                <div key={alert.id} className="flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors"
-                  style={{}}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-border)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                >
+                <div key={alert.id} className="flex items-center gap-2.5 p-2.5 rounded-lg">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
                     alert.level === "high" ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"
                   }`}>
@@ -317,6 +335,11 @@ export const DashboardPage: React.FC = () => {
               <h3 className="section-title text-sm">Recent Activity</h3>
             </div>
             <div className="space-y-3">
+              {recentActivity.length === 0 && (
+                <p className="py-3 text-center text-xs italic" style={{ color: "var(--color-text-muted)" }}>
+                  Nothing has happened in your classes yet.
+                </p>
+              )}
               {recentActivity.map((act: any, i: number) => {
                 const Icon = iconMap[act.icon] || Activity;
                 return (
@@ -344,13 +367,16 @@ export const DashboardPage: React.FC = () => {
             <Link to="/appointments" className="text-[10px] font-semibold text-blue-600">View All →</Link>
           </div>
           <div className="space-y-2">
+            {appointmentError && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700" role="alert">{appointmentError}</p>
+            )}
             {pendingAppointments.length === 0 ? <p className="py-4 text-center text-xs italic text-muted-foreground">No pending requests.</p> : pendingAppointments.slice(0, 3).map((appointment: any) => (
               <div key={appointment.id} className="rounded-lg border p-2.5" style={{ borderColor: "var(--color-border)" }}>
                 <p className="truncate text-xs font-semibold">{appointment.studentName}</p>
                 <p className="truncate text-[10px] text-muted-foreground">{appointment.agenda} · {appointment.timeSlot || "Time pending"}</p>
                 <div className="mt-2 flex gap-2">
-                  <button onClick={() => void updateAppointment(appointment.id, "approved")} className="btn btn-primary flex-1 py-1 text-[10px]">Approve</button>
-                  <button onClick={() => void updateAppointment(appointment.id, "rejected")} className="btn btn-outline flex-1 py-1 text-[10px]"><XCircle size={12} /> Reject</button>
+                  <button onClick={() => void updateAppointment(appointment.id, "approved")} disabled={busyAppointment !== null} aria-label={`Approve the request from ${appointment.studentName}`} className="btn btn-primary flex-1 py-1 text-[10px] disabled:opacity-50">{busyAppointment === appointment.id ? "Saving..." : "Approve"}</button>
+                  <button onClick={() => void updateAppointment(appointment.id, "rejected")} disabled={busyAppointment !== null} aria-label={`Reject the request from ${appointment.studentName}`} className="btn btn-outline flex-1 py-1 text-[10px] disabled:opacity-50"><XCircle size={12} /> Reject</button>
                 </div>
               </div>
             ))}
