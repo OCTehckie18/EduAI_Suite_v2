@@ -2,10 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Building2, CheckCircle2, ChevronRight, Circle, GraduationCap, Layers, School, UserCheck, Users } from "lucide-react";
 import { API_BASE_URL, API_ENDPOINTS } from "../shared/apiConfig";
 import { requestJson } from "../shared/request";
-import { Campus, DirectoryUser, Overview, TabKey } from "../types";
+import { Campus, Overview, TabKey } from "../types";
 import { Badge, EmptyState, ErrorState, PanelCard, PanelHeader, SkeletonRows, timeAgo } from "../ui";
-
-interface HistoryEntry { id: number; action: string | null; user_id: string | null; timestamp: string | null; metadata_json: { target?: string } | null }
 
 const ACTION_LABELS: Record<string, string> = {
   create_campus: "Created a campus",
@@ -35,26 +33,18 @@ const describeTarget = (target?: string) => {
 export function OverviewPanel({ overview, loadFailed, onRetry, onNavigate, refreshKey }: { overview: Overview | null; loadFailed: boolean; onRetry: () => void; onNavigate: (tab: TabKey) => void; refreshKey: number }) {
   const [campuses, setCampuses] = useState<Campus[] | null>(null);
   const [universityName, setUniversityName] = useState<string | null>(null);
-  const [rosterTotal, setRosterTotal] = useState<number | null>(null);
-  const [history, setHistory] = useState<HistoryEntry[] | null>(null);
-  const [names, setNames] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setError("");
-    const [campusRes, universityRes, rosterRes, historyRes, usersRes] = await Promise.allSettled([
+    // Roster totals and the recent actions (with who did them) come with the overview itself.
+    const [campusRes, universityRes] = await Promise.allSettled([
       requestJson<{ results: Campus[] }>(`${API_ENDPOINTS.MASTER_ADMIN}/campuses/`),
       requestJson<{ configured: boolean; name: string }>(`${API_BASE_URL}/institution/university/`),
-      requestJson<{ total: number }>(`${API_ENDPOINTS.MASTER_ADMIN}/roster/?status=all`),
-      requestJson<HistoryEntry[]>(`${API_BASE_URL}/history/?feature=master_admin`),
-      requestJson<{ results: DirectoryUser[] }>(`${API_ENDPOINTS.MASTER_ADMIN}/users/`),
     ]);
     if (campusRes.status === "fulfilled") setCampuses(campusRes.value.results);
     else setError("Some overview details could not be loaded.");
     setUniversityName(universityRes.status === "fulfilled" && universityRes.value.configured ? universityRes.value.name : "");
-    setRosterTotal(rosterRes.status === "fulfilled" ? rosterRes.value.total : null);
-    setHistory(historyRes.status === "fulfilled" ? historyRes.value.slice(0, 8) : []);
-    if (usersRes.status === "fulfilled") setNames(Object.fromEntries(usersRes.value.results.map((u) => [String(u.id), u.name || u.email])));
   }, []);
 
   useEffect(() => { void load(); }, [load, refreshKey]);
@@ -76,7 +66,7 @@ export function OverviewPanel({ overview, loadFailed, onRetry, onNavigate, refre
     { done: Boolean(universityName), title: "Add your university", hint: "Name, logo and contact details shown to everyone.", tab: "university", Icon: Building2 },
     { done: overview.institution.campuses > 0, title: "Add campuses", hint: "Each campus of the university.", tab: "campuses", Icon: Building2 },
     { done: overview.institution.programs > 0 && overview.institution.batches > 0, title: "Build the structure", hint: "Schools, departments, programs, classes and sections.", tab: "structure", Icon: Layers },
-    { done: (rosterTotal ?? 0) > 0, title: "Upload the student roster", hint: "Only admitted students can sign up.", tab: "roster", Icon: GraduationCap },
+    { done: overview.roster.total > 0, title: "Upload the student roster", hint: overview.roster.total > 0 ? `${overview.roster.signed_up} of ${overview.roster.total} admitted students have signed up.` : "Only admitted students can sign up.", tab: "roster", Icon: GraduationCap },
     { done: overview.users.teachers > 0, title: "Approve your first teacher", hint: "Teachers apply on TeacherBuddy and wait for you.", tab: "approvals", Icon: UserCheck },
   ];
   const doneCount = steps.filter((step) => step.done).length;
@@ -120,14 +110,14 @@ export function OverviewPanel({ overview, loadFailed, onRetry, onNavigate, refre
 
         <PanelCard>
           <PanelHeader title="Recent activity" subtitle="The latest changes made by master admins." />
-          {history === null ? <SkeletonRows rows={5} cols={2} /> : history.length === 0 ? (
+          {overview.recent_actions.length === 0 ? (
             <EmptyState title="No activity yet" hint="Changes you make in this portal will be listed here." />
           ) : (
             <ul className="divide-y divide-slate-100">
-              {history.map((entry) => (
+              {overview.recent_actions.map((entry) => (
                 <li key={entry.id} className="flex items-start justify-between gap-3 py-3 text-sm">
                   <div className="min-w-0"><p className="font-medium text-slate-800">{ACTION_LABELS[entry.action ?? ""] ?? (entry.action ?? "Action").replace(/_/g, " ")}</p>
-                    <p className="truncate text-xs text-slate-500">{names[entry.user_id ?? ""] ?? "An admin"}{entry.metadata_json?.target ? ` · ${describeTarget(entry.metadata_json.target)}` : ""}</p></div>
+                    <p className="truncate text-xs text-slate-500">{entry.actor}{entry.target ? ` · ${describeTarget(entry.target)}` : ""}</p></div>
                   <span className="shrink-0 text-xs text-slate-500">{timeAgo(entry.timestamp)}</span>
                 </li>
               ))}

@@ -6,10 +6,20 @@ export interface AdminUser {
   role_code?: string;
 }
 
+export interface RecentAction {
+  id: number;
+  action: string | null;
+  actor: string;
+  target: string | null;
+  timestamp: string | null;
+}
+
 export interface Overview {
   institution: Record<string, number>;
   classrooms: number;
   users: Record<string, number>;
+  roster: { total: number; signed_up: number };
+  recent_actions: RecentAction[];
 }
 
 export interface Campus {

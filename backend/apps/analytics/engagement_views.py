@@ -48,11 +48,41 @@ def _generate_engagement_summary(student_name: str, data: dict) -> str:
         return f"{student_name} is classified as at risk with an engagement score of {score}/100 ({comp}% of assignments completed). Academic support is advised."
 
 
-def _get_student_engagement(student: User, course_id: int):
-    # Assignments
-    # Only this one class's work is ever considered; there is no "any class" fallback.
-    course_assignments = Assignment.objects.filter(course_id=course_id)
-    total_assignments = course_assignments.count()
+class _ClassData:
+    """Everything the engagement figures need for a set of students in one class, loaded in a few
+    grouped queries. Loading per student instead costs a query per student per assignment."""
+
+    def __init__(self, students, course_id):
+        ids = [s.id for s in students]
+        self.course_id = course_id
+        self.assignments = list(Assignment.objects.filter(course_id=course_id).order_by("id"))
+        self.submissions = {}  # (student_id, assignment_id) -> latest submission
+        for sub in Submission.objects.filter(assignment__course_id=course_id, student_id__in=ids).order_by("id"):
+            self.submissions[(sub.student_id, sub.assignment_id)] = sub
+        self.attempts = {}
+        for attempt in ExamAttempt.objects.filter(exam__course_id=course_id, student_id__in=ids).select_related("exam"):
+            self.attempts.setdefault(attempt.student_id, []).append(attempt)
+        self.game_players = {}
+        for player in GamePlayer.objects.filter(student_id__in=ids).select_related("game"):
+            self.game_players.setdefault(player.student_id, []).append(player)
+        # Live quizzes are matched on the student's register number or account id, never the nickname.
+        owner_of_key = {key: s.id for s in students for key in student_keys(s)}
+        self.quiz_players = {}
+        for qp in QuizPlayer.objects.filter(student_id__in=list(owner_of_key), session__is_test_run=False).select_related("session__quiz"):
+            self.quiz_players.setdefault(owner_of_key[qp.student_id], []).append(qp)
+        self.activities = {}
+        for activity in StudentActivity.objects.filter(student_id__in=ids):
+            self.activities.setdefault(activity.student_id, []).append(activity)
+
+
+def _get_student_engagement(student: User, course_id, data: "_ClassData | None" = None):
+    """One student's engagement in one class. Pass ``data`` (a _ClassData for the whole class) when
+    computing many students, so the database is asked once for all of them."""
+    data = data or _ClassData([student], course_id)
+
+    # Assignments: only this one class's work is ever considered; there is no "any class" fallback.
+    course_assignments = data.assignments
+    total_assignments = len(course_assignments)
 
     submissions = []
     submitted_count = 0
@@ -60,7 +90,7 @@ def _get_student_engagement(student: User, course_id: int):
     graded_count = 0
 
     for asgn in course_assignments:
-        sub = Submission.objects.filter(assignment=asgn, student=student).order_by("-id").first()
+        sub = data.submissions.get((student.id, asgn.id))
 
         if sub:
             submitted_count += 1
@@ -89,8 +119,8 @@ def _get_student_engagement(student: User, course_id: int):
         (submitted_count / total_assignments) * 100.0) if total_assignments > 0 else None
     avg_grade = (total_grade / graded_count) if graded_count > 0 else None
 
-    # Exams
-    exam_attempts = ExamAttempt.objects.filter(exam__course_id=course_id, student_id=student.id).select_related("exam")
+    # Exams of this class only
+    exam_attempts = data.attempts.get(student.id, [])
 
     exams_data = []
     total_exam_score = 0.0
@@ -106,17 +136,15 @@ def _get_student_engagement(student: User, course_id: int):
         if attempt.score is not None:
             total_exam_score += attempt.score
 
-    avg_exam_score = (total_exam_score / len(exam_attempts)
-                      ) if exam_attempts.exists() else None
+    avg_exam_score = (total_exam_score / len(exam_attempts)) if exam_attempts else None
 
     # Games
-    game_players = GamePlayer.objects.filter(student=student).select_related("game")
     games_data = []
     total_game_score = 0.0
     total_words_submitted = 0
     total_words_valid = 0
 
-    for gp in game_players:
+    for gp in data.game_players.get(student.id, []):
         game = gp.game
         games_data.append({
             "game_id": game.id,
@@ -131,12 +159,7 @@ def _get_student_engagement(student: User, course_id: int):
         total_words_submitted += gp.words_submitted
         total_words_valid += gp.words_valid
 
-    # Live quizzes are matched on the student's register number, never the nickname.
-    quiz_players = QuizPlayer.objects.filter(
-        student_id__in=student_keys(student),
-        session__is_test_run=False,
-    ).select_related("session__quiz")
-    for qp in quiz_players:
+    for qp in data.quiz_players.get(student.id, []):
         games_data.append({
             "game_id": f"quiz-{qp.session_id}",
             "game_name": qp.session.quiz.title or "Quiz",
@@ -178,9 +201,7 @@ def _get_student_engagement(student: User, course_id: int):
             "timestamp": activity.occurred_at,
             "icon": "activity",
         }
-        for activity in StudentActivity.objects.filter(
-            student_id=student.id,
-        )[:20]
+        for activity in data.activities.get(student.id, [])[:20]
     ]
     has_persisted_activity = bool(timeline)
 
@@ -271,9 +292,10 @@ class CourseEngagementSummaryView(APIView):
             enrollments__classroom=classroom,
             enrollments__is_active=True,
             role=User.Role.STUDENT
-        ).distinct())
+        ).select_related("department", "section", "batch").distinct())
 
-        all_engagement = [_get_student_engagement(s, course_id) for s in students]
+        data = _ClassData(students, course_id)
+        all_engagement = [_get_student_engagement(s, course_id, data) for s in students]
 
         total = len(all_engagement)
         scored = [e for e in all_engagement if e["engagement_score"] is not None]

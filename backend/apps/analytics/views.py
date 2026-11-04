@@ -120,43 +120,65 @@ def _pending_appointments(user):
 SCHEDULE_CODES = {"custom": "EVENT", "appointment": "APT", "assignment": "DUE"}
 
 
-def _schedule_and_counts(user):
-    """Today's dated items and this week's meeting/event count, from the user's own calendar feed.
+def _schedule_and_counts(user, classrooms_qs):
+    """Today's dated items and this week's meeting/event count.
 
-    Only items that really have a date and time appear (events, meetings, assignment deadlines). Times are
-    in the campus time zone. Exams and lessons are not listed because nothing records when they happen.
+    Only items that really have a date and time appear (events, meetings, assignment deadlines), in the
+    campus time zone. Exams and lessons are not listed because nothing records when they happen. The
+    database does the date filtering, so the cost does not grow with the length of a teacher's history.
     """
-    from apps.calendar_app.feed import build_feed
+    from apps.calendar_app.feed import HIDDEN_APPOINTMENT_STATUSES, course_ids_for, custom_events_for, parse_when
+    from datetime import time as clock
 
     now = timezone.localtime()
     today = now.date()
     week_end = today + timedelta(days=7)
-    todays, week_count = [], 0
-    for event in build_feed(user):
-        if event["source"] not in SCHEDULE_CODES:
+    day_start = timezone.make_aware(datetime.combine(today, clock.min))
+    window_end = timezone.make_aware(datetime.combine(week_end, clock.min))
+
+    todays, week_count = [], 0  # todays: (start, end, title, source, location, all_day, course_id)
+    for ev in custom_events_for(user, course_ids_for(user)).filter(start_time__gte=day_start, start_time__lt=window_end):
+        start = timezone.localtime(ev.start_time)
+        week_count += 1
+        if start.date() == today:
+            end = timezone.localtime(ev.end_time) if ev.end_time else start
+            todays.append((start, end, ev.title, "custom", ev.location or "", ev.is_all_day, ev.course_id))
+
+    # Appointment slots are stored as text ("2026-11-04 10:00"), which sorts the same as the dates, so a range filter works.
+    appointments = Appointment.objects.exclude(status__in=HIDDEN_APPOINTMENT_STATUSES).filter(
+        time_slot__gte=today.isoformat(), time_slot__lt=week_end.isoformat()
+    )
+    if not is_master_admin(user):
+        appointments = appointments.filter(teacher_name__iexact=user.full_name)
+    for appt in appointments:
+        slot, _ = parse_when(appt.time_slot)
+        if slot is None:
             continue
-        start = datetime.fromisoformat(event["start"])
-        if timezone.is_naive(start):
-            start = timezone.make_aware(start)
-        start = timezone.localtime(start)
-        if today <= start.date() < week_end and event["source"] in ("custom", "appointment"):
+        start = timezone.localtime(slot)
+        if today <= start.date() < week_end:
             week_count += 1
         if start.date() == today:
-            end = datetime.fromisoformat(event["end"]) if event.get("end") else start
-            if timezone.is_naive(end):
-                end = timezone.make_aware(end)
-            todays.append((start, end, event))
+            todays.append((start, start + timedelta(minutes=30), f"Meeting: {appt.agenda or appt.student_name}", "appointment", appt.meeting_mode or "", False, None))
+
+    for asgn in Assignment.objects.filter(course__in=classrooms_qs, due_date__startswith=today.isoformat()):
+        due, all_day = parse_when(asgn.due_date)
+        if due is None:
+            continue
+        start = timezone.localtime(due)
+        if start.date() == today:
+            todays.append((start, start, f"Due: {asgn.title}", "assignment", "", all_day, asgn.course_id))
+
     todays.sort(key=lambda item: item[0])
     schedule = [
         {
-            "name": event["title"],
-            "code": SCHEDULE_CODES[event["source"]],
-            "course_id": event.get("course_id"),
-            "time": "All day" if event.get("is_all_day") else start.strftime("%I:%M %p"),
-            "room": event.get("location") or "",
-            "status": "live" if start <= now <= max(end, start + timedelta(minutes=30)) and event["source"] != "assignment" else "upcoming",
+            "name": title,
+            "code": SCHEDULE_CODES[source],
+            "course_id": course_id,
+            "time": "All day" if all_day else start.strftime("%I:%M %p"),
+            "room": location,
+            "status": "live" if start <= now <= max(end, start + timedelta(minutes=30)) and source != "assignment" else "upcoming",
         }
-        for start, end, event in todays[:5]
+        for start, end, title, source, location, all_day, course_id in todays[:5]
     ]
     return schedule, len(todays), week_count
 
@@ -241,16 +263,21 @@ class DashboardSummaryView(APIView):
 
         # Every class of this teacher, with real counts. "progress" is the share of handed-in work that has
         # been graded, so a teacher can see where marking is waiting. There is no invented time or room.
+        cards = list(classrooms_qs.select_related("batch", "teacher")[:12])
+        card_ids = [c.id for c in cards]
+        student_counts = {r["classroom_id"]: r["n"] for r in Enrollment.objects.filter(classroom_id__in=card_ids, is_active=True).values("classroom_id").annotate(n=Count("id"))}
+        submitted_counts = {r["assignment__course_id"]: r["n"] for r in Submission.objects.filter(assignment__course_id__in=card_ids).values("assignment__course_id").annotate(n=Count("id"))}
+        graded_counts = {r["assignment__course_id"]: r["n"] for r in Submission.objects.filter(assignment__course_id__in=card_ids, grade__isnull=False).values("assignment__course_id").annotate(n=Count("id"))}
         classrooms = []
-        for c in classrooms_qs.select_related("batch")[:12]:
-            submitted = Submission.objects.filter(assignment__course=c).count()
-            graded = Submission.objects.filter(assignment__course=c, grade__isnull=False).count()
+        for c in cards:
+            submitted = submitted_counts.get(c.id, 0)
+            graded = graded_counts.get(c.id, 0)
             classrooms.append({
                 "id": c.id,
                 "code": c.subject_code,
                 "name": c.name,
                 "batch": c.batch.name if c.batch else "",
-                "students": Enrollment.objects.filter(classroom=c, is_active=True).count(),
+                "students": student_counts.get(c.id, 0),
                 "time": None,
                 "submitted": submitted,
                 "graded": graded,
@@ -270,7 +297,7 @@ class DashboardSummaryView(APIView):
         # reports (a master admin sees the whole university). Nothing is matched by a typed name.
         recent_activity = _recent_activity(user, classrooms_qs, color_map)
 
-        schedule, calendar_today, calendar_week = _schedule_and_counts(user)
+        schedule, calendar_today, calendar_week = _schedule_and_counts(user, classrooms_qs)
 
         pending_appointments = _pending_appointments(user)
 
@@ -346,8 +373,12 @@ class StudentDashboardSummaryView(APIView):
         if student.role != User.Role.STUDENT:
             return Response({"detail": "This dashboard is for students."}, status=status.HTTP_403_FORBIDDEN)
 
-        enrolled_classrooms = visible_courses(student).select_related("teacher", "batch")
-        course_ids = list(enrolled_classrooms.values_list("id", flat=True))
+        enrolled_classrooms = list(visible_courses(student).select_related("teacher", "batch"))
+        course_ids = [c.id for c in enrolled_classrooms]
+        enrolled_counts = {
+            row["classroom_id"]: row["n"]
+            for row in Enrollment.objects.filter(classroom_id__in=course_ids, is_active=True).values("classroom_id").annotate(n=Count("id"))
+        }
 
         submitted_ids = set(
             Submission.objects.filter(assignment__course_id__in=course_ids, student=student)
@@ -409,10 +440,10 @@ class StudentDashboardSummaryView(APIView):
             total = assignment_counts.get(course_id, 0)
             return round(100 * submitted_per_course.get(course_id, 0) / total, 1) if total else None
 
-        from apps.assignments.stats import average_by_student
+        from apps.assignments.stats import average_by_student, averages_by_course
 
         # Per-course graded averages (earned over possible marks), or None when nothing is graded.
-        course_averages = {cid: average_by_student([student.pk], [cid]).get(student.pk) for cid in course_ids}
+        course_averages = averages_by_course(student.pk, course_ids)
         overall_average = average_by_student([student.pk], course_ids).get(student.pk)
 
         courses_payload = [
@@ -421,7 +452,7 @@ class StudentDashboardSummaryView(APIView):
                 "code": c.subject_code,
                 "name": c.name,
                 "teacher_name": c.teacher.full_name if c.teacher else "",
-                "students": Enrollment.objects.filter(classroom=c, is_active=True).count(),
+                "students": enrolled_counts.get(c.id, 0),
                 "batch": c.batch.name if c.batch else "",
                 "progress": progress(c.id),
                 "average": course_averages.get(c.id),

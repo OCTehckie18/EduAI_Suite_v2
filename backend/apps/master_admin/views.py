@@ -44,7 +44,27 @@ class MasterAdminOverviewView(APIView):
 
     def get(self, request):
         User = get_user_model()
+        from apps.accounts.models import AdmittedStudent
+
+        # The last few changes made in this portal, with the admin's name, so the page needs no extra requests.
+        history = list(ActionHistory.objects.filter(feature="master_admin").order_by("-timestamp")[:8])
+        actors = {str(u.pk): (u.full_name or u.email) for u in User.objects.filter(pk__in=[int(h.user_id) for h in history if (h.user_id or "").isdigit()])}
+        recent_actions = [
+            {
+                "id": h.id,
+                "action": h.action,
+                "actor": actors.get(h.user_id or "", "An admin"),
+                "target": (h.metadata_json or {}).get("target"),
+                "timestamp": h.timestamp.isoformat() if h.timestamp else None,
+            }
+            for h in history
+        ]
         return Response({
+            "roster": {
+                "total": AdmittedStudent.objects.count(),
+                "signed_up": AdmittedStudent.objects.filter(user__is_profile_complete=True).count(),
+            },
+            "recent_actions": recent_actions,
             "institution": {
                 "campuses": Campus.objects.count(),
                 "schools": School.objects.count(),
@@ -59,6 +79,7 @@ class MasterAdminOverviewView(APIView):
                 "master_admins": User.objects.filter(role=User.Role.MASTER_ADMIN).count(),
                 "teachers": User.objects.filter(role=User.Role.TEACHER, approval_status=User.ApprovalStatus.APPROVED).count(),
                 "pending_teacher_approvals": User.objects.filter(role=User.Role.TEACHER, approval_status=User.ApprovalStatus.PENDING).count(),
+                "rejected_teacher_applications": User.objects.filter(role=User.Role.TEACHER, approval_status=User.ApprovalStatus.REJECTED).count(),
                 "students": User.objects.filter(role=User.Role.STUDENT).count(),
             },
         })
