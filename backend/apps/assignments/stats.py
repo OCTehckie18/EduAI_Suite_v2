@@ -38,3 +38,12 @@ def course_average(course_ids, student_ids=None):
     """One percentage for all graded work in the courses (optionally limited to some students)."""
     agg = _graded(student_ids, course_ids).aggregate(earned=Sum("grade"), possible=Sum("assignment__max_points"))
     return _percentage(agg["earned"] or 0, agg["possible"] or 0)
+
+
+def averages_by_course(student_id, course_ids):
+    """{course_id: percentage} for one student across several courses, in one query (graded work only)."""
+    totals = defaultdict(lambda: [0.0, 0.0])
+    for course_id, grade, max_points in _graded([student_id], course_ids).values_list("assignment__course_id", "grade", "assignment__max_points"):
+        totals[course_id][0] += grade
+        totals[course_id][1] += max_points
+    return {cid: _percentage(earned, possible) for cid, (earned, possible) in totals.items() if possible}
