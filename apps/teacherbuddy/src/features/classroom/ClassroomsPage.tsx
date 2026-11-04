@@ -882,13 +882,13 @@ export const ClassroomsPage: React.FC = () => {
                         <div className="space-y-3 mt-1">
                           <div className="flex justify-between items-center">
                             <p className="text-2xl font-extrabold text-slate-900 ">
-                              {selected.progress}%
+                              {selected.progress == null ? "No assignments yet" : `${selected.progress}%`}
                             </p>
                           </div>
                           <div className="progress-bar rounded-full h-3 bg-slate-200 ">
                             <div
                               className="progress-fill bg-brand-blue h-3 rounded-full shadow-lg shadow-blue-500/40"
-                              style={{ width: `${selected.progress}%` }}
+                              style={{ width: `${selected.progress ?? 0}%` }}
                             />
                           </div>
                         </div>
@@ -1096,10 +1096,12 @@ export const ClassroomsPage: React.FC = () => {
                                 >
                                   {s.name.charAt(0)}
                                 </div>
+                                {s.attendance != null && (
                                 <div
                                   className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${s.attendance > 60 ? "bg-emerald-500" : s.attendance > 30 ? "bg-amber-500" : "bg-red-500"}`}
                                   title={`Attendance: ${s.attendance}%`}
                                 />
+                                )}
                               </div>
                               <div>
                                 <p className="font-bold text-slate-900">
@@ -1199,7 +1201,7 @@ export const ClassroomsPage: React.FC = () => {
                               </p>
                             </div>
                             <p className="text-3xl font-extrabold text-slate-900">
-                              {engagementData.class_avg_attendance}%
+                              {engagementData.class_avg_attendance == null ? "Not recorded" : `${engagementData.class_avg_attendance}%`}
                             </p>
                           </div>
                           <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
@@ -1375,7 +1377,7 @@ export const ClassroomsPage: React.FC = () => {
                                           </span>
                                         </td>
                                         <td className="text-center px-3 py-3.5 font-bold text-slate-700">
-                                          {s.attendance}%
+                                          {s.attendance == null ? "Not recorded" : `${s.attendance}%`}
                                         </td>
                                         <td className="text-center px-3 py-3.5 font-bold text-slate-700">
                                           {s.assignments.completion_rate}%
@@ -1468,7 +1470,7 @@ export const ClassroomsPage: React.FC = () => {
                                           </p>
                                           <div className="flex items-center gap-3 mt-0.5">
                                             <span className="text-[10px] font-bold text-slate-400">
-                                              Attend: {s.attendance}%
+                                              Attend: {s.attendance == null ? "Not recorded" : `${s.attendance}%`}
                                             </span>
                                             <span className="text-[10px] font-bold text-slate-400">
                                               Assign:{" "}

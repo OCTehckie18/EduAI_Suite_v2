@@ -27,7 +27,18 @@ class MailAccessAndUploadTests(TestCase):
                 res = getattr(self.client, method)(url, {"students": [{"name": "x"}]}, format="json")
                 self.assertIn(res.status_code, (401, 403), f"{method} {url} as {client_user}")
 
-    def test_teacher_can_filter_students(self):
+    def test_teacher_can_filter_only_their_own_enrolled_students(self):
+        from apps.accounts.testing import default_section
+        from apps.classrooms.models import Classroom, Enrollment
+
+        section = default_section()
+        batch = section.batch
+        classroom = Classroom.objects.create(
+            name="Maths", subject_code="M1", teacher=self.teacher,
+            department=batch.program.department, program=batch.program, batch=batch,
+        )
+        Enrollment.objects.create(classroom=classroom, student=self.student)
+        get_user_model().objects.create_user(email="other@example.com", password="x", role="STUDENT")  # not enrolled
         self.client.force_authenticate(self.teacher)
         res = self.client.post("/mail/filter", {"conditions": []}, format="json")
         self.assertEqual(res.status_code, 200)

@@ -74,109 +74,52 @@ def format_relative_time(dt):
 
 
 class DashboardSummaryView(APIView):
+    """The teacher's dashboard. Everything is scoped to the signed-in teacher's own classrooms
+    (all classrooms for a master admin); figures that cannot be measured are ``None``."""
 
     def get(self, request):
-        teacher_name = request.query_params.get("teacher_name")
+        from apps.assignments.stats import average_by_student, course_average
+        from apps.core.access import is_master_admin, managed_courses
 
-        classrooms_qs = Classroom.objects.all()
-        if teacher_name:
-            name_cleaned = teacher_name.strip().lower()
-            matched_teachers = User.objects.filter(
-                Q(first_name__icontains=name_cleaned) |
-                Q(last_name__icontains=name_cleaned) |
-                Q(email__icontains=name_cleaned),
-                role=User.Role.TEACHER,
-            )
-            if matched_teachers.exists():
-                classrooms_qs = classrooms_qs.filter(teacher__in=matched_teachers)
-            else:
-                matched_classrooms = Classroom.objects.filter(
-                    Q(teacher__first_name__icontains=name_cleaned) |
-                    Q(teacher__last_name__icontains=name_cleaned)
-                )
-                if matched_classrooms.exists():
-                    classrooms_qs = matched_classrooms
+        user = request.user
+        if not (is_master_admin(user) or user.role == User.Role.TEACHER):
+            return Response({"detail": "This dashboard is for teachers."}, status=status.HTTP_403_FORBIDDEN)
+        teacher_name = user.full_name if user.role == User.Role.TEACHER else ""
 
-        if classrooms_qs.exists():
-            students_qs = User.objects.filter(
-                enrollments__classroom__in=classrooms_qs,
-                enrollments__is_active=True,
-                role=User.Role.STUDENT,
-            ).distinct()
-        else:
-            students_qs = User.objects.filter(role=User.Role.STUDENT)
+        classrooms_qs = managed_courses(user)
+        course_ids = list(classrooms_qs.values_list("id", flat=True))
+        students_qs = User.objects.filter(
+            enrollments__classroom__in=classrooms_qs,
+            enrollments__is_active=True,
+            role=User.Role.STUDENT,
+        ).distinct()
+        student_ids = list(students_qs.values_list("id", flat=True))
+        total_students = len(student_ids)
 
-        total_students = students_qs.count()
-
-        # Delta in students over the last 7 days
+        # Students enrolled in the last 7 days.
         seven_days_ago = timezone.now() - timedelta(days=7)
-        new_student_actions = ActionHistory.objects.filter(
-            feature="student",
-            action="create",
-            timestamp__gte=seven_days_ago,
+        new_students = Enrollment.objects.filter(
+            classroom__in=classrooms_qs, is_active=True, enrolled_at__gte=seven_days_ago
         ).count()
-        student_delta = f"+{new_student_actions}" if new_student_actions > 0 else "+0%"
+        student_delta = f"+{new_students}" if new_students else ""
 
-        # Risk Alerts
+        # Risk alerts come from graded work only. Attendance is not recorded, so it is never used.
+        averages = average_by_student(student_ids, course_ids)
+        names = {u.id: u.full_name for u in students_qs}
         real_risk_alerts = []
-        for s in students_qs:
-            subs = Submission.objects.filter(student=s, grade__isnull=False)
-            grades = [sub.grade for sub in subs if sub.grade is not None]
-            if grades:
-                avg = round(sum(grades) / len(grades), 1)
+        for student_id, avg in averages.items():
+            if avg < 40:
+                level, reason = "high", f"Average score is critically low ({int(avg)}%)"
+            elif avg < 60:
+                level, reason = "moderate", f"Below average score ({int(avg)}%)"
             else:
-                avg = round(65.0 + (s.id * 7 % 30), 1)
-
-            att = round(80.0 - (s.id * 11 % 45), 1)
-
-            if 0 < att < 50:
-                real_risk_alerts.append({
-                    "id": f"S{s.id}",
-                    "name": s.full_name,
-                    "level": "high",
-                    "reason": f"Attendance dropped to {int(att)}%",
-                    "score": avg,
-                })
-            elif 0 < avg < 40:
-                real_risk_alerts.append({
-                    "id": f"S{s.id}",
-                    "name": s.full_name,
-                    "level": "high",
-                    "reason": f"Average score is critically low ({int(avg)}%)",
-                    "score": avg,
-                })
-            elif 0 < att < 75:
-                real_risk_alerts.append({
-                    "id": f"S{s.id}",
-                    "name": s.full_name,
-                    "level": "moderate",
-                    "reason": f"Low attendance ({int(att)}%)",
-                    "score": avg,
-                })
-            elif 0 < avg < 60:
-                real_risk_alerts.append({
-                    "id": f"S{s.id}",
-                    "name": s.full_name,
-                    "level": "moderate",
-                    "reason": f"Below average score ({int(avg)}%)",
-                    "score": avg,
-                })
-
+                continue
+            real_risk_alerts.append({"id": f"S{student_id}", "name": names.get(student_id, ""), "level": level, "reason": reason, "score": avg})
         real_risk_alerts.sort(key=lambda x: (0 if x["level"] == "high" else 1, x["score"]))
         risk_alerts = real_risk_alerts[:4]
         risk_alerts_count = len(real_risk_alerts)
 
-        # Avg Score Improvement
-        omr_subs = OMRSubmission.objects.filter(status="verified")
-        all_omr_scores = list(omr_subs.values_list("score", flat=True))
-        subs = Submission.objects.filter(grade__isnull=False)
-        all_sub_grades = [s.grade for s in subs if s.grade is not None]
-        total_scores = all_omr_scores + all_sub_grades
-        if total_scores:
-            current_avg = sum(total_scores) / len(total_scores)
-            avg_improvement = f"+{round(current_avg * 0.05, 1)}%"
-        else:
-            avg_improvement = "+4.2%"
+        overall_average = course_average(course_ids, student_ids)
 
         stats = [
             {
@@ -198,9 +141,9 @@ class DashboardSummaryView(APIView):
                 "accent": "border-l-red-500",
             },
             {
-                "label": "Avg. Score Improvement",
-                "value": avg_improvement,
-                "delta": "vs baseline",
+                "label": "Average Score",
+                "value": f"{overall_average}%" if overall_average is not None else "Not recorded",
+                "delta": "graded work" if overall_average is not None else "no graded work yet",
                 "icon": "TrendingUp",
                 "color": "#16a34a",
                 "bg": "rgba(22,163,74,0.1)",
@@ -208,25 +151,30 @@ class DashboardSummaryView(APIView):
             },
         ]
 
-        # Classrooms
+        # Classrooms. Progress is the share of the class's assignments whose due date has passed.
+        now_for_progress = timezone.now()
         classrooms = []
-        times = ["09:00 AM", "11:30 AM", "02:00 PM", "04:30 PM"]
-        for i, c in enumerate(classrooms_qs[:4]):
+        for c in classrooms_qs.select_related("batch", "teacher")[:4]:
             latest_lesson = Lesson.objects.filter(course=c).order_by("-posted_at").first()
-            time_str = (
-                latest_lesson.posted_at.strftime("%I:%M %p")
-                if latest_lesson and latest_lesson.posted_at
-                else times[i % len(times)]
-            )
+            time_str = latest_lesson.posted_at.strftime("%I:%M %p") if latest_lesson and latest_lesson.posted_at else None
             count = Enrollment.objects.filter(classroom=c, is_active=True).count()
+            due_dates = [_parse_date_safe(a.due_date) for a in Assignment.objects.filter(course=c)]
+            total_assignments = len(due_dates)
+            past_due = 0
+            for d in due_dates:
+                if d is None:
+                    continue
+                d = timezone.make_aware(d) if isinstance(d, datetime) and timezone.is_naive(d) else d
+                if isinstance(d, datetime) and d < now_for_progress:
+                    past_due += 1
             classrooms.append({
                 "id": c.id,
                 "code": c.subject_code,
                 "name": c.name,
-                "batch": c.batch.name if c.batch else "Batch A",
+                "batch": c.batch.name if c.batch else "",
                 "students": count,
                 "time": time_str,
-                "progress": 65 if i % 2 == 0 else 40,
+                "progress": round(100 * past_due / total_assignments) if total_assignments else None,
                 "teacher": c.teacher.full_name if c.teacher else "Not Assigned",
             })
 
@@ -259,11 +207,6 @@ class DashboardSummaryView(APIView):
                 "icon": icon_map.get(feat, icon_map["default"]),
                 "color": color_map.get(feat, color_map["default"]),
             })
-        if not recent_activity:
-            recent_activity = [
-                {"text": "OMR: Evaluation engine synchronized", "time": "Just now", "icon": "BrainCircuit", "color": "#dc2626"},
-                {"text": "Classroom: Academic term initialized", "time": "1h ago", "icon": "BookOpen", "color": "#264796"},
-            ]
 
         # Schedule
         now = timezone.now()
@@ -401,11 +344,9 @@ class DashboardSummaryView(APIView):
             for e in exams_qs[:3]
         ]
 
-        # Engagement Snapshot
-        avg_attendance = 88.0
-        avg_score = 75.0
-        if total_students > 0:
-            avg_score = round(sum((70.0 + (s.id % 20)) for s in students_qs) / total_students, 1)
+        # Engagement Snapshot: attendance is not recorded anywhere, so it is reported as None.
+        avg_attendance = None
+        avg_score = overall_average
 
         engagement_snapshot = {
             "avgAttendance": avg_attendance,
@@ -466,7 +407,7 @@ class DiscoverableClassroomsView(APIView):
                 "name": c.name,
                 "batch": c.batch.name if c.batch else "",
                 "students": student_count,
-                "progress": 0.0,
+                "progress": None,
                 "color": c.color or "#264796",
                 "description": c.description or "",
                 "enrollment_code": c.enrollment_code,
@@ -576,41 +517,46 @@ class StudentDashboardSummaryView(APIView):
 
 
 class GlobalRiskView(APIView):
+    """At-risk students across the teacher's classes, judged on graded work only."""
 
     def get(self, request):
-        teacher_name = request.query_params.get("teacher_name", "")
-        classrooms = Classroom.objects.all()
-        if teacher_name:
-            classrooms = classrooms.filter(
-                Q(teacher__first_name__icontains=teacher_name) |
-                Q(teacher__last_name__icontains=teacher_name) |
-                Q(teacher__email__icontains=teacher_name)
-            )
+        from apps.assignments.stats import average_by_student, course_average
+        from apps.core.access import is_master_admin, managed_courses
 
-        students = User.objects.filter(role=User.Role.STUDENT)
-        total_students = students.count()
+        user = request.user
+        if not (is_master_admin(user) or user.role == User.Role.TEACHER):
+            return Response({"detail": "This view is for teachers."}, status=status.HTTP_403_FORBIDDEN)
+        classrooms = managed_courses(user)
+        course_ids = list(classrooms.values_list("id", flat=True))
+        students = User.objects.filter(
+            enrollments__classroom__in=classrooms, enrollments__is_active=True, role=User.Role.STUDENT
+        ).distinct()
+        by_id = {s.id: s for s in students}
+        averages = average_by_student(list(by_id), course_ids)
 
         risk_students = []
-        for idx, s in enumerate(students[:5]):
-            attendance = 65.0 - (idx * 5)
-            score = 50.0 - (idx * 4)
+        for student_id, avg in sorted(averages.items(), key=lambda pair: pair[1]):
+            if avg >= 60:
+                break
+            s = by_id[student_id]
             risk_students.append({
                 "id": s.register_no or f"ST-{s.id}",
                 "name": s.full_name,
-                "attendance": attendance,
-                "avgScore": score,
-                "risk": round(100 - (score + attendance) / 2),
-                "level": "high" if score < 40 or attendance < 50 else "moderate",
+                "attendance": None,
+                "avgScore": avg,
+                "risk": round(100 - avg),
+                "level": "high" if avg < 40 else "moderate",
             })
 
+        overall = course_average(course_ids, list(by_id))
         return Response({
             "overview": {
-                "avg_score": "72.4%",
-                "total_students": total_students,
+                "avg_score": f"{overall}%" if overall is not None else None,
+                "total_students": len(by_id),
                 "at_risk_count": len(risk_students),
-                "attendance_rate": "84.2%",
+                "attendance_rate": None,
             },
-            "risk_students": risk_students,
+            "risk_students": risk_students[:5],
             "course_count": classrooms.count(),
         })
 
@@ -618,17 +564,24 @@ class GlobalRiskView(APIView):
 class CourseAnalyticsView(APIView):
 
     def get(self, request, course_id):
+        from apps.assignments.stats import course_average
+        from apps.core.access import can_manage_course
+
         classroom = Classroom.objects.filter(pk=course_id).first()
+        if classroom is None:
+            return Response({"detail": "Course not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not can_manage_course(request.user, classroom):
+            return Response({"detail": "You do not have permission to view this course."}, status=status.HTTP_403_FORBIDDEN)
         student_count = Enrollment.objects.filter(classroom_id=course_id, is_active=True).count()
         assignments_count = Assignment.objects.filter(course_id=course_id).count()
         exams_count = Exam.objects.filter(course_id=course_id).count()
 
         return Response({
             "course_id": course_id,
-            "course_name": classroom.name if classroom else "Unknown Course",
+            "course_name": classroom.name,
             "student_count": student_count,
             "assignments_count": assignments_count,
             "exams_count": exams_count,
-            "avg_score": 76.5,
-            "avg_attendance": 89.0,
+            "avg_score": course_average([course_id]),
+            "avg_attendance": None,
         })

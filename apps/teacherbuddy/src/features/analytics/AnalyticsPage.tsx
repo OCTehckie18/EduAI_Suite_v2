@@ -26,10 +26,10 @@ interface Course {
 
 interface AnalyticsData {
   overview: {
-    avg_score: string;
+    avg_score: string | null;
     total_students: number;
     at_risk_count: number;
-    attendance_rate: string;
+    attendance_rate: string | null;
   };
   risk_students: any[];
   performance_trend: any[];
@@ -237,10 +237,10 @@ export const AnalyticsPage: React.FC = () => {
     // Overview metrics
     csvContent += "OVERVIEW\n";
     if (dataSource === "platform" && analytics) {
-      csvContent += `Class Average,${analytics.overview.avg_score}\n`;
+      csvContent += `Class Average,${analytics.overview.avg_score ?? "Not recorded"}\n`;
       csvContent += `Total Students,${analytics.overview.total_students}\n`;
       csvContent += `At-Risk Count,${analytics.overview.at_risk_count}\n`;
-      csvContent += `Attendance Rate,${analytics.overview.attendance_rate}\n`;
+      csvContent += `Attendance Rate,${analytics.overview.attendance_rate ?? "Not recorded"}\n`;
     } else if (uploadedData) {
       csvContent += `Class Average,${uploadedData.summary.avg_score}\n`;
       csvContent += `Total Students,${uploadedData.summary.rows}\n`;
@@ -280,10 +280,10 @@ export const AnalyticsPage: React.FC = () => {
 
     const stats = dataSource === "platform" 
       ? [
-          { label: "Average Score", value: analytics?.overview?.avg_score || "0%", color: "var(--color-brand-blue)", icon: <TrendingUp size={16}/> },
+          { label: "Average Score", value: analytics?.overview?.avg_score ?? "Not recorded", color: "var(--color-brand-blue)", icon: <TrendingUp size={16}/> },
           { label: "Total Students", value: analytics?.overview?.total_students || 0, color: "#16a34a", icon: <Users size={16}/> },
           { label: "At-Risk Count", value: analytics?.overview?.at_risk_count || 0, color: "#dc2626", icon: <AlertTriangle size={16}/> },
-          { label: "Average Attendance", value: analytics?.overview?.attendance_rate || "0%", color: "#d97706", icon: <Activity size={16}/> },
+          { label: "Average Attendance", value: analytics?.overview?.attendance_rate ?? "Not recorded", color: "#d97706", icon: <Activity size={16}/> },
         ]
       : [
           { label: "Average Score", value: `${uploadedData?.summary?.avg_score}${uploadedData?.summary?.scale === 100 ? '%' : ''}`, color: "var(--color-brand-blue)", icon: <TrendingUp size={16}/> },
@@ -507,7 +507,7 @@ export const AnalyticsPage: React.FC = () => {
               </div>
               {!s.missing_data && (
                 <div className="flex gap-4">
-                   <RiskCell value={100 - (s.attendance ?? 80)} label="Absent" />
+                   {s.attendance != null && <RiskCell value={100 - s.attendance} label="Absent" />}
                    <RiskCell value={100 - s.avgScore} label="Marks" />
                 </div>
               )}
@@ -533,7 +533,7 @@ export const AnalyticsPage: React.FC = () => {
                       </div>
                       <div className="p-3 bg-white rounded-lg border border-slate-100 text-center">
                         <p className="text-xs text-slate-500 mb-1">Attendance</p>
-                        <p className="text-lg font-bold text-slate-800">{s.attendance ?? 85}%</p>
+                        <p className="text-lg font-bold text-slate-800">{s.attendance != null ? `${s.attendance}%` : "Not recorded"}</p>
                       </div>
                       <div className="p-3 bg-white rounded-lg border border-slate-100 text-center">
                         <p className="text-xs text-slate-500 mb-1">Risk Factor</p>

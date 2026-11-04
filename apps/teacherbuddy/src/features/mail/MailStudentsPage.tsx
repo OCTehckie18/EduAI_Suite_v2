@@ -29,8 +29,8 @@ interface Student {
   name: string;
   email: string;
   registration_number: string;
-  attendance: number;
-  avg_score: number;
+  attendance: number | null;
+  avg_score: number | null;
 }
 
 interface Condition {
@@ -58,7 +58,6 @@ interface MailHistory {
 }
 
 const FIELDS = [
-  { value: "attendance", label: "Attendance (%)", type: "number" },
   { value: "avg_score", label: "Average Marks (%)", type: "number" },
   { value: "name", label: "Student Name", type: "text" },
   { value: "registration_number", label: "Register Number", type: "text" },
@@ -78,7 +77,7 @@ export const MailStudentsPage: React.FC = () => {
   const authUser = useAuthStore((state) => state.user);
   const [students, setStudents] = useState<Student[]>([]);
   const [conditions, setConditions] = useState<Condition[]>([
-    { id: Math.random().toString(36).substr(2, 9), field: "attendance", operator: "<", value: 75 }
+    { id: Math.random().toString(36).substr(2, 9), field: "avg_score", operator: "<", value: 50 }
   ]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -210,7 +209,7 @@ export const MailStudentsPage: React.FC = () => {
   const addCondition = () => {
     setConditions([...conditions, { 
       id: Math.random().toString(36).substr(2, 9), 
-      field: "attendance", 
+      field: "avg_score", 
       operator: ">=", 
       value: 0 
     }]);
@@ -524,7 +523,7 @@ export const MailStudentsPage: React.FC = () => {
       setSelectedDraftId(null);
       setMailSubject("");
       setMailBody("");
-      setConditions([{ id: Math.random().toString(36).substr(2, 9), field: "attendance", operator: "<", value: 75 }]);
+      setConditions([{ id: Math.random().toString(36).substr(2, 9), field: "avg_score", operator: "<", value: 50 }]);
       setStudents([]);
       setSelectedStudents([]);
       setStatus({ type: 'success', message: "Mail discarded" });
@@ -538,11 +537,11 @@ export const MailStudentsPage: React.FC = () => {
 
   const handleQuickFilter = (type: string) => {
     if (type === 'low-attendance') {
-      setConditions([{ id: '1', field: "attendance", operator: "<", value: 75 }]);
+      setConditions([{ id: '1', field: "avg_score", operator: "<", value: 50 }]);
     } else if (type === 'borderline') {
       setConditions([
-        { id: '1', field: "attendance", operator: ">=", value: 75 },
-        { id: '2', field: "attendance", operator: "<=", value: 85 }
+        { id: '1', field: "avg_score", operator: ">=", value: 50 },
+        { id: '2', field: "avg_score", operator: "<=", value: 60 }
       ]);
     } else if (type === 'high-performers') {
       setConditions([{ id: '1', field: "avg_score", operator: ">", value: 85 }]);
@@ -707,14 +706,14 @@ export const MailStudentsPage: React.FC = () => {
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold border hover:border-red-400 transition-colors"
                   style={{ color: "var(--color-text-secondary)", borderColor: "var(--color-border)" }}
                 >
-                  Critical Att. (&lt;75%)
+                  Failing (&lt;50%)
                 </button>
                 <button 
                   onClick={() => handleQuickFilter('borderline')}
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold border hover:border-orange-400 transition-colors"
                   style={{ color: "var(--color-text-secondary)", borderColor: "var(--color-border)" }}
                 >
-                  Borderline (75-85%)
+                  Borderline (50-60%)
                 </button>
                 <button 
                   onClick={() => handleQuickFilter('high-performers')}
@@ -806,14 +805,10 @@ export const MailStudentsPage: React.FC = () => {
                         </td>
                         <td className="p-4 text-xs font-mono" style={{ color: "var(--color-text-secondary)" }}>{s.email}</td>
                         <td className="p-4">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.attendance < 75 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                            {s.attendance}%
-                          </span>
+                          {s.attendance == null ? <span className="text-xs text-slate-400">Not recorded</span> : <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.attendance < 75 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{s.attendance}%</span>}
                         </td>
                         <td className="p-4">
-                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.avg_score < 40 ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                            {s.avg_score}%
-                          </span>
+                           {s.avg_score == null ? <span className="text-xs text-slate-400">Not recorded</span> : <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.avg_score < 40 ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>{s.avg_score}%</span>}
                         </td>
                       </tr>
                     ))}
@@ -857,7 +852,7 @@ export const MailStudentsPage: React.FC = () => {
                         setSelectedDraftId(null); 
                         setMailSubject(""); 
                         setMailBody(""); 
-                        setConditions([{ id: Math.random().toString(36).substr(2, 9), field: "attendance", operator: "<", value: 75 }]);
+                        setConditions([{ id: Math.random().toString(36).substr(2, 9), field: "avg_score", operator: "<", value: 50 }]);
                         setStudents([]);
                         setSelectedStudents([]);
                     }}
@@ -924,7 +919,7 @@ export const MailStudentsPage: React.FC = () => {
                 </div>
                 <input 
                   type="text" 
-                  placeholder="e.g., Attendance Warning / Appreciation Mail" 
+                  placeholder="e.g., Marks Warning / Appreciation Mail" 
                   className="w-full p-3 rounded-xl border bg-transparent focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                   style={{ borderColor: "var(--color-border)", color: "var(--color-text-primary)" }}
                   value={mailSubject}
@@ -937,7 +932,7 @@ export const MailStudentsPage: React.FC = () => {
                 <div className="relative">
                   <textarea 
                     rows={8}
-                    placeholder="Hello {{name}}, we noticed your attendance is {{attendance}}%..."
+                    placeholder="Hello {{name}}, your average marks are {{marks}}%..."
                     className="w-full p-4 rounded-xl border bg-transparent focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none"
                     style={{ borderColor: "var(--color-border)", color: "var(--color-text-primary)" }}
                     value={mailBody}
@@ -955,12 +950,6 @@ export const MailStudentsPage: React.FC = () => {
                       onClick={() => setMailBody(prev => prev + "{{reg_num}}")}
                      >
                       + Reg No.
-                     </button>
-                     <button 
-                      className="px-2 py-1 text-[9px] font-bold bg-gray-100 rounded hover:bg-gray-200 transition-colors"
-                      onClick={() => setMailBody(prev => prev + "{{attendance}}")}
-                     >
-                      + Attendance
                      </button>
                      <button 
                       className="px-2 py-1 text-[9px] font-bold bg-gray-100 rounded hover:bg-gray-200 transition-colors"
@@ -1064,14 +1053,10 @@ export const MailStudentsPage: React.FC = () => {
                        <td className="p-4 text-xs font-mono text-gray-500">{s.email}</td>
                        <td className="p-4 text-xs font-semibold text-gray-600">{s.course_name}</td>
                        <td className="p-4">
-                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.attendance < 75 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                           {s.attendance}%
-                         </span>
+                         {s.attendance == null ? <span className="text-xs text-slate-400">Not recorded</span> : <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.attendance < 75 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{s.attendance}%</span>}
                        </td>
                        <td className="p-4">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.avg_score < 40 ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                           {s.avg_score}%
-                         </span>
+                          {s.avg_score == null ? <span className="text-xs text-slate-400">Not recorded</span> : <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.avg_score < 40 ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>{s.avg_score}%</span>}
                        </td>
                      </tr>
                    ))}

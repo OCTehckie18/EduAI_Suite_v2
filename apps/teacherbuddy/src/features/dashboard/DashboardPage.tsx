@@ -113,7 +113,7 @@ export const DashboardPage: React.FC = () => {
     recentReports = [],
     mailStats = { sentThisWeek: 0, lastSentAt: null },
     upcomingExams = [],
-    engagementSnapshot = { avgAttendance: 0, avgScore: 0, atRiskCount: 0, studentCount: 0 },
+    engagementSnapshot = { avgAttendance: null, avgScore: null, atRiskCount: 0, studentCount: 0 },
     calendarEventsThisWeek = 0,
   } = data;
 
@@ -216,16 +216,16 @@ export const DashboardPage: React.FC = () => {
                   </div>
                   <div className="space-y-3">
                     <div className="progress-bar">
-                      <div className="progress-fill" style={{ width: `${cls.progress}%` }} />
+                      <div className="progress-fill" style={{ width: `${cls.progress ?? 0}%` }} />
                     </div>
                     <div className="flex items-center justify-between text-xs" style={{ color: "var(--color-text-muted)" }}>
                       <div className="flex items-center gap-1.5">
                         <Users size={13} /> {cls.students} Students
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Clock size={13} /> {cls.time}
+                        {cls.time && <><Clock size={13} /> {cls.time}</>}
                       </div>
-                      <span className="font-semibold" style={{ color: "var(--color-brand-blue)" }}>{cls.progress}%</span>
+                      <span className="font-semibold" style={{ color: "var(--color-brand-blue)" }}>{cls.progress == null ? "No assignments yet" : `${cls.progress}%`}</span>
                     </div>
                   </div>
                 </GlassCard>
@@ -398,8 +398,8 @@ export const DashboardPage: React.FC = () => {
             <div className="flex items-center gap-2"><BarChart2 size={15} className="text-emerald-600" /><h3 className="section-title text-sm">Engagement Health</h3></div>
             <Link to="/analytics" className="text-[10px] font-semibold text-blue-600">View All →</Link>
           </div>
-          <div className="mb-2 flex items-end justify-between"><span className="text-3xl font-black">{engagementSnapshot.avgScore}%</span><span className="text-xs text-muted-foreground">avg score</span></div>
-          <div className="h-2 rounded-full bg-slate-200"><div className="h-2 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, engagementSnapshot.avgScore)}%` }} /></div>
+          <div className="mb-2 flex items-end justify-between"><span className="text-3xl font-black">{engagementSnapshot.avgScore == null ? "Not recorded" : `${engagementSnapshot.avgScore}%`}</span><span className="text-xs text-muted-foreground">avg score</span></div>
+          <div className="h-2 rounded-full bg-slate-200"><div className="h-2 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, engagementSnapshot.avgScore ?? 0)}%` }} /></div>
           <p className="mt-3 text-xs text-muted-foreground">{engagementSnapshot.atRiskCount} at-risk of {engagementSnapshot.studentCount} students · {calendarEventsThisWeek} calendar events this week</p>
         </GlassCard>
       </div>

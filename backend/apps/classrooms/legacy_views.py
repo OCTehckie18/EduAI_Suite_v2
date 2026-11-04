@@ -85,7 +85,7 @@ def _course_payload(classroom, viewer=None):
     ).count()
 
     teacher_name = classroom.teacher.full_name if classroom.teacher else "Faculty"
-    batch_name = classroom.batch.name if classroom.batch else "Batch A"
+    batch_name = classroom.batch.name if classroom.batch else ""
 
     return {
         "id": classroom.pk,
@@ -93,7 +93,7 @@ def _course_payload(classroom, viewer=None):
         "name": classroom.name,
         "batch": batch_name,
         "students": students_count,
-        "progress": 0.0,
+        "progress": None,
         "color": classroom.color or "#264796",
         "description": classroom.description or "",
         # The join code is for the course's teacher; classmates have no use for it.
@@ -108,10 +108,11 @@ def _course_payload(classroom, viewer=None):
 
 
 def _student_payload(student, course_id):
-    subs = Submission.objects.filter(student=student, grade__isnull=False)
-    grades = [sub.grade for sub in subs if sub.grade is not None]
-    avg_score = round(sum(grades) / len(grades), 1) if grades else round(75.0 + (student.id % 20), 1)
-    attendance = round(85.0 - (student.id * 7 % 30), 1)
+    from apps.assignments.stats import average_for
+
+    # Marks-based average for this course, or None when nothing has been graded. Attendance is not recorded.
+    avg_score = average_for(student.pk, [course_id])
+    attendance = None
 
     return {
         "id": student.pk,
