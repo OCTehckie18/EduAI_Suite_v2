@@ -42,10 +42,11 @@ interface ExamPlayerProps {
 
 export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClose }) => {
   const navigate = useNavigate();
-  const [displayQuestions, setDisplayQuestions] = useState<Question[]>([]);
+  // The server already put the questions (and choices) in this student's order; keep it as it is.
+  const displayQuestions = exam.questions;
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [timeLeft, setTimeLeft] = useState(exam.time_limit * 60);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [attemptId, setAttemptId] = useState<number | null>(null);
@@ -54,49 +55,37 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
   const [showReview, setShowReview] = useState(false);
   const [fullSubmissionDetail, setFullSubmissionDetail] = useState<any>(null);
   const [isLoadingReview, setIsLoadingReview] = useState(false);
-  
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Helper to shuffle array
-  const shuffle = <T,>(array: T[]): T[] => {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // The timer callback outlives any one render, so it reads the latest values through refs.
+  const answersRef = useRef(answers);
+  const attemptIdRef = useRef<number | null>(null);
+  const doneRef = useRef(false);
+  const submittingRef = useRef(false);
+  answersRef.current = answers;
 
   useEffect(() => {
-    // Randomize questions and choices if needed
-    let processedQuestions = [...exam.questions];
-    if (exam.randomize_questions) {
-      processedQuestions = shuffle(processedQuestions);
-    }
-    
-    // Always randomize choices for better integrity
-    processedQuestions = processedQuestions.map(q => ({
-      ...q,
-      choices: shuffle(q.choices)
-    }));
-
-    setDisplayQuestions(processedQuestions);
-    startAttempt();
-
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          handleAutoSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    void startAttempt();
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
+
+  const startClock = (remainingSeconds: number) => {
+    // Count down against the clock rather than ticking once a second, so a throttled tab stays accurate.
+    const deadline = Date.now() + remainingSeconds * 1000;
+    if (timerRef.current) clearInterval(timerRef.current);
+    const tick = () => {
+      const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      setTimeLeft(left);
+      if (left <= 0) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        void submitExam("time_up");
+      }
+    };
+    tick();
+    timerRef.current = setInterval(tick, 1000);
+  };
 
   const startAttempt = async () => {
     try {
@@ -112,52 +101,50 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
         }
       });
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || "Failed to start attempt");
       }
       const data = await response.json();
+      attemptIdRef.current = data.id;
       setAttemptId(data.id);
+      // The server owns the clock: resuming after a refresh continues from the time that is really left.
+      startClock(data.remaining_seconds ?? exam.time_limit * 60);
     } catch (err: any) {
       console.error("Failed to start attempt", err);
       setError(err.message || "Connection error. Please check your internet.");
     }
   };
 
-  const handleAutoSubmit = () => {
-    if (!isSubmitted) {
-      submitExam("time_up");
-    }
-  };
-
   const submitExam = async (status: "submitted" | "time_up" = "submitted") => {
-    if (isSubmitted || isSubmitting) return;
+    if (doneRef.current || submittingRef.current) return;
 
-    if (!attemptId) {
+    if (!attemptIdRef.current) {
       alert("No active session found. Please try refreshing the page or contact support.");
       return;
     }
 
     if (status === "submitted") {
-      const unansweredCount = displayQuestions.length - Object.keys(answers).length;
+      const unansweredCount = displayQuestions.length - Object.keys(answersRef.current).length;
       if (unansweredCount > 0) {
         if (!confirm(`You have ${unansweredCount} unanswered questions. Are you sure you want to finish?`)) {
           return;
         }
       }
     }
-    
+
+    submittingRef.current = true;
     setIsSubmitting(true);
     setError(null);
     const token = localStorage.getItem("token");
     const submissionData = {
-      answers: Object.entries(answers).map(([qId, cId]) => ({
+      answers: Object.entries(answersRef.current).map(([qId, cId]) => ({
         question_id: parseInt(qId),
         selected_choice_id: cId
       }))
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/exams/${exam.id}/attempts/${attemptId}/submit`, {
+      const response = await fetch(`${API_BASE_URL}/exams/${exam.id}/attempts/${attemptIdRef.current}/submit`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -167,28 +154,33 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || "Submission failed");
       }
       
       const data = await response.json();
       
+      doneRef.current = true;
       setIsSubmitted(true);
       if (timerRef.current) clearInterval(timerRef.current);
-      
-      const maxPoints = displayQuestions.reduce((acc, q) => acc + (q.points || 1.0), 0);
-      const percentage = (data.score / maxPoints) * 100;
 
+      // The server's score is already a percentage of the exam's total points.
       setResults({
-        score: data.score,
-        maxPoints: maxPoints,
-        percentage: percentage.toFixed(1),
-        status: data.status
+        percentage: Number(data.score).toFixed(1),
+        earned: data.earned_points,
+        maxPoints: data.total_points,
+        status: status,
       });
     } catch (err: any) {
       console.error("Submission failed", err);
       setError(err.message || "Failed to submit exam. Please try again.");
+      if (status === "time_up") {
+        // The server closes an attempt that is past its deadline; stop the clock instead of retrying forever.
+        doneRef.current = true;
+        if (timerRef.current) clearInterval(timerRef.current);
+      }
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -201,19 +193,19 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
       const response = await fetch(`${API_BASE_URL}/exams/${exam.id}/attempts/${attemptId}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (response.ok) {
-        const data = await response.json();
-        setFullSubmissionDetail(data);
-        setShowReview(true);
-      }
-    } catch (err) {
-      console.error("Failed to fetch full review", err);
+      if (!response.ok) throw new Error("Could not load your answers.");
+      const data = await response.json();
+      setFullSubmissionDetail(data);
+      setShowReview(true);
+    } catch (err: any) {
+      setError(err.message || "Could not load your answers.");
     } finally {
       setIsLoadingReview(false);
     }
   };
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (seconds: number | null) => {
+    if (seconds == null) return "--:--";
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
@@ -234,7 +226,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
 
   const currentQuestion = displayQuestions[currentIdx];
   const progress = ((currentIdx + 1) / displayQuestions.length) * 100;
-  const timerColor = timeLeft < 300 ? "text-red-500 animate-pulse" : "text-blue-600";
+  const timerColor = timeLeft != null && timeLeft < 300 ? "text-red-500 animate-pulse" : "text-blue-600";
 
   if (isSubmitted && results) {
     return (
@@ -246,7 +238,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
           <div>
             <h2 className="text-2xl font-bold text-slate-800">Exam Completed!</h2>
             <p className="text-slate-500 mt-2">
-              {results.status === "time_up" ? "Time ran out, but your answers were saved." : "Your submission has been evaluated successfully."}
+              {results.status === "time_up" ? "Time ran out, so your answers so far were handed in." : "Your submission has been evaluated successfully."}
             </p>
           </div>
           
@@ -256,7 +248,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
                 <span className="text-5xl font-black text-blue-600 leading-none">{results.percentage}%</span>
              </div>
              <p className="text-sm font-semibold text-blue-400 mt-2">
-               Score: {results.score} / {results.maxPoints}
+               Score: {results.earned} / {results.maxPoints}
              </p>
           </div>
 
@@ -346,7 +338,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
                 {currentQuestion.choices.map((choice) => (
                   <button
                     key={choice.id}
-                    onClick={() => setAnswers({...answers, [currentQuestion.id]: choice.id})}
+                    onClick={() => setAnswers(prev => ({ ...prev, [currentQuestion.id]: choice.id }))}
                     className={`w-full text-left px-6 py-4 rounded-2xl border-2 transition-all flex items-center justify-between group ${
                       answers[currentQuestion.id] === choice.id
                         ? "border-blue-500 bg-blue-50/50 text-blue-700 shadow-md"

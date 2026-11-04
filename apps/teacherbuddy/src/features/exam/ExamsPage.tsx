@@ -105,10 +105,37 @@ export const ExamsPage: React.FC = () => {
         fetchExams();
         return true;
       }
+      // Pass the server's reason back so the creator can show it (for example "questions are locked").
+      const body = await response.json().catch(() => ({}));
+      return body.detail || body.error?.message || "Failed to save the exam.";
     } catch (err) {
       console.error("Save failed", err);
     }
-    return false;
+    return "Failed to save the exam. Check your connection and try again.";
+  };
+
+  const changeStatus = async (status: "draft" | "published" | "closed") => {
+    if (!selectedExam) return;
+    try {
+      const token = localStorage.getItem("token");
+      // Only the status is sent, so the questions (which may already have answers) are never touched.
+      const response = await fetch(`${API_ENDPOINTS.EXAMS}/${selectedExam.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ status }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(body.detail || "Could not change the exam status.");
+        return;
+      }
+      setError("");
+      setExamsList(prev => prev.map(e => e.id === body.id ? body : e));
+      setSelectedExam(body);
+    } catch (err) {
+      console.error("Status change failed", err);
+      setError("Could not change the exam status. Check your connection.");
+    }
   };
 
   const handleDeleteExam = async (id: number) => {
@@ -157,49 +184,9 @@ export const ExamsPage: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  const handlePublishExam = async () => {
-    if (!selectedExam) return;
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_ENDPOINTS.EXAMS}/${selectedExam.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ ...selectedExam, status: "published" }),
-      });
-      if (response.ok) {
-        const updated = await response.json();
-        setExamsList(prev => prev.map(e => e.id === updated.id ? updated : e));
-        setSelectedExam(updated);
-      }
-    } catch (err) {
-      console.error("Publish failed", err);
-    }
-  };
+  const handlePublishExam = () => changeStatus("published");
 
-  const handleUnpublishExam = async () => {
-    if (!selectedExam) return;
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_ENDPOINTS.EXAMS}/${selectedExam.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ ...selectedExam, status: "draft" }),
-      });
-      if (response.ok) {
-        const updated = await response.json();
-        setExamsList(prev => prev.map(e => e.id === updated.id ? updated : e));
-        setSelectedExam(updated);
-      }
-    } catch (err) {
-      console.error("Unpublish failed", err);
-    }
-  };
+  const handleUnpublishExam = () => changeStatus("draft");
 
   const openEditCreator = (exam: any) => {
     setEditingExam(exam);
@@ -483,14 +470,13 @@ export const ExamsPage: React.FC = () => {
                                 <div className="text-center">
                                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-0.5" style={{ fontSize: '9px' }}>Finished</p>
                                   <p className="text-xs font-semibold" style={{ color: "var(--color-text-secondary)" }}>
-                                    {attempt.end_time ? new Date(attempt.end_time.endsWith('Z') ? attempt.end_time : attempt.end_time + 'Z').toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : "-"}
+                                    {attempt.end_time ? new Date(attempt.end_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : "-"}
                                   </p>
                                 </div>
                                 <div className="text-right">
                                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-0.5" style={{ fontSize: '9px' }}>Score</p>
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-lg font-black text-blue-600">{attempt.score || 0}</span>
-                                    <span className="text-[10px] font-bold text-slate-400">pts</span>
+                                    <span className="text-lg font-black text-blue-600">{attempt.status === "expired" ? "Timed out" : `${attempt.score ?? 0}%`}</span>
                                   </div>
                                 </div>
                                 <button

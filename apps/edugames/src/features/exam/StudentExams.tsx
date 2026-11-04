@@ -96,6 +96,13 @@ export const StudentExams: React.FC = () => {
                 month: 'short', day: 'numeric', year: 'numeric' 
             });
             
+            const myAttempts: any[] = exam.attempts || [];
+            const finished = myAttempts.filter((a) => a.status !== "in_progress");
+            const inProgress = myAttempts.some((a) => a.status === "in_progress");
+            const scores = finished.filter((a) => a.status === "submitted" && a.score != null).map((a) => a.score as number);
+            const bestScore = scores.length ? Math.max(...scores) : null;
+            const outOfAttempts = !inProgress && finished.length >= (exam.attempts_allowed ?? 1);
+
             return (
               <GlassCard key={exam.id} className="p-0 overflow-hidden flex flex-col justify-between hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
                 <div className="p-5 border-b" style={{ borderColor: 'var(--color-border)' }}>
@@ -115,14 +122,19 @@ export const StudentExams: React.FC = () => {
                     <div className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
                       <p><Clock className="inline mr-1" size={14}/> Released: {createdDate}</p>
                       <p className="mt-1"><FileText className="inline mr-1" size={14}/> {exam.time_limit} Minutes</p>
+                      <p className="mt-1 text-xs">
+                        Attempts: {finished.length} of {exam.attempts_allowed ?? 1}
+                        {bestScore != null && <> · Best score: <strong>{bestScore}%</strong></>}
+                      </p>
                     </div>
                     
                     <div className="text-right">
                       <button 
                         onClick={() => startExam(exam.id)}
-                        className="btn btn-primary text-xs px-5 shadow-md flex items-center"
+                        disabled={outOfAttempts}
+                        className="btn btn-primary text-xs px-5 shadow-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <PlayCircle size={16} className="mr-1"/> Take Exam
+                        <PlayCircle size={16} className="mr-1"/> {inProgress ? "Resume Exam" : outOfAttempts ? "No attempts left" : "Take Exam"}
                       </button>
                     </div>
                 </div>

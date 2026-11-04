@@ -22,7 +22,7 @@ interface Question {
 
 interface ExamCreatorProps {
   onClose: () => void;
-  onSave: (examData: any) => Promise<boolean>;
+  onSave: (examData: any) => Promise<true | string>;
   initialData?: any;
 }
 
@@ -278,8 +278,8 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
     
     setIsSaving(true);
     onSave(examData).then(success => {
-        if (!success) {
-            setError("Failed to save the exam. Please try again.");
+        if (success !== true) {
+            setError(success || "Failed to save the exam. Please try again.");
             setIsSaving(false);
         }
         // If success, ExamsPage will close us.

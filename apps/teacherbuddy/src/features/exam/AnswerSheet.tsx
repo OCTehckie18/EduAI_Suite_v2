@@ -14,7 +14,19 @@ interface AnswerSheetProps {
 export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) => {
   if (!attempt) return null;
 
-  const totalPoints = attempt.exam.questions.reduce((acc: number, q: any) => acc + q.points, 0);
+  const questions: any[] = attempt.exam?.questions ?? [];
+  const totalPoints = attempt.total_points ?? questions.reduce((acc: number, q: any) => acc + q.points, 0);
+  const earnedPoints = attempt.earned_points ?? 0;
+  const answerFor = (questionId: number) => attempt.answers.find((a: any) => a.question_id === questionId);
+  const isRight = (q: any) => {
+    const picked = answerFor(q.id)?.selected_choice_id;
+    return picked != null && !!q.choices.find((c: any) => c.id === picked)?.is_correct;
+  };
+  const correctCount = questions.filter(isRight).length;
+  const wrongCount = questions.filter((q: any) => answerFor(q.id)?.selected_choice_id != null && !isRight(q)).length;
+  const finished = attempt.end_time
+    ? new Date(attempt.end_time).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })
+    : "Not finished";
 
   return (
     <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col animate-fade-in">
@@ -26,7 +38,7 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
           </button>
           <div className="h-6 w-px bg-slate-200"></div>
           <div>
-            <h2 className="font-bold text-slate-800">{attempt.exam.title}</h2>
+            <h2 className="font-bold text-slate-800">{attempt.exam?.title}</h2>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Answer Sheet Evaluation</p>
           </div>
         </div>
@@ -49,35 +61,27 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
              <GlassCard className="flex flex-col items-center justify-center p-4 text-center">
                 <Award size={20} className="text-blue-600 mb-2" />
-                <p className="text-2xl font-black text-slate-800">{attempt.score} <span className="text-sm font-normal text-slate-400">/ {totalPoints}</span></p>
+                <p className="text-2xl font-black text-slate-800">{earnedPoints} <span className="text-sm font-normal text-slate-400">/ {totalPoints} ({attempt.score ?? 0}%)</span></p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Final Score</p>
              </GlassCard>
              <GlassCard className="flex flex-col items-center justify-center p-4 text-center">
                 <CheckCircle2 size={20} className="text-green-500 mb-2" />
                 <p className="text-2xl font-black text-slate-800">
-                  {attempt.answers.filter((a: any) => {
-                    const q = a.question;
-                    const correctChoice = q.choices.find((c: any) => c.is_correct);
-                    return a.selected_choice_id === correctChoice?.id;
-                  }).length}
+                  {correctCount}
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Correct</p>
              </GlassCard>
              <GlassCard className="flex flex-col items-center justify-center p-4 text-center">
                 <XCircle size={20} className="text-red-500 mb-2" />
                 <p className="text-2xl font-black text-slate-800">
-                   {attempt.answers.filter((a: any) => {
-                    const q = a.question;
-                    const correctChoice = q.choices.find((c: any) => c.is_correct);
-                    return a.selected_choice_id && a.selected_choice_id !== correctChoice?.id;
-                  }).length}
+                   {wrongCount}
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Wrong</p>
              </GlassCard>
              <GlassCard className="flex flex-col items-center justify-center p-4 text-center">
                 <Calendar size={20} className="text-slate-400 mb-2" />
                 <p className="text-sm font-bold text-slate-800 text-nowrap">
-                   {new Date(attempt.end_time.endsWith('Z') ? attempt.end_time : attempt.end_time + 'Z').toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                   {finished}
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Date</p>
              </GlassCard>
@@ -86,10 +90,9 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
           {/* Question List */}
           <div className="space-y-4">
              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest pl-1">Detailed Breakdown</h3>
-             {attempt.exam.questions.map((question: any, idx: number) => {
-                const studentAnswer = attempt.answers.find((a: any) => a.question_id === question.id);
-                const correctChoice = question.choices.find((c: any) => c.is_correct);
-                const isCorrect = studentAnswer?.selected_choice_id === correctChoice?.id;
+             {questions.map((question: any, idx: number) => {
+                const studentAnswer = answerFor(question.id);
+                const isCorrect = isRight(question);
                 const isUnanswered = !studentAnswer?.selected_choice_id;
 
                 return (
