@@ -1,151 +1,263 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   XCircle,
   Trophy,
-  Zap,
-  Send,
-  Gamepad2,
-  Clock,
   Sparkles,
+  Clock,
+  Flame,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
-
-
-import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
+import { buildWsUrl } from "../../shared/utils/apiConfig";
 import { requestGameFullscreen } from "./fullscreen";
 import { getCurrentAccessToken, getCurrentStudentName } from "../../shared/utils/currentStudent";
 import { PlayerAvatar } from "../../shared/components/PlayerAvatar";
-const getWsUrl = buildWsUrl;
+
+const SEAT_KEY = "eduquiz_seat";
+const MAX_RECONNECTS = 5;
+
+type Phase = "join" | "waiting" | "playing" | "submitted" | "feedback" | "finished";
+
+interface Seat {
+  pin: string;
+  nickname: string;
+  token: string;
+}
+
+interface ScoreRow {
+  id: number;
+  nickname: string;
+  avatar: string;
+  score: number;
+  rank: number;
+  streak: number;
+  answered: boolean;
+  is_correct: boolean;
+  gained: number;
+}
+
+const loadSeat = (): Seat | null => {
+  try {
+    const raw = sessionStorage.getItem(SEAT_KEY);
+    return raw ? (JSON.parse(raw) as Seat) : null;
+  } catch {
+    return null;
+  }
+};
+const saveSeat = (seat: Seat | null) => {
+  try {
+    if (seat) sessionStorage.setItem(SEAT_KEY, JSON.stringify(seat));
+    else sessionStorage.removeItem(SEAT_KEY);
+  } catch {
+    /* private mode: the seat just will not survive a refresh */
+  }
+};
 
 export const QuizController: React.FC = () => {
   const [pin, setPin] = useState("");
   const [nickname, setNickname] = useState(getCurrentStudentName());
-  const [status, setStatus] = useState<
-    "join" | "waiting" | "playing" | "submitted" | "feedback" | "finished"
-  >("join");
+  const [phase, setPhase] = useState<Phase>("join");
+  const [problem, setProblem] = useState("");
+  const [connecting, setConnecting] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
-  const [lastResult, setLastResult] = useState<any>(null);
-  const [score, setScore] = useState(0);
-  const [rank, setRank] = useState<number | null>(null);
+  const [deadline, setDeadline] = useState(0);
+  const [now, setNow] = useState(Date.now());
+  const [me, setMe] = useState<ScoreRow | null>(null);
+  const [board, setBoard] = useState<ScoreRow[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [startTime, setStartTime] = useState(0);
   const [avatar, setAvatar] = useState("");
+  const [chosen, setChosen] = useState<number | null>(null);
+
   const socketRef = useRef<WebSocket | null>(null);
-  const lastResultRef = useRef<any>(null);
-  const scoreRef = useRef<number>(0);
+  const seatRef = useRef<Seat | null>(null);
+  const playerIdRef = useRef<number | null>(null);
+  const phaseRef = useRef<Phase>("join");
+  const reconnects = useRef(0);
+  const closedOnPurpose = useRef(false);
 
-  const handleJoin = () => {
-    if (!pin || !nickname) return;
+  const go = (next: Phase) => {
+    phaseRef.current = next;
+    setPhase(next);
+  };
 
-    requestGameFullscreen();
-    // Sending the token lets the server save this result against the real account.
-    const token = getCurrentAccessToken();
-    const tokenParam = token ? `&access_token=${encodeURIComponent(token)}` : "";
-    const ws = new WebSocket(
-      getWsUrl(
-        `/ws/quiz/${encodeURIComponent(pin)}?user_type=student&nickname=${encodeURIComponent(nickname)}${tokenParam}`,
-      ),
-    );
+  const backToJoin = (message: string) => {
+    closedOnPurpose.current = true;
+    socketRef.current?.close();
+    socketRef.current = null;
+    saveSeat(null);
+    seatRef.current = null;
+    playerIdRef.current = null;
+    setConnecting(false);
+    setProblem(message);
+    go("join");
+  };
+
+  const open = useCallback((targetPin: string, targetName: string, token: string) => {
+    const access = getCurrentAccessToken();
+    const params = new URLSearchParams({ user_type: "student", nickname: targetName });
+    if (access) params.set("access_token", access); // lets the server save the result against the real account
+    if (token) params.set("player_token", token);
+    const ws = new WebSocket(buildWsUrl(`/ws/quiz/${encodeURIComponent(targetPin)}?${params.toString()}`));
     socketRef.current = ws;
+    closedOnPurpose.current = false;
 
     ws.onmessage = (event) => {
       let message: any;
       try {
         message = JSON.parse(event.data);
-      } catch (error) {
-        console.error("Invalid quiz WebSocket message", error);
+      } catch {
         return;
       }
-      console.log("Student WS Message:", message);
-
-      if (message.type === "lobby_update") {
-        const me = message.players.find((p: any) => p.nickname === nickname);
-        if (me) setAvatar(me.avatar);
-        setStatus("waiting");
-      } else if (message.type === "new_question") {
-        setCurrentQuestion(message.question);
-        setStartTime(Date.now());
-        setStatus("playing");
-      } else if (message.type === "answer_submitted") {
-        const result = {
-          is_correct: message.is_correct,
-          points: message.points,
-        };
-        setLastResult(result);
-        lastResultRef.current = result;
-        setStatus("submitted");
-      } else if (message.type === "show_results") {
-        if (lastResultRef.current?.is_correct) {
-          scoreRef.current += lastResultRef.current.points;
-          setScore(scoreRef.current);
+      switch (message.type) {
+        case "joined": {
+          playerIdRef.current = message.player_id;
+          const seat = { pin: targetPin, nickname: message.nickname, token: message.token };
+          seatRef.current = seat;
+          saveSeat(seat);
+          setNickname(message.nickname);
+          reconnects.current = 0;
+          setConnecting(false);
+          setProblem("");
+          if (phaseRef.current === "join") go("waiting");
+          break;
         }
-        setStatus("feedback");
-      } else if (message.type === "game_over") {
-        setLeaderboard(message.leaderboard);
-        const me = message.leaderboard.find(
-          (p: any) => p.nickname === nickname,
-        );
-        if (me) {
-          setScore(me.score);
-          setRank(me.rank);
+        case "lobby_update": {
+          const mine = message.players.find((p: any) => p.id === playerIdRef.current);
+          if (mine) setAvatar(mine.avatar);
+          break;
         }
-        setStatus("finished");
-      } else if (message.type === "error") {
-        alert(message.message);
-        setStatus("join");
+        case "new_question":
+          setCurrentQuestion(message.question);
+          setDeadline(Date.now() + (message.question.time_left ?? message.question.time_limit ?? 20) * 1000);
+          setChosen(null);
+          setMe(null);
+          setProblem("");
+          go("playing");
+          break;
+        case "answer_submitted":
+          go("submitted");
+          break;
+        case "show_results": {
+          const rows: ScoreRow[] = message.scoreboard || [];
+          setBoard(rows);
+          setMe(rows.find((r) => r.id === playerIdRef.current) || null);
+          go("feedback");
+          break;
+        }
+        case "game_over": {
+          const rows = message.leaderboard || [];
+          setLeaderboard(rows);
+          const mine = rows.find((p: any) => p.id === playerIdRef.current);
+          setMe(mine ? ({ ...mine, gained: 0 } as ScoreRow) : null);
+          saveSeat(null);
+          closedOnPurpose.current = true;
+          go("finished");
+          break;
+        }
+        case "kicked":
+          backToJoin(message.message || "The host removed you from the game.");
+          break;
+        case "error":
+          if (message.code) {
+            // The server is refusing this connection and says why.
+            backToJoin(message.message);
+          } else {
+            setProblem(message.message || "Something went wrong.");
+          }
+          break;
       }
     };
 
-    ws.onerror = (event) => {
-      console.error("Quiz WebSocket error", event);
-      setStatus("join");
+    ws.onclose = () => {
+      if (socketRef.current !== ws) return;
+      socketRef.current = null;
+      if (closedOnPurpose.current || phaseRef.current === "finished" || phaseRef.current === "join") {
+        setConnecting(false);
+        return;
+      }
+      // The connection dropped mid-game: take the same seat back.
+      const seat = seatRef.current;
+      if (seat && reconnects.current < MAX_RECONNECTS) {
+        reconnects.current += 1;
+        setProblem("Connection lost. Reconnecting...");
+        window.setTimeout(() => open(seat.pin, seat.nickname, seat.token), 1500);
+        return;
+      }
+      backToJoin("Connection lost. Enter the PIN to rejoin.");
     };
-    ws.onclose = () => setStatus("join");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // A refreshed page picks its seat back up instead of starting over.
+  useEffect(() => {
+    const seat = loadSeat();
+    if (seat) {
+      setPin(seat.pin);
+      setNickname(seat.nickname);
+      setConnecting(true);
+      seatRef.current = seat;
+      open(seat.pin, seat.nickname, seat.token);
+    }
+    return () => {
+      closedOnPurpose.current = true;
+      socketRef.current?.close();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [phase]);
+
+  const handleJoin = () => {
+    const cleanPin = pin.trim();
+    const cleanName = nickname.trim();
+    if (!cleanPin) {
+      setProblem("Enter the game PIN shown on the teacher's screen.");
+      return;
+    }
+    if (!cleanName) {
+      setProblem("Choose a nickname.");
+      return;
+    }
+    setProblem("");
+    setConnecting(true);
+    requestGameFullscreen();
+    open(cleanPin, cleanName, "");
   };
 
   const submitAnswer = (optionId: number) => {
     const socket = socketRef.current;
-    if (
-      status !== "playing" ||
-      !currentQuestion ||
-      !socket ||
-      socket.readyState !== WebSocket.OPEN
-    ) {
-      return;
-    }
-    const responseTime = Date.now() - startTime;
-    socket.send(
-      JSON.stringify({
-        type: "submit_answer",
-        question_id: currentQuestion.id,
-        option_id: optionId,
-        response_time: responseTime,
-      }),
-    );
+    if (phase !== "playing" || !currentQuestion || chosen !== null || !socket || socket.readyState !== WebSocket.OPEN) return;
+    setChosen(optionId);
+    // Only which answer was picked is sent; the server times the answer itself.
+    socket.send(JSON.stringify({ type: "submit_answer", question_id: currentQuestion.id, option_id: optionId }));
   };
 
-  if (status === "join") {
+  if (phase === "join") {
     return (
       <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-6 text-white animate-fade-in relative overflow-hidden">
         <div className="w-full max-w-sm space-y-8 z-10">
           <div className="text-center">
-            <motion.h1
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="text-6xl font-black italic tracking-tighter mb-2 shadow-text"
-            >
+            <motion.h1 initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-6xl font-black italic tracking-tighter mb-2 shadow-text">
               EduQuiz
             </motion.h1>
-            <p className="text-purple-200 font-black uppercase tracking-widest text-sm">
-              Join the Battle
-            </p>
+            <p className="text-purple-200 font-black uppercase tracking-widest text-sm">Join the Battle</p>
           </div>
 
-          <div className="bg-white p-2 rounded-3xl shadow-2xl space-y-2">
+          <form
+            className="bg-white p-2 rounded-3xl shadow-2xl space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleJoin();
+            }}
+          >
             <input
               type="text"
+              inputMode="numeric"
+              aria-label="Game PIN"
               placeholder="Game PIN"
               className="w-full p-5 text-center text-3xl font-black text-gray-800 bg-gray-50 rounded-2xl border-none outline-none focus:ring-4 focus:ring-purple-200 transition-all placeholder:text-gray-300"
               value={pin}
@@ -153,56 +265,70 @@ export const QuizController: React.FC = () => {
             />
             <input
               type="text"
+              aria-label="Nickname"
               placeholder="Nickname"
+              maxLength={30}
               className="w-full p-5 text-center text-xl font-black text-gray-800 bg-gray-50 rounded-2xl border-none outline-none focus:ring-4 focus:ring-purple-200 transition-all placeholder:text-gray-300"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
             />
+            {problem && (
+              <p role="alert" className="px-3 py-2 text-center text-sm font-bold text-red-600">
+                {problem}
+              </p>
+            )}
             <button
-              onClick={handleJoin}
-              className="w-full p-6 bg-[#333] text-white rounded-2xl text-2xl font-black shadow-xl hover:bg-black active:scale-95 transition-all mt-4"
+              type="submit"
+              disabled={connecting}
+              className="w-full p-6 bg-[#333] text-white rounded-2xl text-2xl font-black shadow-xl hover:bg-black active:scale-95 transition-all mt-4 disabled:opacity-60"
             >
-              ENTER
+              {connecting ? "JOINING..." : "ENTER"}
             </button>
-          </div>
+          </form>
         </div>
       </div>
     );
   }
 
-  if (status === "waiting") {
+  if (phase === "waiting") {
     return (
-      <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-6 text-white text-center animate-pulse">
-        <div className="mb-8">
+      <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-6 text-white text-center">
+        <div className="mb-8 animate-pulse">
           <PlayerAvatar avatar={avatar} size={96} />
         </div>
-        <h2 className="text-5xl font-black mb-4 italic tracking-tighter">
-          You're in!
-        </h2>
-        <p className="text-2xl font-bold opacity-60">
-          See your name on screen, {nickname}?
-        </p>
+        <h2 className="text-5xl font-black mb-4 italic tracking-tighter">You're in!</h2>
+        <p className="text-2xl font-bold opacity-60">See your name on screen, {nickname}?</p>
+        <p className="mt-6 text-sm font-bold opacity-50">Waiting for the host to start the game</p>
       </div>
     );
   }
 
-  if (status === "playing" && currentQuestion) {
+  if (phase === "playing" && currentQuestion) {
+    const total = Math.max(1, (currentQuestion.time_limit || 20) * 1000);
+    const left = Math.max(0, deadline - now);
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col p-2 gap-2 animate-fade-in">
+        <div className="h-3 rounded-full bg-gray-300 overflow-hidden" aria-label="Time left">
+          <div className="h-full bg-purple-600 transition-[width] duration-200" style={{ width: `${Math.min(100, (left / total) * 100)}%` }} />
+        </div>
+        {problem && (
+          <p role="alert" className="text-center text-sm font-bold text-red-600">
+            {problem}
+          </p>
+        )}
         <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-2">
           {currentQuestion.options.map((opt: any, idx: number) => (
             <motion.button
-              key={idx}
+              key={opt.id}
               whileTap={{ scale: 0.9 }}
               onClick={() => submitAnswer(opt.id)}
+              aria-label={opt.text}
               className="w-full h-full rounded-2xl flex items-center justify-center shadow-lg active:brightness-90 transition-all border-b-8 border-black/20"
               style={{ backgroundColor: opt.color || "#333" }}
             >
               <div className="w-20 h-20 border-8 border-white/30 rounded-2xl flex items-center justify-center">
                 {idx === 0 && <div className="w-10 h-10 bg-white rotate-45" />}
-                {idx === 1 && (
-                  <div className="w-10 h-10 bg-white rounded-full" />
-                )}
+                {idx === 1 && <div className="w-10 h-10 bg-white rounded-full" />}
                 {idx === 2 && <div className="w-10 h-10 bg-white -rotate-45" />}
                 {idx === 3 && <div className="w-10 h-10 bg-white" />}
               </div>
@@ -213,105 +339,96 @@ export const QuizController: React.FC = () => {
     );
   }
 
-  if (status === "submitted") {
+  if (phase === "submitted") {
     return (
       <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-6 text-white text-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          className="mb-8"
-        >
+        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="mb-8">
           <Sparkles size={80} className="text-yellow-400" />
         </motion.div>
         <h2 className="text-4xl font-black italic mb-4">Answer Submitted!</h2>
-        <p className="text-xl font-bold opacity-60">
-          Waiting for others to finish...
-        </p>
+        <p className="text-xl font-bold opacity-60">Waiting for others to finish...</p>
       </div>
     );
   }
 
-  if (status === "feedback" && lastResult) {
+  if (phase === "feedback") {
+    const answered = !!me?.answered;
+    const correct = !!me?.is_correct;
     return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`min-h-screen flex flex-col items-center justify-center p-8 text-white text-center ${
-          lastResult.is_correct ? "bg-green-500" : "bg-red-500"
-        }`}
+        className={`min-h-screen flex flex-col items-center p-8 text-white text-center ${correct ? "bg-green-600" : "bg-red-600"}`}
       >
-        {lastResult.is_correct ? (
-          <>
-            <CheckCircle2 size={120} className="mb-6 animate-bounce" />
-            <h2 className="text-6xl font-black italic tracking-tighter mb-4 shadow-text">
-              CORRECT
-            </h2>
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="bg-black/20 px-10 py-4 rounded-3xl font-black text-3xl shadow-xl"
-            >
-              +{lastResult.points} pts
+        <div className="flex flex-col items-center justify-center flex-1">
+          {correct ? <CheckCircle2 size={110} className="mb-4 animate-bounce" /> : answered ? <XCircle size={110} className="mb-4" /> : <Clock size={110} className="mb-4" />}
+          <h2 className="text-5xl font-black italic tracking-tighter mb-4">{correct ? "CORRECT" : answered ? "INCORRECT" : "OUT OF TIME"}</h2>
+          {correct && (
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="bg-black/25 px-10 py-4 rounded-3xl font-black text-3xl shadow-xl">
+              +{me?.gained} pts
             </motion.div>
-          </>
-        ) : (
-          <>
-            <XCircle size={120} className="mb-6 animate-shake" />
-            <h2 className="text-6xl font-black italic tracking-tighter mb-4 shadow-text">
-              INCORRECT
-            </h2>
-            <p className="text-2xl font-black opacity-80 italic">
-              Don't give up, {nickname}!
+          )}
+          {correct && (me?.streak || 0) >= 2 && (
+            <p className="mt-4 flex items-center gap-2 text-xl font-black">
+              <Flame size={26} className="text-yellow-300" /> {me?.streak} in a row
             </p>
-          </>
-        )}
+          )}
+          {!correct && <p className="text-xl font-black opacity-80">Keep going, {nickname}!</p>}
+        </div>
 
-        <div className="mt-20 flex flex-col items-center gap-2">
-          <span className="text-sm font-black uppercase tracking-widest opacity-60">
-            Total Score
-          </span>
-          <span className="text-6xl font-black shadow-text">{score}</span>
+        <div className="w-full max-w-sm bg-black/20 rounded-3xl p-5 mb-6">
+          <div className="flex justify-between items-end">
+            <div className="text-left">
+              <p className="text-xs font-black uppercase tracking-widest opacity-70">Your rank</p>
+              <p className="text-5xl font-black">#{me?.rank ?? "-"}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-black uppercase tracking-widest opacity-70">Total score</p>
+              <p className="text-5xl font-black">{me?.score ?? 0}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full max-w-sm space-y-2">
+          {board.slice(0, 5).map((row) => (
+            <div key={row.id} className={`flex items-center justify-between rounded-2xl px-4 py-2 font-bold ${row.id === me?.id ? "bg-white text-gray-900" : "bg-white/15"}`}>
+              <span className="flex items-center gap-3">
+                <span className="w-6 text-center font-black opacity-70">{row.rank}</span>
+                <PlayerAvatar avatar={row.avatar} size={28} />
+                {row.nickname}
+              </span>
+              <span className="font-black">{row.score}</span>
+            </div>
+          ))}
         </div>
       </motion.div>
     );
   }
 
-  if (status === "finished") {
+  if (phase === "finished") {
     return (
       <div className="min-h-screen bg-[#46178f] flex flex-col p-6 text-white animate-fade-in relative overflow-hidden">
         <div className="flex flex-col items-center text-center mt-8 mb-12">
           <Trophy size={80} className="text-yellow-400 mb-4 animate-bounce" />
-          <h2 className="text-5xl font-black italic tracking-tighter mb-2 shadow-text">
-            GAME OVER
-          </h2>
+          <h2 className="text-5xl font-black italic tracking-tighter mb-2 shadow-text">GAME OVER</h2>
           <div className="flex flex-col items-center gap-2">
-            <span className="text-8xl font-black text-yellow-400">#{rank}</span>
-            <span className="text-xl font-bold opacity-60">
-              Final Score: {score} pts
-            </span>
+            <span className="text-8xl font-black text-yellow-400">#{me?.rank ?? "-"}</span>
+            <span className="text-xl font-bold opacity-60">Final Score: {me?.score ?? 0} pts</span>
           </div>
         </div>
 
         <div className="flex-1 bg-white/10 backdrop-blur-md rounded-3xl p-6 overflow-y-auto custom-scrollbar border border-white/10">
-          <h3 className="text-xl font-black uppercase tracking-widest mb-6 opacity-60 text-center">
-            Leaderboard
-          </h3>
+          <h3 className="text-xl font-black uppercase tracking-widest mb-6 opacity-60 text-center">Leaderboard</h3>
           <div className="space-y-3">
             {leaderboard.map((p, idx) => (
               <div
-                key={idx}
+                key={p.id ?? idx}
                 className={`flex items-center justify-between p-4 rounded-2xl border ${
-                  p.nickname === nickname
-                    ? "bg-yellow-400 text-[#46178f] border-yellow-500 scale-[1.02] shadow-xl"
-                    : "bg-white/5 border-white/10"
+                  p.id === me?.id ? "bg-yellow-400 text-[#46178f] border-yellow-500 scale-[1.02] shadow-xl" : "bg-white/5 border-white/10"
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <span
-                    className={`w-8 font-black ${p.nickname === nickname ? "text-[#46178f]" : "text-white/40"}`}
-                  >
-                    {idx + 1}
-                  </span>
+                  <span className={`w-8 font-black ${p.id === me?.id ? "text-[#46178f]" : "text-white/40"}`}>{idx + 1}</span>
                   <PlayerAvatar avatar={p.avatar} size={32} />
                   <span className="font-bold text-lg">{p.nickname}</span>
                 </div>

@@ -56,6 +56,7 @@ export const router = createBrowserRouter([
       { path: "games/quiz/create", element: <QuizCreator /> },
       { path: "games/quiz/edit/:id", element: <QuizCreator /> },
       { path: "games/quiz/host/:quizId", element: <QuizMonitoring /> },
+      { path: "games/quiz/session/:pin", element: <QuizMonitoring /> },
       { path: "games/quiz/test/:pin", element: <QuizTestParticipantPage /> },
       // Slido has no server part yet, so these screens would only show errors.
       { path: "games/slido/assignments", element: <ConstructionPage title="Slido live polls" /> },

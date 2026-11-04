@@ -51,6 +51,7 @@ class QuizSession(models.Model):
     current_question_index = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)
+    lobby_locked = models.BooleanField(default=False)
     question_started_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -68,6 +69,8 @@ class QuizPlayer(models.Model):
     score = models.IntegerField(default=0)
     streak = models.IntegerField(default=0)
     last_response_time = models.DateTimeField(null=True, blank=True)
+    # Secret handed to the player on joining so a refresh can take the same seat back.
+    token = models.CharField(max_length=64, blank=True, default="", editable=False)
 
     class Meta:
         ordering = ["-score"]

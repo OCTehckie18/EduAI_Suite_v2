@@ -82,7 +82,7 @@ export const QuizLibraryPage: React.FC = () => {
       });
       if (res.ok) {
         const session = await res.json();
-        navigate(`/games/quiz/host/${session.pin}`);
+        navigate(`/games/quiz/session/${session.pin}`);
       }
     } catch (err) {
       console.error(err);
@@ -98,7 +98,7 @@ export const QuizLibraryPage: React.FC = () => {
       });
       if (res.ok) {
         const session = await res.json();
-        navigate(`/games/quiz/host/${session.pin}`);
+        navigate(`/games/quiz/session/${session.pin}`);
       }
     } catch (err) {
       console.error("Failed to start teacher test run", err);

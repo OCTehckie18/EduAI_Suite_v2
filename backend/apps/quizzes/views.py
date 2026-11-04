@@ -1,7 +1,7 @@
 import random
+import secrets
 import string
 from django.db import IntegrityError, transaction
-from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -54,9 +54,9 @@ class QuizSessionListView(APIView):
     permission_classes = [IsTeacher]
 
     def get(self, request):
+        # Only games hosted from this teacher's own quizzes (test runs included).
         sessions = QuizSession.objects.filter(
-            Q(quiz__in=_managed_quizzes(request.user))
-            | Q(is_test_run=True, status__in=["lobby", "active"])
+            quiz__in=_managed_quizzes(request.user)
         ).select_related("quiz").prefetch_related("players")
         data = QuizSessionSerializer(sessions, many=True).data
         for session, item in zip(sessions, data):
@@ -191,6 +191,10 @@ class QuizSessionJoinView(APIView):
 
     def post(self, request, pin):
         session = get_object_or_404(QuizSession, pin=pin)
+        if session.status == "completed":
+            return Response({"detail": "This game has already finished."}, status=status.HTTP_409_CONFLICT)
+        if session.lobby_locked:
+            return Response({"detail": "The host has locked this game."}, status=status.HTTP_409_CONFLICT)
         data = request.data
         nickname = str(data.get("nickname") or "Player").strip()[:100] or "Player"
 
@@ -205,6 +209,7 @@ class QuizSessionJoinView(APIView):
                     student_id=student_id,
                     nickname=nickname,
                     avatar=str(data.get("avatar") or "")[:255] or None,
+                    token=secrets.token_urlsafe(24),
                 )
         except IntegrityError:
             return Response({"detail": "That nickname is already taken in this session."}, status=status.HTTP_409_CONFLICT)
