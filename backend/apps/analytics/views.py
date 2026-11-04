@@ -463,7 +463,7 @@ class StudentDashboardSummaryView(APIView):
         ]
 
         keys = student_keys(student)
-        live_games = ChainAnswerGame.objects.filter(status="active", players__student_id__in=keys).distinct()
+        live_games = ChainAnswerGame.objects.filter(status="active", players__student=student).distinct()
         live_game_info = {"title": "", "teacher": "", "active": False}
         game = live_games.first()
         if game:

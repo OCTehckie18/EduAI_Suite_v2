@@ -3,6 +3,9 @@ from .models import ChainAnswerGame, GamePlayer, GameWord, GameQuestion
 
 
 class GamePlayerSerializer(serializers.ModelSerializer):
+    # The account id, not the register number: classmates and the public never see register numbers.
+    student_id = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = GamePlayer
         fields = [
@@ -38,6 +41,10 @@ class GameQuestionSerializer(serializers.ModelSerializer):
 
 
 class ChainAnswerGameSerializer(serializers.ModelSerializer):
+    """The game as the teacher who owns it sees it. Pass ``context={"is_owner": False}`` for players:
+    they get the same game without the teacher's AI suggestions."""
+
+    teacher_id = serializers.IntegerField(read_only=True)
     players = GamePlayerSerializer(many=True, read_only=True)
     words = GameWordSerializer(many=True, read_only=True)
     questions = GameQuestionSerializer(many=True, read_only=True)
@@ -68,3 +75,9 @@ class ChainAnswerGameSerializer(serializers.ModelSerializer):
             "words",
             "questions",
         ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self.context.get("is_owner", True):
+            data.pop("ai_suggestions", None)
+        return data

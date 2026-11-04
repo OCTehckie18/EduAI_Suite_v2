@@ -1,9 +1,13 @@
+from django.conf import settings
 from django.db import models
 
 
 class ChainAnswerGame(models.Model):
     session_id = models.CharField(max_length=100, unique=True, db_index=True)
-    teacher_id = models.IntegerField(null=True, blank=True)
+    # The teacher who created it, taken from their login (never from the request body).
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="chain_games"
+    )
     name = models.CharField(max_length=255, default="New Game")
     chain_variation = models.CharField(max_length=50, default="standard")
     category = models.CharField(max_length=100, blank=True, null=True)
@@ -30,13 +34,22 @@ class ChainAnswerGame(models.Model):
 
 class GamePlayer(models.Model):
     game = models.ForeignKey(ChainAnswerGame, on_delete=models.CASCADE, related_name="players")
-    student_id = models.CharField(max_length=100, blank=True, null=True)
+    # The real account behind this player. ``name`` is only a display snapshot.
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="chain_game_players"
+    )
     name = models.CharField(max_length=255, blank=True, null=True)
     join_order = models.IntegerField(default=0)
     score = models.FloatField(default=0.0)
     words_submitted = models.IntegerField(default=0)
     words_valid = models.IntegerField(default=0)
     status = models.CharField(max_length=50, default="active")
+
+    class Meta:
+        ordering = ["join_order", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["game", "student"], condition=models.Q(student__isnull=False), name="unique_student_per_chain_game"),
+        ]
 
     def __str__(self):
         return f"{self.name} in {self.game.session_id}"

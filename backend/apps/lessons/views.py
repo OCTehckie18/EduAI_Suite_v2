@@ -242,7 +242,7 @@ class LessonEduGamesView(APIView):
             ).strip() or student.email
             GamePlayer.objects.create(
                 game=game,
-                student_id=student.id,
+                student=student,
                 name=student_name,
                 join_order=index,
             )

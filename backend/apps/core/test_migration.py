@@ -229,10 +229,14 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         session_id = res.json()["session_id"]
 
-        res = self.client.post(f"/games/chain-answer/{session_id}/join", {
-            "name": "Player 1",
-        }, format="json")
+        # Students join as themselves: the account comes from the login, not from the request body.
+        from apps.classrooms.models import Enrollment
+        student = User.objects.create_user(email="player1@university.in", password="x", role=User.Role.STUDENT, first_name="Player", last_name="One")
+        Enrollment.objects.create(classroom=self.course, student=student)
+        self.client.force_authenticate(user=student)
+        res = self.client.post(f"/games/chain-answer/{session_id}/join", {}, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.json()["name"], "Player One")
 
     def test_quizzes(self):
         self.client.force_authenticate(user=self.teacher)

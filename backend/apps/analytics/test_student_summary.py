@@ -65,7 +65,7 @@ class StudentSummaryTests(APITestCase):
     def test_live_games_only_count_when_the_student_is_in_them(self):
         game = ChainAnswerGame.objects.create(session_id="g1", name="Word chain", status="active", teacher_id=self.teacher.pk)
         self.assertFalse(self.get(self.alice).json()["liveGame"]["active"])
-        GamePlayer.objects.create(game=game, student_id="R1", name="Alice")
+        GamePlayer.objects.create(game=game, student=self.alice, name="Alice")
         body = self.get(self.alice).json()
         self.assertEqual((body["liveGame"]["active"], body["liveGame"]["teacher"], body["student"]["liveGames"]), (True, "Tess Teach", 1))
         self.assertFalse(self.get(self.zed).json()["liveGame"]["active"])
