@@ -314,11 +314,13 @@ class MigrationSmokeTestCase(TestCase):
             "/api/dashboard/summary",
             "/dashboard/summary",
             "/api/v1/api/dashboard/summary?teacher_name=Jane%20Prof",
-            "/api/v1/api/dashboard/discoverable-classrooms",
         ]
         for ep in endpoints:
             res = self.client.get(ep)
             self.assertEqual(res.status_code, status.HTTP_200_OK, f"Endpoint {ep} failed with {res.status_code}")
+
+        # The list of every class with its join code no longer exists.
+        self.assertEqual(self.client.get("/api/v1/api/dashboard/discoverable-classrooms").status_code, status.HTTP_404_NOT_FOUND)
 
         # The student dashboard belongs to students (covered in analytics.test_student_summary).
         self.assertEqual(self.client.get("/api/v1/api/dashboard/student-summary").status_code, status.HTTP_403_FORBIDDEN)

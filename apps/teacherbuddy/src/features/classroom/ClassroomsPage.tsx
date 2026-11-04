@@ -254,11 +254,14 @@ export const ClassroomsPage: React.FC = () => {
     setProfileLoading(true);
     setProfileTab("overview");
     try {
-      const res = await fetch(`${API_URL}/engagement/student/${studentId}`);
+      // Ask about the class that is open, so the profile never mixes in another class's work.
+      const query = selected?.id ? `?course_id=${selected.id}` : "";
+      const res = await fetch(`${API_URL}/engagement/student/${studentId}${query}`);
       const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to load student profile.");
       setStudentProfileData(data);
-    } catch {
-      setErrorMsg("Failed to load student profile.");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to load student profile.");
     } finally {
       setProfileLoading(false);
     }
@@ -328,6 +331,8 @@ export const ClassroomsPage: React.FC = () => {
         return "Needs Attention";
       case "at_risk":
         return "At Risk";
+      case "no_data":
+        return "No data yet";
       default:
         return "Unknown";
     }
@@ -1185,7 +1190,7 @@ export const ClassroomsPage: React.FC = () => {
                               </p>
                             </div>
                             <p className="text-3xl font-extrabold text-slate-900">
-                              {engagementData.class_avg_engagement}%
+                              {engagementData.class_avg_engagement == null ? "—" : `${engagementData.class_avg_engagement}%`}
                             </p>
                           </div>
                           <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
@@ -1373,14 +1378,14 @@ export const ClassroomsPage: React.FC = () => {
                                         </td>
                                         <td className="text-center px-3 py-3.5">
                                           <span className="text-base font-extrabold text-slate-900">
-                                            {s.engagement_score}
+                                            {s.engagement_score ?? "—"}
                                           </span>
                                         </td>
                                         <td className="text-center px-3 py-3.5 font-bold text-slate-700">
                                           {s.attendance == null ? "Not recorded" : `${s.attendance}%`}
                                         </td>
                                         <td className="text-center px-3 py-3.5 font-bold text-slate-700">
-                                          {s.assignments.completion_rate}%
+                                          {s.assignments.completion_rate == null ? "—" : `${s.assignments.completion_rate}%`}
                                         </td>
                                         <td className="text-center px-3 py-3.5 font-bold text-slate-700">
                                           {s.games.sessions_played}
@@ -2233,7 +2238,7 @@ export const ClassroomsPage: React.FC = () => {
                         </svg>
                         <div className="absolute inset-0 flex items-center justify-center">
                           <span className="text-white font-black text-lg">
-                            {studentProfileData.engagement_score}
+                            {studentProfileData.engagement_score ?? "—"}
                           </span>
                         </div>
                       </div>
