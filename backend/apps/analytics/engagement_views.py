@@ -55,13 +55,7 @@ def _get_student_engagement(student: User, course_id: int):
     graded_count = 0
 
     for asgn in course_assignments:
-        sub = Submission.objects.filter(
-            assignment=asgn,
-        ).filter(
-            Q(student_name__iexact=student.full_name) |
-            Q(student_name__iexact=student.email) |
-            Q(student_name__iexact=student.first_name)
-        ).order_by("-id").first()
+        sub = Submission.objects.filter(assignment=asgn, student=student).order_by("-id").first()
 
         if sub:
             submitted_count += 1

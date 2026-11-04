@@ -43,7 +43,7 @@ class StudentSummaryTests(APITestCase):
         self.assertEqual(body["student"]["pendingAssignments"], 0)
 
     def test_deadlines_skip_submitted_work_and_are_soonest_first(self):
-        Submission.objects.create(assignment=self.hw1, student_name="Alice Able")
+        Submission.objects.create(assignment=self.hw1, student=self.alice, student_name="Alice Able")
         body = self.get(self.alice).json()
         self.assertEqual([d["title"] for d in body["deadlines"]], ["HW2"])
         self.assertEqual(body["student"]["pendingAssignments"], 1)
@@ -51,7 +51,7 @@ class StudentSummaryTests(APITestCase):
         self.assertEqual([d["title"] for d in self.get(self.alice).json()["deadlines"]], ["HW2", "HW1"])
 
     def test_progress_is_real_and_empty_when_a_course_has_no_assignments(self):
-        Submission.objects.create(assignment=self.hw1, student_name="Alice Able")
+        Submission.objects.create(assignment=self.hw1, student=self.alice, student_name="Alice Able")
         courses = {c["code"]: c for c in self.get(self.alice).json()["courses"]}
         self.assertEqual(courses["M1"]["progress"], 50.0)
         self.assertIsNone(courses["I1"]["progress"])

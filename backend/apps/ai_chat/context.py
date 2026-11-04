@@ -57,8 +57,10 @@ def _student_metrics(students, course_ids):
     for row in Submission.objects.filter(
         assignment__course_id__in=course_ids,
         grade__isnull=False,
-    ).values("student_name", "grade"):
-        assignment_grades[_name_key(row["student_name"])].append(row["grade"])
+        student__isnull=False,
+    ).values("student__first_name", "student__last_name", "student__email", "grade"):
+        full = f"{row['student__first_name']} {row['student__last_name']}".strip() or row["student__email"].split("@", 1)[0]
+        assignment_grades[_name_key(full)].append(row["grade"])
 
     exam_scores = defaultdict(list)
     for row in ExamAttempt.objects.filter(

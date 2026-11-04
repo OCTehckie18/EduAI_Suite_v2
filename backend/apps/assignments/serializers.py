@@ -20,14 +20,18 @@ class AssignmentSerializer(serializers.ModelSerializer):
 
 class SubmissionSerializer(serializers.ModelSerializer):
     assignment_id = serializers.IntegerField(source="assignment.id", read_only=True)
+    student_id = serializers.IntegerField(read_only=True)
+    max_points = serializers.IntegerField(source="assignment.max_points", read_only=True)
 
     class Meta:
         model = Submission
         fields = [
             "id",
             "assignment_id",
+            "student_id",
             "student_name",
             "file_path",
             "submitted_at",
             "grade",
+            "max_points",
         ]

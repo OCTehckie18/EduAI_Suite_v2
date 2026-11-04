@@ -100,6 +100,7 @@ export const StudentClassrooms: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Record<number, File[]>>({});
   const [submittedAssignmentIds, setSubmittedAssignmentIds] = useState<number[]>([]);
+  const [gradesByAssignment, setGradesByAssignment] = useState<Record<number, { grade: number | null; max: number }>>({});
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
@@ -152,14 +153,17 @@ export const StudentClassrooms: React.FC = () => {
       );
       const allSubmissions = await Promise.all(submissionsPromises);
       const submittedIds: number[] = [];
-      const user = get_user();
-      const studentName = user.name;
+      const grades: Record<number, { grade: number | null; max: number }> = {};
+      // The server only returns this student's own submissions, so any row means "submitted".
       assignmentsList.forEach((a, i) => {
-         if (Array.isArray(allSubmissions[i]) && allSubmissions[i].some((sub: any) => sub.student_name === studentName)) {
+         const mine = Array.isArray(allSubmissions[i]) ? allSubmissions[i][0] : undefined;
+         if (mine) {
             submittedIds.push(a.id);
+            grades[a.id] = { grade: mine.grade ?? null, max: mine.max_points ?? a.max_points ?? 100 };
          }
       });
       setSubmittedAssignmentIds(submittedIds);
+      setGradesByAssignment(grades);
     } else {
       setAssignments([]);
       setSubmittedAssignmentIds([]);
@@ -812,15 +816,19 @@ export const StudentClassrooms: React.FC = () => {
                                       <div className="flex shrink-0 flex-col gap-2 text-sm">
                                           <div className="inline-flex items-center justify-center gap-2 rounded-full bg-green-100 text-green-800 px-4 py-2 font-bold opacity-100 shadow-sm">
                                             <CheckCircle2 size={16} />
-                                            <span>Work Submitted</span>
+                                            <span>
+                                              {gradesByAssignment[assignment.id]?.grade != null
+                                                ? `Graded: ${gradesByAssignment[assignment.id].grade} / ${gradesByAssignment[assignment.id].max}`
+                                                : "Work Submitted · awaiting grade"}
+                                            </span>
                                           </div>
-                                          <button 
+                                          {gradesByAssignment[assignment.id]?.grade == null && <button 
                                             onClick={() => handleUnsubmit(assignment.id)}
                                             className="inline-flex items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-red-600 text-xs font-bold hover:bg-red-100 transition-all shadow-sm"
                                           >
                                             <Trash2 size={14} />
                                             <span>Unsubmit</span>
-                                          </button>
+                                          </button>}
                                       </div>
                                     </div>
                                   </GlassCard>

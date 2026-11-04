@@ -6,6 +6,8 @@ from .views import (
     SubmissionDetailView,
     UnsubmitAssignmentView,
     GradeSubmissionView,
+    GradebookView,
+    MyGradesView,
     RubricCriteriaListView,
     FeedbackTemplateListView,
 )
@@ -13,6 +15,8 @@ from .views import (
 assignment_urlpatterns = [
     path("rubric-criteria", RubricCriteriaListView.as_view(), name="rubric-criteria"),
     path("feedback-templates", FeedbackTemplateListView.as_view(), name="feedback-templates"),
+    path("gradebook/<int:course_id>", GradebookView.as_view(), name="gradebook"),
+    path("my-grades/<int:course_id>", MyGradesView.as_view(), name="my-grades"),
     path("<int:course_id>", AssignmentListCreateView.as_view(), name="assignment-list-create"),
     path("detail/<int:assignment_id>", AssignmentDetailView.as_view(), name="assignment-detail"),
     path("<int:assignment_id>/delete", AssignmentDetailView.as_view(), name="assignment-delete"),
