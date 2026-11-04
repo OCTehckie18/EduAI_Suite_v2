@@ -173,9 +173,10 @@ class CampusSummaryView(APIView):
         name = str(data.get("name", "")).strip()
         code = str(data.get("code", "")).strip().upper()
         city = str(data.get("city", "")).strip()
-        if not name or not code or not city:
+        state = str(data.get("state", "")).strip()
+        if not name or not code or not city or not state:
             return Response(
-                {"detail": "Name, code, and city are required."},
+                {"detail": "Name, code, city, and state are required."},
                 status=400,
             )
         try:
@@ -184,7 +185,7 @@ class CampusSummaryView(APIView):
                     name=name,
                     code=code,
                     city=city,
-                    state=str(data.get("state", "Karnataka")).strip(),
+                    state=state,
                     address=str(data.get("address", "")).strip(),
                 )
                 _record_admin_action(

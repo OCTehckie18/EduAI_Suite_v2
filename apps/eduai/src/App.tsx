@@ -80,7 +80,7 @@ interface DeletedItem {
   id: number;
   content_type: string;
   label: string;
-  deleted_at: string;
+  deleted_at: string | null;
 }
 
 const clearSession = () => {
@@ -258,7 +258,7 @@ export default function App() {
           </nav>
         </div>
         <div className="glass-card p-4 rounded-xl border border-stone-800/80">
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 mb-1"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Backend connected</div>
+          <div className={`flex items-center gap-2 text-xs font-semibold mb-1 ${error ? "text-rose-400" : loading ? "text-amber-300" : "text-emerald-400"}`}><span className={`h-2 w-2 rounded-full ${error ? "bg-rose-400" : loading ? "bg-amber-300" : "bg-emerald-400"}`} />{error ? "Backend unreachable" : loading ? "Syncing..." : "Backend connected"}</div>
           <p className="text-[11px] text-stone-400 truncate">{user.email}</p>
         </div>
       </aside>
@@ -407,11 +407,11 @@ function RecycleBinPanel({ items, onRefresh }: { items: DeletedItem[]; onRefresh
       onRefresh();
     } catch (err) { window.alert(err instanceof Error ? err.message : "Could not restore the record."); }
   };
-  return <section className="glass-card p-6 rounded-2xl space-y-5"><div><h3 className="text-base font-semibold flex items-center gap-2"><Trash2 className="h-5 w-5 text-rose-400" />Universal Recycle Bin</h3><p className="text-xs text-stone-400 mt-1">Soft-deleted records can be restored without hard deletion.</p></div><div className="overflow-x-auto rounded-xl border border-stone-800"><table className="w-full text-left text-sm"><thead className="bg-stone-900 text-xs uppercase text-stone-400"><tr><th className="p-4">Entity</th><th className="p-4">Resource</th><th className="p-4">Deleted</th><th className="p-4 text-right">Action</th></tr></thead><tbody className="divide-y divide-stone-800">{items.map((item) => <tr key={`${item.content_type}-${item.id}`}><td className="p-4 text-xs text-stone-400">{item.content_type}</td><td className="p-4 font-medium">{item.label}</td><td className="p-4 text-xs text-stone-400">{new Date(item.deleted_at).toLocaleString()}</td><td className="p-4 text-right"><button onClick={() => void restore(item)} className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/10"><RefreshCw className="h-3 w-3" />Restore</button></td></tr>)}</tbody></table>{!items.length && <p className="p-8 text-center text-stone-500">Recycle bin is empty.</p>}</div></section>;
+  return <section className="glass-card p-6 rounded-2xl space-y-5"><div><h3 className="text-base font-semibold flex items-center gap-2"><Trash2 className="h-5 w-5 text-rose-400" />Universal Recycle Bin</h3><p className="text-xs text-stone-400 mt-1">Soft-deleted records can be restored without hard deletion.</p></div><div className="overflow-x-auto rounded-xl border border-stone-800"><table className="w-full text-left text-sm"><thead className="bg-stone-900 text-xs uppercase text-stone-400"><tr><th className="p-4">Entity</th><th className="p-4">Resource</th><th className="p-4">Deleted</th><th className="p-4 text-right">Action</th></tr></thead><tbody className="divide-y divide-stone-800">{items.map((item) => <tr key={`${item.content_type}-${item.id}`}><td className="p-4 text-xs text-stone-400">{item.content_type}</td><td className="p-4 font-medium">{item.label}</td><td className="p-4 text-xs text-stone-400">{item.deleted_at ? new Date(item.deleted_at).toLocaleString() : "—"}</td><td className="p-4 text-right"><button onClick={() => void restore(item)} className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/10"><RefreshCw className="h-3 w-3" />Restore</button></td></tr>)}</tbody></table>{!items.length && <p className="p-8 text-center text-stone-500">Recycle bin is empty.</p>}</div></section>;
 }
 
 function CampusForm({ campus, onClose, onSaved }: { campus: Campus | null; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: campus?.name || "", code: campus?.code || "", city: campus?.city || "", state: campus?.state || "Karnataka", address: campus?.address || "" });
+  const [form, setForm] = useState({ name: campus?.name || "", code: campus?.code || "", city: campus?.city || "", state: campus?.state || "", address: campus?.address || "" });
   const [error, setError] = useState("");
   const submit = async (event: FormEvent) => {
     event.preventDefault();
