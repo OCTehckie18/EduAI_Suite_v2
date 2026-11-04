@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from services.word_service import WordService
+from . import engine
 from apps.accounts.models import User
 from apps.classrooms.models import Enrollment
 from apps.core.access import is_master_admin, managed_courses
@@ -267,6 +268,9 @@ class ChainAnswerGameDetailView(APIView):
         game = _get_game(session_id)
         if not _can_view(request.user, game):
             return _denied("This game is not available to you.")
+        if game.status == "active":
+            engine.refresh(session_id)  # no live timer over plain HTTP, so apply a due timeout now
+            game = _get_game(session_id)
         return Response(_game_payload(game, request.user))
 
     def put(self, request, session_id):
@@ -314,95 +318,60 @@ class ChainAnswerGameJoinView(APIView):
         return Response(GamePlayerSerializer(player).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
+def _owner_action(request, session_id, action, denied_message):
+    """Run an engine action (start, pause, ...) for the game's owner and return the game."""
+    game = _get_game(session_id)
+    if not _is_owner(request.user, game):
+        return _denied(denied_message)
+    try:
+        engine.__dict__[action](session_id)
+    except engine.GameError as exc:
+        return Response({"detail": exc.message}, status=exc.status)
+    return Response(_game_payload(_get_game(session_id), request.user))
+
+
 class ChainAnswerGameStartView(APIView):
 
     def post(self, request, session_id):
-        game = _get_game(session_id)
-        if not _is_owner(request.user, game):
-            return _denied("Only the teacher who created this game can start it.")
-        if game.status == "completed":
-            return Response({"detail": "This game has already finished."}, status=status.HTTP_409_CONFLICT)
-        game.status = "active"
-        game.started_at = game.started_at or timezone.now()
-        game.save()
+        return _owner_action(request, session_id, "start", "Only the teacher who created this game can start it.")
 
-        if not game.words.exists():
-            GameWord.objects.create(
-                game=game,
-                word=game.starting_word,
-                submitted_by="system",
-                is_valid=True,
-                position=0,
-                validation_reason="Starting word",
-            )
 
-        return Response(_game_payload(game, request.user))
+class ChainAnswerGamePauseView(APIView):
+
+    def post(self, request, session_id):
+        return _owner_action(request, session_id, "pause", "Only the teacher who created this game can pause it.")
+
+
+class ChainAnswerGameResumeView(APIView):
+
+    def post(self, request, session_id):
+        return _owner_action(request, session_id, "resume", "Only the teacher who created this game can resume it.")
+
+
+class ChainAnswerGameSkipView(APIView):
+
+    def post(self, request, session_id):
+        return _owner_action(request, session_id, "skip_turn", "Only the teacher who created this game can skip a turn.")
 
 
 class ChainAnswerGameEndView(APIView):
 
     def post(self, request, session_id):
-        game = _get_game(session_id)
-        if not _is_owner(request.user, game):
-            return _denied("Only the teacher who created this game can end it.")
-        game.status = "completed"
-        game.ended_at = timezone.now()
-        game.save()
-        return Response(_game_payload(game, request.user))
+        return _owner_action(request, session_id, "end", "Only the teacher who created this game can end it.")
 
 
 class ChainAnswerGameSubmitWordView(APIView):
     """A player submits a word. Who they are comes from the login; the request body only carries the word."""
 
     def post(self, request, session_id):
-        game = _get_game(session_id)
-        player = _my_player(game, request.user)
-        if player is None:
-            return _denied("You are not a player in this game.")
-        word = str(request.data.get("word") or "").strip()
-
-        last_word_obj = game.words.order_by("-position").first()
-        prev_word = last_word_obj.word if last_word_obj else game.starting_word
-        used_words = list(game.words.values_list("word", flat=True))
-
-        val_result = WordService.validate_word(
-            word=word,
-            previous_word=prev_word,
-            chain_variation=game.chain_variation,
-            used_words=used_words,
-            subject=game.subject,
-        )
-
-        pos = game.words.count()
-        game_word = GameWord.objects.create(
-            game=game,
-            word=word,
-            submitted_by=player.name,
-            is_valid=val_result["is_valid"],
-            position=pos,
-            validation_reason=val_result["message"],
-        )
-
-        player.words_submitted += 1
-        if val_result["is_valid"]:
-            player.words_valid += 1
-            player.score += 10.0
-        elif game.penalty_on_invalid:
-            player.score = max(0.0, player.score - 5.0)
-        player.save()
-
-        record_student_activity(
-            student_id=request.user.pk,
-            activity_type="game",
-            source_id=game.id,
-            title=game.name or "Game Session",
-            score=player.score,
-            status=player.status,
-        )
-
+        try:
+            game, entry, result = engine.submit_word(session_id, request.user, request.data.get("word"))
+        except engine.GameError as exc:
+            return Response({"detail": exc.message}, status=exc.status)
         return Response({
-            "word": GameWordSerializer(game_word).data,
-            "validation": val_result,
+            "word": GameWordSerializer(entry).data,
+            "validation": result,
+            "game": _game_payload(_get_game(session_id), request.user),
         }, status=status.HTTP_201_CREATED)
 
 

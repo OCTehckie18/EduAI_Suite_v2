@@ -24,6 +24,11 @@ class ChainAnswerGame(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
+    # Turn state is kept on the server: whose turn it is and when it runs out. While the game is paused
+    # the deadline is cleared and the time left is held in ``paused_remaining``.
+    current_player = models.ForeignKey("GamePlayer", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    turn_deadline = models.DateTimeField(null=True, blank=True)
+    paused_remaining = models.FloatField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -59,13 +64,18 @@ class GameWord(models.Model):
     game = models.ForeignKey(ChainAnswerGame, on_delete=models.CASCADE, related_name="words")
     word = models.CharField(max_length=100)
     submitted_by = models.CharField(max_length=255, blank=True, null=True)
+    player = models.ForeignKey(GamePlayer, null=True, blank=True, on_delete=models.SET_NULL, related_name="words")
     submitted_at = models.DateTimeField(auto_now_add=True)
     is_valid = models.BooleanField(default=True)
-    position = models.IntegerField(default=0)
+    # Only accepted words have a position in the chain; rejected attempts are kept (position empty) for the teacher.
+    position = models.IntegerField(null=True, blank=True)
     validation_reason = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
-        ordering = ["position", "id"]
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(fields=["game", "position"], condition=models.Q(position__isnull=False), name="unique_chain_position"),
+        ]
 
     def __str__(self):
         return f"{self.word} ({'valid' if self.is_valid else 'invalid'})"

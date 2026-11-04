@@ -9,25 +9,31 @@ from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
-_nltk_ready = False
+_words_ready = False
+_wordnet_ready = False
 _wn = None
 _all_english_words = set()
 
 try:
-    import nltk
-    for corpus in ("wordnet", "omw-1.4", "words"):
-        try:
-            nltk.data.find(f"corpora/{corpus}")
-        except LookupError:
-            pass
-
-    from nltk.corpus import wordnet as _wn
     from nltk.corpus import words as _nltk_words
     _all_english_words = set(w.lower() for w in _nltk_words.words())
-    _nltk_ready = True
+    _words_ready = True
+except Exception as e:  # the corpus is not installed
+    logger.warning(
+        "WordService: the NLTK 'words' dictionary is not installed, so only a small built-in word list is used "
+        "and many valid words will be rejected. Install it with: python -m nltk.downloader words wordnet (%s)", e,
+    )
+
+try:
+    from nltk.corpus import wordnet as _wn
+    _wn.synsets("dog")  # raises LookupError when the corpus is missing
+    _wordnet_ready = True
 except Exception as e:
-    logger.warning("WordService: nltk optional components not fully available, using static word bank: %s", e)
-    _all_english_words = set()
+    _wn = None
+    logger.warning("WordService: NLTK WordNet is not installed, so category checks use the built-in lists only (%s)", e)
+
+# Kept for the code below and for anything that checked this flag.
+_nltk_ready = _words_ready
 
 TOPIC_WORD_BANK: dict[str, list[str]] = {
     "science": [
@@ -137,9 +143,40 @@ class WordService:
     @staticmethod
     def is_valid_english_word(word: str) -> bool:
         w = word.lower().strip()
-        if _nltk_ready and w in _all_english_words:
+        if w in _MASTER_WORD_SET:
             return True
-        return w in _MASTER_WORD_SET
+        if _words_ready and w in _all_english_words:
+            return True
+        if _wordnet_ready and _wn is not None:
+            try:
+                return bool(_wn.synsets(w))
+            except Exception:
+                return False
+        return False
+
+    # WordNet roots for topics where "a kind of X" is a sensible test.
+    _CATEGORY_ROOTS = {
+        "animals": ["animal.n.01"],
+        "food": ["food.n.01", "food.n.02", "fruit.n.01", "vegetable.n.01"],
+        "sports": ["sport.n.01"],
+    }
+
+    @staticmethod
+    def belongs_to_category(word: str, subject: str) -> bool:
+        topic_key = _match_topic(subject)
+        if word in set(w.lower() for w in TOPIC_WORD_BANK.get(topic_key, [])) and topic_key != "general":
+            return True
+        roots = WordService._CATEGORY_ROOTS.get(topic_key)
+        if not (roots and _wordnet_ready and _wn is not None):
+            return False
+        try:
+            targets = {_wn.synset(name) for name in roots}
+            for synset in _wn.synsets(word, pos=_wn.NOUN)[:3]:
+                if targets.intersection(synset.closure(lambda s: s.hypernyms())) or synset in targets:
+                    return True
+        except Exception:
+            return False
+        return False
 
     @staticmethod
     def generate_word_suggestions(
@@ -152,7 +189,7 @@ class WordService:
         topic_key = _match_topic(subject)
         candidates: List[str] = []
 
-        if _nltk_ready and _wn is not None:
+        if _wordnet_ready and _wn is not None:
             try:
                 synsets = _wn.synsets(topic_key)
                 for syn in synsets[:10]:
@@ -236,11 +273,12 @@ class WordService:
                 result["message"] = "Must differ by exactly one letter"
                 return result
 
-        elif chain_variation == "category" and subject:
-            topic_key = _match_topic(subject)
-            topic_words = set(w.lower() for w in TOPIC_WORD_BANK.get(topic_key, []))
-            if word_lower not in topic_words and not WordService.is_valid_english_word(word_lower):
-                result["message"] = f"Word not recognized for category '{subject}'"
+        elif chain_variation == "category":
+            if not subject:
+                result["message"] = "This game has no category set"
+                return result
+            if not WordService.belongs_to_category(word_lower, subject):
+                result["message"] = f"'{word_lower}' is not recognised as part of the category '{subject}'"
                 return result
 
         result["is_valid"] = True

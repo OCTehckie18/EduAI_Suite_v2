@@ -182,9 +182,13 @@ class SubmitIdentityTests(ChainBase):
         self.assertEqual(GamePlayer.objects.get(student=self.alice).words_submitted, 1)
         self.assertEqual(GamePlayer.objects.get(student=self.bob).words_submitted, 0)
 
-    def test_marks_are_written_only_to_the_submitting_account(self):
+    def test_marks_are_written_only_to_linked_players_when_the_game_ends(self):
         self.submit(self.alice)
-        self.assertEqual(list(StudentActivity.objects.filter(activity_type="game").values_list("student_id", flat=True)), [self.alice.pk])
+        self.assertEqual(StudentActivity.objects.count(), 0)  # nothing is final until the game ends
+        self.client.force_authenticate(self.teacher)
+        self.client.post(f"{BASE}/{self.g.session_id}/end")
+        rows = {a.student_id: (a.score, a.status) for a in StudentActivity.objects.filter(activity_type="game")}
+        self.assertEqual(rows, {self.alice.pk: (10.0, "completed"), self.bob.pk: (0.0, "completed")})
 
     def test_non_players_anonymous_users_and_teachers_cannot_submit(self):
         self.assertEqual(self.submit(self.zed).status_code, 403)
