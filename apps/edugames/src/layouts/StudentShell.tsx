@@ -6,6 +6,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { DESKTOP_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import { ProfileModal } from "../shared/components/ProfileModal";
+import { UniversityBadge } from "../shared/university";
 
 const studentNavItems = [
   { icon: LayoutDashboard, label: "My Dashboard", href: "/", end: true },
@@ -65,7 +66,7 @@ export const StudentShell: React.FC = () => {
       }`} style={!isDesktop && !sidebarOpen ? { boxShadow: "none" } : undefined}>
         <div className="flex items-center gap-3 px-4 py-5 border-b border-white/8">
           <div className="shrink-0 w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-lg" onClick={() => setSidebarOpen(s => !s)}>
-            <img src={logo} alt="Christ University" className="w-full h-full object-contain p-0.5" />
+            <img src={logo} alt="EduAI Suite" className="w-full h-full object-contain p-0.5" />
           </div>
           {sidebarOpen && (
             <div className="overflow-hidden">
@@ -115,6 +116,7 @@ export const StudentShell: React.FC = () => {
               {Math.floor(remainingTime / 60)}:{(remainingTime % 60).toString().padStart(2, '0')}
             </div>
 
+            <UniversityBadge className="mr-1" labelClassName="text-[color:var(--color-text-primary)]" />
             {/* Profile */}
             <div className="relative">
               <button
@@ -134,7 +136,7 @@ export const StudentShell: React.FC = () => {
                 <div className="glass-card absolute right-0 top-12 w-52 z-50 overflow-hidden animate-fade-in py-1">
                   <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
                     <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{user?.name || "Student"}</p>
-                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>{user?.email || "student@christuniversity.in"}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>{user?.email || ""}</p>
                     <span className="badge mt-2" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>Student</span>
                   </div>
                   <button

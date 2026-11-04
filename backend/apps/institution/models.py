@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.db import models
 
-from apps.core.models import SoftDeleteModel
+from apps.core.models import SoftDeleteModel, TimeStampedModel
 
 
 class Campus(SoftDeleteModel):
@@ -152,3 +152,29 @@ def ensure_default_section(batch):
         dormant.restore()
     else:
         Section.objects.create(batch=batch, name=DEFAULT_SECTION_NAME)
+
+
+class UniversityProfile(TimeStampedModel):
+    """The single university this installation belongs to (one row, pk=1)."""
+
+    name = models.CharField(max_length=150, blank=True)
+    short_name = models.CharField(max_length=30, blank=True)
+    email_domain = models.CharField(max_length=100, blank=True)
+    contact_email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=30, blank=True)
+    website = models.URLField(max_length=200, blank=True)
+    address = models.TextField(blank=True)
+    logo_data = models.BinaryField(null=True, blank=True, editable=False)
+    logo_content_type = models.CharField(max_length=50, blank=True)
+    logo_updated_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return self.name or "University (not configured)"
+
+    @classmethod
+    def load(cls):
+        """The profile without the logo bytes (cheap); creates the empty row on first use."""
+        profile = cls.objects.defer("logo_data").filter(pk=1).first()
+        if profile is None:
+            profile = cls.objects.create(pk=1)
+        return profile

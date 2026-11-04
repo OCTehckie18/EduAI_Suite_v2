@@ -5,8 +5,10 @@ import logo from "../../../../logo/eduai_logo.png";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
+import { logoSrc, useUniversity } from "../../shared/university";
 
 export const AuthPage: React.FC = () => {
+  const uni = useUniversity();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [username, setUsername] = useState("");
@@ -120,12 +122,12 @@ export const AuthPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-4 mb-12">
             <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-xl p-1.5">
-              <img src={logo} alt="Christ University" className="w-full h-full object-contain" />
+              <img src={logoSrc(uni) ?? logo} alt={uni.name || "EduAI Suite"} className="w-full h-full object-contain" />
             </div>
             <div>
               <p className="text-white font-black text-xl tracking-tight" style={{ fontFamily: "var(--font-display)" }}>EduGames</p>
               <p className="text-[11px] font-semibold tracking-widest uppercase" style={{ color: "var(--color-brand-gold)" }}>
-                Christ (Deemed to be University)
+                {uni.name || "EduAI Suite"}
               </p>
             </div>
           </div>
@@ -136,7 +138,7 @@ export const AuthPage: React.FC = () => {
             <span style={{ color: "var(--color-brand-gold)" }}>Grow.</span>
           </h1>
           <p className="text-white/60 text-base leading-relaxed max-w-sm">
-            Interactive AI-powered learning games for students at Christ University.
+            Interactive AI-powered learning games for students{uni.name ? ` at ${uni.name}` : ""}.
           </p>
         </div>
 
@@ -161,7 +163,7 @@ export const AuthPage: React.FC = () => {
         </div>
 
         <p className="text-white/30 text-xs">
-          © 2026 Christ (Deemed to be University) · Excellence · Service · Knowledge
+          © 2026 {uni.name || "EduAI Suite"} · Excellence · Service · Knowledge
         </p>
       </div>
 
@@ -172,11 +174,11 @@ export const AuthPage: React.FC = () => {
             {/* Mobile Logo */}
             <div className="flex items-center gap-3 mb-8 lg:hidden">
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center p-1">
-                <img src={logo} alt="Christ University" className="w-full h-full object-contain" />
+                <img src={logoSrc(uni) ?? logo} alt={uni.name || "EduAI Suite"} className="w-full h-full object-contain" />
               </div>
               <div>
                 <p className="font-black text-sm" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-display)" }}>EduGames</p>
-                <p className="text-[10px]" style={{ color: "var(--color-text-muted)" }}>Christ University</p>
+                <p className="text-[10px]" style={{ color: "var(--color-text-muted)" }}>{uni.name || "EduAI Suite"}</p>
               </div>
             </div>
 
@@ -213,9 +215,11 @@ export const AuthPage: React.FC = () => {
                   />
                 </div>
 
-                <p className="text-xs text-center mt-1" style={{ color: "var(--color-text-muted)" }}>
-                  Use your <strong>@christuniversity.in</strong> email to sign in
-                </p>
+                {uni.email_domain && (
+                  <p className="text-xs text-center mt-1" style={{ color: "var(--color-text-muted)" }}>
+                    Use your <strong>@{uni.email_domain}</strong> email to sign in
+                  </p>
+                )}
 
                 <div className="w-full flex items-center gap-3 my-1">
                   <div className="h-px flex-1" style={{ background: "var(--color-border)" }} />
@@ -255,14 +259,16 @@ export const AuthPage: React.FC = () => {
               </div>
             )}
 
-            <div className="mt-6 pt-5 border-t text-center" style={{ borderColor: "var(--color-border)" }}>
-              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                Having trouble? Contact{" "}
-                <a href="mailto:it@christuniversity.in" className="font-semibold" style={{ color: "var(--color-brand-blue)" }}>
-                  it@christuniversity.in
-                </a>
-              </p>
-            </div>
+            {uni.contact_email && (
+              <div className="mt-6 pt-5 border-t text-center" style={{ borderColor: "var(--color-border)" }}>
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  Having trouble? Contact{" "}
+                  <a href={`mailto:${uni.contact_email}`} className="font-semibold" style={{ color: "var(--color-brand-blue)" }}>
+                    {uni.contact_email}
+                  </a>
+                </p>
+              </div>
+            )}
           </div>
 
           {/* SSD info */}

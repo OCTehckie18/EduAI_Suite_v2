@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../../../../logo/eduai_logo.png";
 import { useAuthStore } from "../../store/useAuthStore";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
+import { logoSrc, useUniversity } from "../../shared/university";
 
 interface Admission {
   matched: boolean | null;
@@ -26,6 +27,7 @@ const PLACEMENT_LABELS: [string, string][] = [
 const inputClass = "rounded-xl border border-slate-200 px-3 py-3 font-normal";
 
 export const ProfileSetupPage: React.FC = () => {
+  const uni = useUniversity();
   const navigate = useNavigate();
   const { googleLogin, logout } = useAuthStore();
   const user = useMemo(() => {
@@ -91,7 +93,7 @@ export const ProfileSetupPage: React.FC = () => {
 
   const header = (
     <div className="flex items-center gap-3">
-      <img src={logo} alt="Christ University" className="h-12 w-12 rounded-xl bg-white p-1" />
+      <img src={logoSrc(uni) ?? logo} alt={uni.name || "EduAI Suite"} className="h-12 w-12 rounded-xl bg-white p-1" />
       <div>
         <h1 className="text-2xl font-black">Complete your registration</h1>
         <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>{user.email || "Google account"} · Student profile</p>

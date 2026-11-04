@@ -4,6 +4,7 @@ import {
   Building2,
   ChevronRight,
   GraduationCap,
+  Landmark,
   Layers,
   LogOut,
   Plus,
@@ -17,6 +18,8 @@ import logo from "../../logo/eduai_logo.png";
 import { API_ENDPOINTS } from "./shared/apiConfig";
 import { requestJson } from "./shared/request";
 import { RosterPanel } from "./RosterPanel";
+import { UniversityPanel } from "./UniversityPanel";
+import { UniversityBadge, useDocumentTitle } from "./shared/university";
 import { StructurePanel } from "./StructurePanel";
 
 interface AdminUser {
@@ -162,9 +165,10 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 }
 
 export default function App() {
+  useDocumentTitle("Master Admin");
   const [user, setUser] = useState<AdminUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "campuses" | "structure" | "roster" | "users" | "approvals" | "recycle_bin">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "campuses" | "structure" | "roster" | "users" | "approvals" | "recycle_bin" | "university">("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -249,6 +253,7 @@ export default function App() {
               { tab: "roster" as const, label: "Student Roster", Icon: GraduationCap, color: "text-lime-400" },
               { tab: "users" as const, label: "Global User Directory", Icon: Users, color: "text-sky-400" },
               { tab: "approvals" as const, label: "Teacher Approvals", Icon: UserCheck, color: "text-violet-400" },
+              { tab: "university" as const, label: "University Settings", Icon: Landmark, color: "text-yellow-300" },
               { tab: "recycle_bin" as const, label: "Universal Recycle Bin", Icon: Trash2, color: "text-rose-400" },
             ].map(({ tab, label, Icon, color }) => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${activeTab === tab ? "bg-stone-800 text-white shadow-md border border-stone-700/60" : "text-stone-400 hover:text-white hover:bg-stone-900/60"}`}>
@@ -269,6 +274,8 @@ export default function App() {
           <div className="flex items-center gap-3">
             <div className="relative"><Search className="h-4 w-4 absolute left-3.5 top-3 text-stone-400" /><input type="text" placeholder="Search current view..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="bg-stone-900/80 border border-stone-800 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-stone-500 focus:outline-none focus:border-stone-600 w-64" /></div>
             <button onClick={refresh} disabled={loading} className="rounded-xl border border-stone-700 p-2 text-stone-300 hover:text-white disabled:opacity-50" title="Refresh"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></button>
+            <UniversityBadge labelClassName="text-stone-200" />
+            <div className="hidden text-right sm:block"><p className="text-xs font-semibold text-white">{user.name || user.email}</p><p className="text-[11px] text-stone-400">Master Admin</p></div>
             <button onClick={logout} className="flex items-center gap-2 rounded-xl border border-stone-700 px-3 py-2 text-sm text-stone-300 hover:text-white"><LogOut className="h-4 w-4" />Sign out</button>
           </div>
         </header>
@@ -293,6 +300,7 @@ export default function App() {
         {activeTab === "roster" && <RosterPanel search={searchQuery} />}
         {activeTab === "users" && <UserPanel users={filteredUsers} onCreate={() => { setEditingUser(null); setModal("user"); }} onEdit={(directoryUser) => { setEditingUser(directoryUser); setModal("user"); }} onRefresh={refresh} />}
         {activeTab === "approvals" && <ApprovalsPanel search={searchQuery} onChanged={refresh} />}
+        {activeTab === "university" && <UniversityPanel />}
         {activeTab === "recycle_bin" && <RecycleBinPanel items={deletedItems.filter((item) => `${item.label} ${item.content_type}`.toLowerCase().includes(searchQuery.toLowerCase()))} onRefresh={refresh} />}
 
         {modal === "campus" && <CampusForm campus={editingCampus} onClose={() => setModal(null)} onSaved={() => { setModal(null); refresh(); }} />}

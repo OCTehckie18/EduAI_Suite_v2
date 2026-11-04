@@ -623,7 +623,7 @@ export const ReportsPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-white font-display">Event Reports</h2>
-                  <p className="text-gray-400 text-sm mt-1">Create the CHRIST activity report from meeting or event notes.</p>
+                  <p className="text-gray-400 text-sm mt-1">Create the activity report from meeting or event notes.</p>
                 </div>
                 <button onClick={resetTemplateModal} className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 text-gray-400 hover:text-white"><X size={20} /></button>
               </div>
