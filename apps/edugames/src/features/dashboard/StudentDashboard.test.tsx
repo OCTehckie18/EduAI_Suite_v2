@@ -26,7 +26,7 @@ const respond = (summaryStatus: number, body: unknown) =>
 
 const renderDashboard = () => render(<MemoryRouter><StudentDashboard /></MemoryRouter>);
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("StudentDashboard", () => {
   it("shows the real average and no invented GPA, experience or rankings", async () => {

@@ -32,7 +32,7 @@ const mockApi = (patchResult: { ok: boolean; status: number; body: unknown }, su
   });
 
 const renderPage = () => render(<MemoryRouter><DashboardPage /></MemoryRouter>);
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("TeacherBuddy dashboard", () => {
   it("keeps the dashboard and shows the reason next to the request when Approve fails", async () => {
