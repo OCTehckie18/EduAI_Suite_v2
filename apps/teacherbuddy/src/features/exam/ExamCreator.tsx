@@ -22,7 +22,7 @@ interface Question {
 
 interface ExamCreatorProps {
   onClose: () => void;
-  onSave: (examData: any) => Promise<boolean>;
+  onSave: (examData: any) => Promise<true | string>;
   initialData?: any;
 }
 
@@ -43,6 +43,9 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
   const [importTab, setImportTab] = useState<"smart" | "excel">("smart");
   const [isImportingExcel, setIsImportingExcel] = useState(false);
   const [importSuccess, setImportSuccess] = useState("");
+  const [coursesState, setCoursesState] = useState<"loading" | "ready" | "failed">("loading");
+  // Once a student has attempted the exam its questions are frozen on the server, so they are read-only here.
+  const locked = !!initialData?.attempts?.length;
 
   React.useEffect(() => {
     fetchCourses();
@@ -54,13 +57,17 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
       const response = await fetch(API_ENDPOINTS.COURSES, {
         headers: { "Authorization": `Bearer ${token}` }
       });
+      if (!response.ok) throw new Error("Failed to load classes");
       const data = await response.json();
-      setCourses(data);
-      if (data.length > 0 && !courseId) {
-        setCourseId(data[0].id);
+      const list = Array.isArray(data) ? data : [];
+      setCourses(list);
+      setCoursesState("ready");
+      if (list.length > 0 && !courseId) {
+        setCourseId(list[0].id);
       }
     } catch (err) {
       console.error("Failed to fetch courses", err);
+      setCoursesState("failed");
     }
   };
 
@@ -89,6 +96,14 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
     const newQuestions = [...questions];
     newQuestions[index].question_text = text;
     setQuestions(newQuestions);
+  };
+
+  const updatePoints = (index: number, points: number) => {
+    setQuestions(questions.map((q, i) => (i === index ? { ...q, points } : q)));
+  };
+
+  const removeChoice = (qIndex: number, cIndex: number) => {
+    setQuestions(questions.map((q, i) => (i === qIndex ? { ...q, choices: q.choices.filter((_, ci) => ci !== cIndex) } : q)));
   };
 
   const addChoice = (qIndex: number) => {
@@ -250,22 +265,37 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
         return;
     }
     
-    if (questions.length === 0) {
-        setError("Please add at least one question.");
+    if (Number.isNaN(timeLimit) || timeLimit < 1 || timeLimit > 600) {
+        setError("The time limit must be between 1 and 600 minutes.");
         return;
     }
-    
-    // Verification: all questions must have a correct answer selected
-    const unselectedIndices = questions
-      .map((q, i) => q.choices.some(c => c.is_correct) ? -1 : i)
-      .filter(i => i !== -1);
-      
-    if (unselectedIndices.length > 0) {
-        setError(`Please select correct answers for questions: ${unselectedIndices.map(i => i + 1).join(", ")}`);
+    if (Number.isNaN(attempts) || attempts < 1 || attempts > 20) {
+        setError("Attempts must be between 1 and 20.");
         return;
     }
 
-    const examData = {
+    if (questions.length === 0 && status === "published") {
+        setError("Please add at least one question.");
+        return;
+    }
+
+    // Blank options (imports pad every question to four) are dropped, then each question is checked.
+    const cleanedQuestions = questions.map((q) => ({
+      ...q,
+      question_text: q.question_text.trim(),
+      choices: q.choices
+        .map((c) => ({ ...c, choice_text: c.choice_text.trim() }))
+        .filter((c) => c.choice_text !== ""),
+    }));
+    for (let i = 0; i < cleanedQuestions.length; i++) {
+      const q = cleanedQuestions[i];
+      if (!q.question_text) { setError(`Question ${i + 1} has no text.`); return; }
+      if (Number.isNaN(q.points) || q.points <= 0) { setError(`Question ${i + 1}: points must be more than 0.`); return; }
+      if (q.choices.length < 2) { setError(`Question ${i + 1} needs at least two filled-in options.`); return; }
+      if (q.choices.filter((c) => c.is_correct).length !== 1) { setError(`Question ${i + 1}: mark exactly one correct option.`); return; }
+    }
+
+    const examData: any = {
       title,
       description,
       course_id: courseId,
@@ -273,13 +303,14 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
       attempts_allowed: attempts,
       randomize_questions: randomize,
       status: status,
-      questions
     };
-    
+    // A locked exam's questions are not sent at all, so saving settings can never touch them.
+    if (!locked) examData.questions = cleanedQuestions;
+
     setIsSaving(true);
     onSave(examData).then(success => {
-        if (!success) {
-            setError("Failed to save the exam. Please try again.");
+        if (success !== true) {
+            setError(success || "Failed to save the exam. Please try again.");
             setIsSaving(false);
         }
         // If success, ExamsPage will close us.
@@ -331,8 +362,13 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                     className="form-input text-sm bg-white"
                     value={courseId}
                     onChange={(e) => setCourseId(parseInt(e.target.value))}
+                    disabled={!!initialData}
                   >
-                    {courses.length === 0 && <option value="">Loading classes...</option>}
+                    {courses.length === 0 && (
+                      <option value="">
+                        {coursesState === "loading" ? "Loading classes..." : coursesState === "failed" ? "Could not load your classes" : "You have no classes yet"}
+                      </option>
+                    )}
                     {courses.map(course => (
                       <option key={course.id} value={course.id}>
                         {course.code} - {course.name}
@@ -347,8 +383,10 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                     <input 
                       type="number" 
                       className="form-input text-sm" 
-                      value={timeLimit}
-                      onChange={(e) => setTimeLimit(parseInt(e.target.value))}
+                      min={1}
+                      max={600}
+                      value={Number.isNaN(timeLimit) ? "" : timeLimit}
+                      onChange={(e) => setTimeLimit(e.target.value === "" ? NaN : parseInt(e.target.value))}
                     />
                     <span className="text-xs text-slate-400 shrink-0">mins</span>
                   </div>
@@ -360,8 +398,10 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                     <input 
                       type="number" 
                       className="form-input text-sm" 
-                      value={attempts}
-                      onChange={(e) => setAttempts(parseInt(e.target.value))}
+                      min={1}
+                      max={20}
+                      value={Number.isNaN(attempts) ? "" : attempts}
+                      onChange={(e) => setAttempts(e.target.value === "" ? NaN : parseInt(e.target.value))}
                     />
                   </div>
                   <div className="flex flex-col justify-end pb-2">
@@ -380,7 +420,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
             </section>
 
             {/* ── Import Section with Tabs ── */}
-            <section className="rounded-2xl bg-blue-50 border border-blue-100 overflow-hidden">
+            {!locked && <section className="rounded-2xl bg-blue-50 border border-blue-100 overflow-hidden">
               {/* Tab Switcher */}
               <div className="flex border-b border-blue-100">
                 <button
@@ -481,7 +521,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                         <input 
                           type="file" 
                           className="hidden" 
-                          accept=".xlsx,.xls" 
+                          accept=".xlsx" 
                           onChange={handleExcelUpload} 
                           disabled={isImportingExcel} 
                         />
@@ -490,7 +530,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                   </>
                 )}
               </div>
-            </section>
+            </section>}
           </div>
 
           {/* Right Column: Questions */}
@@ -499,13 +539,19 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
                 Questions ({questions.length})
               </h3>
-              <button 
+              {!locked && <button
                 onClick={addQuestion}
                 className="btn btn-outline text-xs py-1.5 px-3 flex items-center gap-1.5"
               >
                 <Plus size={14} /> Add Question
-              </button>
+              </button>}
             </div>
+
+            {locked && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                Students have already attempted this exam, so its questions can no longer be changed. You can still edit the title, time limit, attempts and other settings.
+              </div>
+            )}
 
             {/* Success Message */}
             {importSuccess && (
@@ -532,12 +578,14 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                 <p className="text-xs">Start by adding one manually or uploading a file.</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <fieldset disabled={locked} className="space-y-4 min-w-0">
                 {questions.map((q, qi) => (
                   <GlassCard key={qi} padding="md" className="border border-slate-200/50 relative group">
                     <button 
                       onClick={() => removeQuestion(qi)}
-                      className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-4 right-4 text-slate-300 hover:text-red-500 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      title="Remove question"
+                      aria-label={`Remove question ${qi + 1}`}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -553,6 +601,17 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                           value={q.question_text}
                           onChange={(e) => updateQuestionText(qi, e.target.value)}
                         />
+                        <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                          Points
+                          <input
+                            type="number"
+                            min={0.5}
+                            step={0.5}
+                            className="w-20 text-xs py-1 px-2 rounded-lg border border-slate-200"
+                            value={Number.isNaN(q.points) ? "" : q.points}
+                            onChange={(e) => updatePoints(qi, e.target.value === "" ? NaN : parseFloat(e.target.value))}
+                          />
+                        </label>
                         
                         <div className="space-y-2">
                           {q.choices.map((choice, ci) => (
@@ -574,6 +633,16 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                                 value={choice.choice_text}
                                 onChange={(e) => updateChoice(qi, ci, e.target.value)}
                               />
+                              {q.choices.length > 2 && (
+                                <button
+                                  onClick={() => removeChoice(qi, ci)}
+                                  className="text-slate-300 hover:text-red-500"
+                                  title="Remove option"
+                                  aria-label={`Remove option ${String.fromCharCode(65 + ci)}`}
+                                >
+                                  <X size={14} />
+                                </button>
+                              )}
                             </div>
                           ))}
                           <button 
@@ -587,7 +656,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                     </div>
                   </GlassCard>
                 ))}
-              </div>
+              </fieldset>
             )}
           </div>
         </div>

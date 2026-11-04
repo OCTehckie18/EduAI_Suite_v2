@@ -10,6 +10,7 @@ export const StudentExams: React.FC = () => {
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeExam, setActiveExam] = useState<any>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchExams();
@@ -23,6 +24,7 @@ export const StudentExams: React.FC = () => {
         setLoading(false);
         return; // App will show "No Exams Available" or user will be redirected by other logic
       }
+      setError("");
       const response = await fetch(`${API_BASE_URL}/exams/`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -31,6 +33,7 @@ export const StudentExams: React.FC = () => {
       setExams(data.filter((e: any) => e.status === "published"));
     } catch (err) {
       console.error("Error fetching exams:", err);
+      setError("Could not load your exams. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -42,11 +45,13 @@ export const StudentExams: React.FC = () => {
       const response = await fetch(`${API_BASE_URL}/exams/${examId}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (!response.ok) throw new Error("Failed to load exam");
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "Failed to load exam");
+      setError("");
       setActiveExam(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load exam", err);
+      setError(err.message || "Failed to load the exam.");
     }
   };
 
@@ -78,7 +83,14 @@ export const StudentExams: React.FC = () => {
         <p className="text-sm mt-1" style={{ color: "var(--color-text-secondary)" }}>Take online exams and view your AI-evaluated results.</p>
       </div>
 
-      {exams.length === 0 ? (
+      {error && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold flex items-center justify-between gap-3">
+          <span>{error}</span>
+          <button onClick={() => void fetchExams()} className="underline text-xs">Retry</button>
+        </div>
+      )}
+
+      {exams.length === 0 && !error ? (
         <GlassCard className="p-12 text-center">
           <div className="flex flex-col items-center gap-3">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
@@ -96,18 +108,26 @@ export const StudentExams: React.FC = () => {
                 month: 'short', day: 'numeric', year: 'numeric' 
             });
             
+            const myAttempts: any[] = exam.attempts || [];
+            const finished = myAttempts.filter((a) => a.status !== "in_progress");
+            const inProgress = myAttempts.some((a) => a.status === "in_progress");
+            const scores = finished.filter((a) => a.status === "submitted" && a.score != null).map((a) => a.score as number);
+            const bestScore = scores.length ? Math.max(...scores) : null;
+            const flagged = myAttempts.some((a) => a.status === "flagged");
+            const outOfAttempts = flagged || (!inProgress && finished.length >= (exam.attempts_allowed ?? 1));
+
             return (
               <GlassCard key={exam.id} className="p-0 overflow-hidden flex flex-col justify-between hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
                 <div className="p-5 border-b" style={{ borderColor: 'var(--color-border)' }}>
                     <div className="flex justify-between items-start mb-2">
                         <p className="text-xs font-bold uppercase tracking-widest text-blue-500">
-                            {exam.course?.code || `COURSE-${exam.course_id}`}
+                            {exam.course_code || `COURSE-${exam.course_id}`}
                         </p>
-                        <span className="badge badge-blue text-[10px]">Active</span>
+                        <span className="badge badge-blue text-[10px]">{flagged ? "Flagged" : inProgress ? "In progress" : outOfAttempts ? "Done" : "Open"}</span>
                     </div>
                     <h2 className="text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>{exam.title}</h2>
-                    {exam.course?.name && (
-                        <p className="text-xs text-slate-500 mt-1">{exam.course.name}</p>
+                    {exam.course_name && (
+                        <p className="text-xs text-slate-500 mt-1">{exam.course_name}</p>
                     )}
                 </div>
                 
@@ -115,14 +135,24 @@ export const StudentExams: React.FC = () => {
                     <div className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
                       <p><Clock className="inline mr-1" size={14}/> Released: {createdDate}</p>
                       <p className="mt-1"><FileText className="inline mr-1" size={14}/> {exam.time_limit} Minutes</p>
+                      <p className="mt-1 text-xs">
+                        Attempts: {finished.length} of {exam.attempts_allowed ?? 1}
+                        {bestScore != null && <> · Best score: <strong>{bestScore}%</strong></>}
+                      </p>
+                      {flagged && (
+                        <p className="mt-1 text-xs font-semibold text-red-600">
+                          Flagged for leaving the exam: recorded as failed (0%). You cannot retake it.
+                        </p>
+                      )}
                     </div>
                     
                     <div className="text-right">
                       <button 
                         onClick={() => startExam(exam.id)}
-                        className="btn btn-primary text-xs px-5 shadow-md flex items-center"
+                        disabled={outOfAttempts}
+                        className="btn btn-primary text-xs px-5 shadow-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <PlayCircle size={16} className="mr-1"/> Take Exam
+                        <PlayCircle size={16} className="mr-1"/> {flagged ? "Not allowed" : inProgress ? "Resume Exam" : outOfAttempts ? "No attempts left" : "Take Exam"}
                       </button>
                     </div>
                 </div>

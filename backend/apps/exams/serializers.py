@@ -1,4 +1,7 @@
+from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import serializers
+
 from .models import Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer
 
 
@@ -31,15 +34,70 @@ class ExamAnswerSerializer(serializers.ModelSerializer):
 
 
 class ExamAttemptSerializer(serializers.ModelSerializer):
+    """An attempt. ``student_name`` / ``student_email`` identify whose it is for the teacher's lists.
+
+    With ``include_review`` in the context (and the attempt finished, or the viewer a teacher) it also
+    carries the exam's questions with the answer key, which is what the answer sheet displays.
+    """
+
     answers = ExamAnswerSerializer(many=True, read_only=True)
+    student_name = serializers.SerializerMethodField()
+    student_email = serializers.SerializerMethodField()
+    remaining_seconds = serializers.SerializerMethodField()
+    exam = serializers.SerializerMethodField()
 
     class Meta:
         model = ExamAttempt
-        fields = ["id", "student_id", "score", "status", "start_time", "end_time", "answers"]
+        fields = [
+            "id", "student_id", "student_name", "student_email", "score", "earned_points", "total_points",
+            "status", "flag_reason", "start_time", "end_time", "expires_at", "remaining_seconds", "answers", "exam",
+        ]
+
+    def _student(self, attempt):
+        users = self.context.get("users")
+        if users is None:
+            users = self.context["users"] = {}
+        if attempt.student_id not in users:
+            users[attempt.student_id] = get_user_model().objects.filter(pk=attempt.student_id).first()
+        return users[attempt.student_id]
+
+    def get_student_name(self, attempt):
+        student = self._student(attempt)
+        return student.full_name if student else ""
+
+    def get_student_email(self, attempt):
+        student = self._student(attempt)
+        return student.email if student else ""
+
+    def get_remaining_seconds(self, attempt):
+        if attempt.status != "in_progress" or not attempt.expires_at:
+            return None
+        return max(0, int((attempt.expires_at - timezone.now()).total_seconds()))
+
+    def get_exam(self, attempt):
+        if not self.context.get("include_review"):
+            return None
+        if attempt.status in ("in_progress", "flagged") and not self.context.get("viewer_manages"):
+            return None  # no answer key while sitting the exam, and none for an attempt ended for cheating
+        exam = attempt.exam
+        questions = [
+            {
+                "id": q.id,
+                "question_text": q.question_text,
+                "question_type": q.question_type,
+                "points": q.points,
+                "order": q.order,
+                "choices": [{"id": c.id, "choice_text": c.choice_text, "is_correct": c.is_correct} for c in q.choices.all()],
+            }
+            for q in exam.questions.all()
+        ]
+        return {"id": exam.id, "title": exam.title, "questions": questions}
 
 
 class ExamSerializer(serializers.ModelSerializer):
     course_id = serializers.IntegerField(source="course.id", read_only=True)
+    course_code = serializers.CharField(source="course.subject_code", read_only=True)
+    course_name = serializers.CharField(source="course.name", read_only=True)
     questions = ExamQuestionSerializer(many=True, required=False)
     attempts = serializers.SerializerMethodField()
 
@@ -55,6 +113,8 @@ class ExamSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "course_id",
+            "course_code",
+            "course_name",
             "title",
             "description",
             "time_limit",

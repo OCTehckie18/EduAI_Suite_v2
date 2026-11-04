@@ -3,13 +3,18 @@ from apps.classrooms.models import Classroom
 
 
 class Exam(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PUBLISHED = "published", "Published"
+        CLOSED = "closed", "Closed"
+
     course = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name="exams")
     title = models.CharField(max_length=255, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     time_limit = models.IntegerField(default=60)
     attempts_allowed = models.IntegerField(default=1)
     randomize_questions = models.BooleanField(default=False)
-    status = models.CharField(max_length=50, default="draft")
+    status = models.CharField(max_length=50, choices=Status.choices, default=Status.DRAFT)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
@@ -49,6 +54,12 @@ class ExamAttempt(models.Model):
     status = models.CharField(max_length=50, default="in_progress")
     start_time = models.DateTimeField(auto_now_add=True)
     end_time = models.DateTimeField(null=True, blank=True)
+    # The server enforces the time limit: after this moment (plus a short grace period) the attempt is closed.
+    expires_at = models.DateTimeField(null=True, blank=True)
+    earned_points = models.FloatField(null=True, blank=True)
+    # Set when the attempt was ended for leaving the exam (status "flagged").
+    flag_reason = models.CharField(max_length=200, blank=True, default="")
+    total_points = models.FloatField(null=True, blank=True)
 
     class Meta:
         ordering = ["-start_time"]
