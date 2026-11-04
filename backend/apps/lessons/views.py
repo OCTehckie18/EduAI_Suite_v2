@@ -10,6 +10,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.classrooms.models import Classroom
+from apps.core.access import can_manage_course, can_view_course, managed_courses, visible_courses
+from apps.core.permissions import IsTeacher
 from apps.announcements.models import Announcement
 from apps.core.utils.plan_parser import CoursePlanParser
 from services.groq_service import GroqService
@@ -22,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class LessonGenerateView(APIView):
+    permission_classes = [IsTeacher]
 
     def post(self, request):
         topic = request.data.get("topic", "")
@@ -38,6 +41,7 @@ class LessonGenerateView(APIView):
 
 
 class LessonParsePlanView(APIView):
+    permission_classes = [IsTeacher]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
@@ -70,7 +74,18 @@ class LessonParsePlanView(APIView):
         return Response(result)
 
 
+def _own_lesson(request, lesson_id):
+    """(lesson, error): the lesson, only if the caller manages its course."""
+    lesson = get_object_or_404(Lesson.objects.select_related("course"), pk=lesson_id)
+    if not can_manage_course(request.user, lesson.course):
+        return None, Response({"detail": "You do not have permission to do that for this lesson."}, status=status.HTTP_403_FORBIDDEN)
+    return lesson, None
+
+
 class LessonListCreateView(APIView):
+
+    def get_permissions(self):
+        return [IsTeacher()] if self.request.method == "POST" else super().get_permissions()
 
     def get(self, request):
         course_id = request.query_params.get("course_id")
@@ -78,10 +93,13 @@ class LessonListCreateView(APIView):
         if request.query_params.get("posted_only") == "true":
             status_param = "posted"
 
-        qs = Lesson.objects.all()
+        user = request.user
+        qs = Lesson.objects.filter(course__in=visible_courses(user))
         if course_id:
             qs = qs.filter(course_id=course_id)
-        if status_param == "posted":
+        if getattr(user, "role", "") == "STUDENT":
+            qs = qs.filter(posted_at__isnull=False)  # drafts are the teacher's private work
+        elif status_param == "posted":
             qs = qs.filter(posted_at__isnull=False)
         elif status_param == "draft":
             qs = qs.filter(posted_at__isnull=True)
@@ -91,13 +109,14 @@ class LessonListCreateView(APIView):
     def post(self, request):
         data = request.data
         course_id = data.get("course_id")
-        classroom = None
-        if course_id:
-            classroom = Classroom.objects.filter(pk=course_id).first()
-        if not classroom:
-            classroom = Classroom.objects.first()
-        if not classroom:
-            return Response({"detail": "No course available to attach lesson"}, status=status.HTTP_400_BAD_REQUEST)
+        if not course_id:
+            return Response({"detail": "Choose the course this lesson is for."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            classroom = managed_courses(request.user).filter(pk=int(course_id)).first()
+        except (TypeError, ValueError):
+            classroom = None
+        if classroom is None:
+            return Response({"detail": "You can only add lessons to your own courses."}, status=status.HTTP_403_FORBIDDEN)
 
         topic = data.get("topic", "")
         title = data.get("title") or topic or "Untitled Lesson"
@@ -111,7 +130,7 @@ class LessonListCreateView(APIView):
             examples=data.get("examples"),
             activities=data.get("activities"),
             quiz_questions=data.get("quiz_questions"),
-            created_by=data.get("created_by", 0),
+            created_by=request.user.pk,  # the author is the signed-in teacher, not a client-supplied id
         )
 
         return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
@@ -119,12 +138,21 @@ class LessonListCreateView(APIView):
 
 class LessonDetailView(APIView):
 
+    def get_permissions(self):
+        return [IsTeacher()] if self.request.method in ("PUT", "DELETE") else super().get_permissions()
+
     def get(self, request, lesson_id):
-        lesson = get_object_or_404(Lesson, pk=lesson_id)
-        return Response(LessonSerializer(lesson).data)
+        lesson = get_object_or_404(Lesson.objects.select_related("course"), pk=lesson_id)
+        if can_manage_course(request.user, lesson.course):
+            return Response(LessonSerializer(lesson).data)
+        if lesson.posted_at is not None and can_view_course(request.user, lesson.course):
+            return Response(LessonSerializer(lesson).data)
+        return Response({"detail": "You do not have permission to do that for this lesson."}, status=status.HTTP_403_FORBIDDEN)
 
     def put(self, request, lesson_id):
-        lesson = get_object_or_404(Lesson, pk=lesson_id)
+        lesson, error = _own_lesson(request, lesson_id)
+        if error:
+            return error
         data = request.data
 
         for field in ["title", "topic", "syllabus_context", "lecture_flow", "examples", "activities", "quiz_questions"]:
@@ -135,15 +163,22 @@ class LessonDetailView(APIView):
         return Response(LessonSerializer(lesson).data)
 
     def delete(self, request, lesson_id):
-        lesson = get_object_or_404(Lesson, pk=lesson_id)
+        lesson, error = _own_lesson(request, lesson_id)
+        if error:
+            return error
         lesson.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class LessonPostView(APIView):
+    permission_classes = [IsTeacher]
 
     def post(self, request, lesson_id):
-        lesson = get_object_or_404(Lesson, pk=lesson_id)
+        lesson, error = _own_lesson(request, lesson_id)
+        if error:
+            return error
+        if lesson.posted_at is not None:
+            return Response(LessonSerializer(lesson).data)  # already posted: do not repeat the announcement
         lesson.posted_at = timezone.now()
         lesson.save()
 
@@ -160,12 +195,12 @@ class LessonPostView(APIView):
 
 
 class LessonEduGamesView(APIView):
+    permission_classes = [IsTeacher]
 
     def post(self, request, lesson_id):
-        lesson = get_object_or_404(
-            Lesson.objects.select_related("course"),
-            pk=lesson_id,
-        )
+        lesson, error = _own_lesson(request, lesson_id)
+        if error:
+            return error
         if lesson.posted_at is None:
             return Response(
                 {"detail": "Post the lesson before sending it to EduGames."},
@@ -194,7 +229,7 @@ class LessonEduGamesView(APIView):
 
         game = ChainAnswerGame.objects.create(
             session_id=f"game_{uuid.uuid4().hex[:8]}",
-            teacher_id=lesson.created_by or None,
+            teacher_id=request.user.pk,
             name=f"{lesson.title or lesson.topic} Quiz",
             subject=lesson.topic,
             starting_word=lesson.topic or "Lesson",

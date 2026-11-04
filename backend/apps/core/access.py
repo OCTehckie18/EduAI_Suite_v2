@@ -26,3 +26,43 @@ class IsMasterAdminOrReadOnly(BasePermission):
         if not (user and user.is_authenticated):
             return False
         return request.method in SAFE_METHODS or is_master_admin(user)
+
+
+# ---- course (classroom) access ------------------------------------------------
+
+def can_manage_course(user, classroom) -> bool:
+    """The course's own teacher, or a master admin."""
+    return bool(
+        user
+        and user.is_authenticated
+        and (is_master_admin(user) or classroom.teacher_id == user.pk)
+    )
+
+
+def can_view_course(user, classroom) -> bool:
+    """Whoever manages the course, plus students actively enrolled in it."""
+    if can_manage_course(user, classroom):
+        return True
+    if not (user and user.is_authenticated and getattr(user, "role", "") == "STUDENT"):
+        return False
+    from apps.classrooms.models import Enrollment
+
+    return Enrollment.objects.filter(classroom=classroom, student=user, is_active=True).exists()
+
+
+def managed_courses(user):
+    """Classrooms the user may manage (all for master admins)."""
+    from apps.classrooms.models import Classroom
+
+    return Classroom.objects.all() if is_master_admin(user) else Classroom.objects.filter(teacher=user)
+
+
+def visible_courses(user):
+    """Classrooms the user may see: their own as a teacher, or the ones a student is enrolled in."""
+    from apps.classrooms.models import Classroom
+
+    if is_master_admin(user):
+        return Classroom.objects.all()
+    if getattr(user, "role", "") == "TEACHER":
+        return Classroom.objects.filter(teacher=user)
+    return Classroom.objects.filter(enrollments__student=user, enrollments__is_active=True).distinct()

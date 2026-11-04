@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts import roster
+from apps.core.access import visible_courses
 from apps.accounts.models import User
 from apps.institution.models import Batch, Department, Program, Section
 from apps.core.models import ActionHistory
@@ -76,7 +77,7 @@ def _visible_classroom(user, course_id):
         return None
 
 
-def _course_payload(classroom):
+def _course_payload(classroom, viewer=None):
     students_count = Enrollment.objects.filter(
         classroom=classroom,
         is_active=True,
@@ -95,7 +96,8 @@ def _course_payload(classroom):
         "progress": 0.0,
         "color": classroom.color or "#264796",
         "description": classroom.description or "",
-        "enrollment_code": classroom.enrollment_code,
+        # The join code is for the course's teacher; classmates have no use for it.
+        "enrollment_code": classroom.enrollment_code if viewer is None or _manages(viewer, classroom) else None,
         "teacher_name": teacher_name,
         "course_plan_path": classroom.course_plan_path or None,
         "department_id": classroom.department_id,
@@ -213,10 +215,11 @@ class LegacyCourseListCreateView(APIView):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get(self, request):
-        classrooms = Classroom.objects.select_related(
+        # Teachers see their own courses, students the ones they are enrolled in, master admins all.
+        classrooms = visible_courses(request.user).select_related(
             "teacher", "department", "program", "batch", "section"
-        ).all()
-        return Response([_course_payload(classroom) for classroom in classrooms])
+        )
+        return Response([_course_payload(classroom, request.user) for classroom in classrooms])
 
     @transaction.atomic
     def post(self, request):
@@ -297,7 +300,7 @@ class LegacyCourseDetailView(APIView):
 
     def get(self, request, course_id):
         classroom, error = self._get(request, course_id)
-        return error or Response(_course_payload(classroom))
+        return error or Response(_course_payload(classroom, request.user))
 
     @transaction.atomic
     def put(self, request, course_id):
@@ -324,7 +327,7 @@ class LegacyCourseDetailView(APIView):
         if request.FILES.get("file"):
             classroom.course_plan_path = _save_course_plan(request.FILES["file"])
         classroom.save()
-        return Response(_course_payload(classroom))
+        return Response(_course_payload(classroom, request.user))
 
     def patch(self, request, course_id):
         return self.put(request, course_id)
