@@ -116,12 +116,23 @@ export const ClassroomsPage: React.FC = () => {
   const [courseForm, setCourseForm] = useState({
     code: "",
     name: "",
-    batch: `${new Date().getFullYear()}-A`,
+    program_id: "",
+    batch_id: "",
+    section_id: "",
     description: "",
     enrollment_code: "",
     color: "#264796",
-    teacher_name: "",
   });
+  const [classOptions, setClassOptions] = useState<{
+    department: { id: number; name: string } | null;
+    programs: {
+      id: number;
+      name: string;
+      code: string;
+      batches: { id: number; name: string; academic_year: string; sections: { id: number; name: string }[] }[];
+    }[];
+  } | null>(null);
+  const [classOptionsError, setClassOptionsError] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [coursePlanFile, setCoursePlanFile] = useState<File | null>(null);
 
@@ -370,16 +381,15 @@ export const ClassroomsPage: React.FC = () => {
   };
 
   const resetCourseForm = () => {
-    const storedUser = localStorage.getItem("user");
-    const teacherName = storedUser ? JSON.parse(storedUser).name : "";
     setCourseForm({
       code: "",
       name: "",
-      batch: "",
+      program_id: "",
+      batch_id: "",
+      section_id: "",
       description: "",
       enrollment_code: "",
       color: "#264796",
-      teacher_name: teacherName,
     });
     setCoursePlanFile(null);
   };
@@ -387,9 +397,10 @@ export const ClassroomsPage: React.FC = () => {
   const handleCreateCourse = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData();
-    Object.entries(courseForm).forEach(([key, val]) =>
-      formData.append(key, val),
-    );
+    const { program_id: _program, ...courseFields } = courseForm;
+    Object.entries(courseFields).forEach(([key, val]) => {
+      if (val !== "") formData.append(key, val);
+    });
     if (coursePlanFile) formData.append("file", coursePlanFile);
 
     handleApiCall(
@@ -424,9 +435,6 @@ export const ClassroomsPage: React.FC = () => {
           ...prev,
           code: (data.code && data.code.trim()) || prev.code,
           name: (data.name && data.name.trim()) || prev.name,
-          teacher_name:
-            (data.teacher_name && data.teacher_name.trim()) ||
-            prev.teacher_name,
           description:
             data.description || data.programmes
               ? `${data.description || data.programmes}`
@@ -441,15 +449,19 @@ export const ClassroomsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (showCourseModal) {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        if (user.name) {
-          setCourseForm((prev) => ({ ...prev, teacher_name: user.name }));
-        }
+    if (!showCourseModal) return;
+    setClassOptionsError("");
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/courses/options/`, { headers: authHeaders() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || "Could not load the classes for your department.");
+        setClassOptions(data);
+      } catch (err) {
+        setClassOptions(null);
+        setClassOptionsError(err instanceof Error ? err.message : "Could not load the classes for your department.");
       }
-    }
+    })();
   }, [showCourseModal]);
 
   const handleDeleteCourse = (id: number) => {
@@ -1540,17 +1552,65 @@ export const ClassroomsPage: React.FC = () => {
                   }
                 />
               </div>
+              {classOptionsError && (
+                <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600">{classOptionsError}</p>
+              )}
+              {classOptions && classOptions.programs.every((p) => p.batches.length === 0) && (
+                <p className="rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-700">
+                  No classes are set up{classOptions.department ? ` for ${classOptions.department.name}` : " for your department"} yet. Ask the master admin to add them under Institution Structure.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={premiumLabel}>Batch</label>
-                  <input
+                  <label className={premiumLabel}>Program</label>
+                  <select
+                    required
                     className={premiumInput}
-                    placeholder="2026-A"
-                    value={courseForm.batch}
+                    value={courseForm.program_id}
                     onChange={(e) =>
-                      setCourseForm({ ...courseForm, batch: e.target.value })
+                      setCourseForm({ ...courseForm, program_id: e.target.value, batch_id: "", section_id: "" })
                     }
-                  />
+                  >
+                    <option value="">Select program</option>
+                    {(classOptions?.programs ?? []).filter((p) => p.batches.length > 0).map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={premiumLabel}>Class</label>
+                  <select
+                    required
+                    className={premiumInput}
+                    disabled={!courseForm.program_id}
+                    value={courseForm.batch_id}
+                    onChange={(e) => setCourseForm({ ...courseForm, batch_id: e.target.value, section_id: "" })}
+                  >
+                    <option value="">Select class</option>
+                    {(classOptions?.programs.find((p) => String(p.id) === courseForm.program_id)?.batches ?? []).map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={premiumLabel}>Section</label>
+                  <select
+                    className={premiumInput}
+                    disabled={!courseForm.batch_id}
+                    value={courseForm.section_id}
+                    onChange={(e) => setCourseForm({ ...courseForm, section_id: e.target.value })}
+                  >
+                    <option value="">All sections</option>
+                    {(
+                      classOptions?.programs
+                        .find((p) => String(p.id) === courseForm.program_id)
+                        ?.batches.find((b) => String(b.id) === courseForm.batch_id)?.sections ?? []
+                    ).map((sec) => (
+                      <option key={sec.id} value={sec.id}>Section {sec.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className={premiumLabel}>Join Code</label>
@@ -1578,18 +1638,11 @@ export const ClassroomsPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className={premiumLabel}>Teacher Name</label>
+                <label className={premiumLabel}>Teacher</label>
                 <input
-                  required
-                  className={premiumInput}
-                  placeholder="e.g., Prof. Smith"
-                  value={courseForm.teacher_name}
-                  onChange={(e) =>
-                    setCourseForm({
-                      ...courseForm,
-                      teacher_name: e.target.value,
-                    })
-                  }
+                  disabled
+                  className={`${premiumInput} bg-slate-50 cursor-not-allowed`}
+                  value={(() => { try { return JSON.parse(localStorage.getItem("user") || "{}").name || ""; } catch { return ""; } })()}
                 />
               </div>
               <div className="border-2 border-dashed border-slate-300 rounded-2xl p-5 text-center mt-2 hover:bg-slate-50 transition-colors relative">

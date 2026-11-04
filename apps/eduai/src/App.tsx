@@ -15,7 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import logo from "../../logo/eduai_logo.png";
-import { API_ENDPOINTS } from "./shared/apiConfig";
+import { API_BASE_URL, API_ENDPOINTS } from "./shared/apiConfig";
 import { requestJson } from "./shared/request";
 import { RosterPanel } from "./RosterPanel";
 import { UniversityPanel } from "./UniversityPanel";
@@ -60,6 +60,7 @@ interface DirectoryUser {
   emp_no?: string;
   is_active: boolean;
   campus?: { id: number; name: string } | null;
+  department?: { id: number; name: string } | null;
 }
 
 interface TeacherApplication {
@@ -432,16 +433,22 @@ function CampusForm({ campus, onClose, onSaved }: { campus: Campus | null; onClo
 }
 
 function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | null; campuses: Campus[]; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ email: user?.email || "", password: "", first_name: user?.first_name || "", last_name: user?.last_name || "", role: user?.role || "STUDENT", campus: user?.campus?.id ? String(user.campus.id) : "" });
+  const [form, setForm] = useState({ email: user?.email || "", password: "", first_name: user?.first_name || "", last_name: user?.last_name || "", role: user?.role || "STUDENT", campus: user?.campus?.id ? String(user.campus.id) : "", department: user?.department?.id ? String(user.department.id) : "" });
+  const [departments, setDepartments] = useState<{ id: number; label: string }[]>([]);
   const [error, setError] = useState("");
+  useEffect(() => {
+    requestJson<{ results: { id: number; name: string; school_detail?: { name: string; campus_detail?: { name: string } } }[] }>(`${API_BASE_URL}/institution/departments/?page_size=100`)
+      .then((data) => setDepartments(data.results.map((d) => ({ id: d.id, label: [d.school_detail?.campus_detail?.name, d.school_detail?.name, d.name].filter(Boolean).join(" › ") }))))
+      .catch(() => setDepartments([]));
+  }, []);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     try {
-      await requestJson(user ? `${API_ENDPOINTS.MASTER_ADMIN}/users/${user.id}/` : `${API_ENDPOINTS.MASTER_ADMIN}/users/`, { method: user ? "PATCH" : "POST", body: JSON.stringify({ ...form, campus: form.campus ? Number(form.campus) : null }) });
+      await requestJson(user ? `${API_ENDPOINTS.MASTER_ADMIN}/users/${user.id}/` : `${API_ENDPOINTS.MASTER_ADMIN}/users/`, { method: user ? "PATCH" : "POST", body: JSON.stringify({ ...form, campus: form.campus ? Number(form.campus) : null, department: form.department ? Number(form.department) : null }) });
       onSaved();
     } catch (err) { setError(err instanceof Error ? err.message : "Could not save user."); }
   };
-  return <Modal title={user ? "Edit User" : "New User"} onClose={onClose}><form onSubmit={submit} className="space-y-4">{error && <p className="text-sm text-rose-300">{error}</p>}<input required={!user} placeholder="Email" type="email" value={form.email} disabled={Boolean(user)} onChange={(event) => setForm({ ...form, email: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white disabled:opacity-50" />{!user && <input required placeholder="Temporary password" type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white" />}<input placeholder="First name" value={form.first_name} onChange={(event) => setForm({ ...form, first_name: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white" /><input placeholder="Last name" value={form.last_name} onChange={(event) => setForm({ ...form, last_name: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white" /><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white">{["STUDENT", "TEACHER", "MASTER_ADMIN"].map((role) => <option key={role}>{role}</option>)}</select><select value={form.campus} onChange={(event) => setForm({ ...form, campus: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white"><option value="">No campus</option>{campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name}</option>)}</select><SubmitButtons onClose={onClose} /></form></Modal>;
+  return <Modal title={user ? "Edit User" : "New User"} onClose={onClose}><form onSubmit={submit} className="space-y-4">{error && <p className="text-sm text-rose-300">{error}</p>}<input required={!user} placeholder="Email" type="email" value={form.email} disabled={Boolean(user)} onChange={(event) => setForm({ ...form, email: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white disabled:opacity-50" />{!user && <input required placeholder="Temporary password" type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white" />}<input placeholder="First name" value={form.first_name} onChange={(event) => setForm({ ...form, first_name: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white" /><input placeholder="Last name" value={form.last_name} onChange={(event) => setForm({ ...form, last_name: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white" /><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white">{["STUDENT", "TEACHER", "MASTER_ADMIN"].map((role) => <option key={role}>{role}</option>)}</select><select value={form.campus} onChange={(event) => setForm({ ...form, campus: event.target.value })} className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white"><option value="">No campus</option>{campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name}</option>)}</select><label className="block text-xs text-stone-400">Department (sets the campus and school too)<select value={form.department} onChange={(event) => setForm({ ...form, department: event.target.value })} className="mt-1 w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-sm text-white"><option value="">No department</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.label}</option>)}</select></label><SubmitButtons onClose={onClose} /></form></Modal>;
 }
 
 function SubmitButtons({ onClose }: { onClose: () => void }) {

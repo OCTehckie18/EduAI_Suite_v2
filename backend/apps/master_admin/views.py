@@ -257,6 +257,20 @@ class CampusDetailView(APIView):
         return Response({"success": True, "id": campus.pk})
 
 
+def _department_from(data):
+    """(provided, department, error) for an optional ``department`` id in a request body."""
+    if "department" not in data:
+        return False, None, None
+    value = data.get("department")
+    if value in (None, ""):
+        return True, None, None
+    try:
+        department = Department.objects.select_related("school__campus").get(pk=int(value))
+    except (Department.DoesNotExist, TypeError, ValueError):
+        return True, None, Response({"detail": "That department does not exist."}, status=400)
+    return True, department, None
+
+
 def _user_payload(user):
     return {
         "id": user.pk,
@@ -274,6 +288,11 @@ def _user_payload(user):
             if user.campus_id and user.campus
             else None
         ),
+        "department": (
+            {"id": user.department_id, "name": user.department.name}
+            if user.department_id and user.department
+            else None
+        ),
         "created_at": user.created_at,
     }
 
@@ -283,7 +302,7 @@ class UserDirectoryView(APIView):
 
     def get(self, request):
         User = get_user_model()
-        queryset = User.all_objects.select_related("campus").order_by("email")
+        queryset = User.all_objects.select_related("campus", "department").order_by("email")
         active = request.query_params.get("active", "true").lower()
         if active == "true":
             queryset = queryset.filter(is_active=True)
@@ -321,6 +340,9 @@ class UserDirectoryView(APIView):
         role = data.get("role", User.Role.STUDENT)
         if role not in {choice[0] for choice in User.Role.choices}:
             return Response({"detail": "Invalid role."}, status=400)
+        _, department, department_error = _department_from(data)
+        if department_error:
+            return department_error
         try:
             validate_password(str(data["password"]))
         except DjangoValidationError as exc:
@@ -333,7 +355,9 @@ class UserDirectoryView(APIView):
                     first_name=str(data.get("first_name", "")).strip(),
                     last_name=str(data.get("last_name", "")).strip(),
                     role=role,
-                    campus_id=data.get("campus"),
+                    campus_id=department.school.campus_id if department else data.get("campus"),
+                    school=department.school if department else None,
+                    department=department,
                     register_no=data.get("register_no") or None,
                     emp_no=data.get("emp_no") or None,
                 )
@@ -352,7 +376,7 @@ class UserDirectoryDetailView(APIView):
 
     def get_object(self, pk):
         User = get_user_model()
-        return get_object_or_404(User.all_objects.select_related("campus"), pk=pk)
+        return get_object_or_404(User.all_objects.select_related("campus", "department"), pk=pk)
 
     def get(self, request, pk):
         return Response(_user_payload(self.get_object(pk)))
@@ -391,7 +415,15 @@ class UserDirectoryDetailView(APIView):
                 user.rejection_reason = ""
                 user.approval_reviewed_at = timezone.now()
                 user.approval_reviewed_by = request.user
-        if "campus" in data:
+        provided, department, department_error = _department_from(data)
+        if department_error:
+            return department_error
+        if provided:
+            user.department = department
+            user.school = department.school if department else None
+            if department:
+                user.campus = department.school.campus
+        if "campus" in data and not (provided and department):
             campus_id = data["campus"]
             if campus_id is None:
                 user.campus = None
