@@ -57,11 +57,9 @@ export const router = createBrowserRouter([
       { path: "games/quiz/edit/:id", element: <QuizCreator /> },
       { path: "games/quiz/host/:quizId", element: <QuizMonitoring /> },
       { path: "games/quiz/test/:pin", element: <QuizTestParticipantPage /> },
-      {
-        path: "games/slido/assignments",
-        element: <SlidoAssignmentDashboard />,
-      },
-      { path: "games/slido/grade/:submissionId", element: <SplitViewGrading /> },
+      // Slido has no server part yet, so these screens would only show errors.
+      { path: "games/slido/assignments", element: <ConstructionPage title="Slido live polls" /> },
+      { path: "games/slido/grade/:submissionId", element: <ConstructionPage title="Slido grading" /> },
       { path: "appointments", element: <TeacherAppointmentsPage /> },
       { path: "tools", element: <TeacherToolsPage /> },
       { path: "classrooms", element: <ClassroomsPage /> },
@@ -70,7 +68,7 @@ export const router = createBrowserRouter([
       { path: "mail", element: <MailStudentsPage /> },
       { path: "calendar", element: <CalendarPage /> },
       { path: "chat", element: <AIChatPage /> },
-      { path: "settings", element: <ConstructionPage /> },
+      { path: "settings", element: <ConstructionPage title="Settings" /> },
       { path: "exams", element: <ExamsPage /> },
       { path: "games/trello", element: <TrelloBoardsPage /> },
       { path: "games/trello/:boardId", element: <TrelloBoardView /> },

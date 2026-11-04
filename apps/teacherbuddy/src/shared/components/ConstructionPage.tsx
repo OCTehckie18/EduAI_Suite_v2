@@ -3,7 +3,7 @@ import { HardHat, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { GlassCard } from "./GlassCard";
 
-export const ConstructionPage: React.FC = () => {
+export const ConstructionPage: React.FC<{ title?: string }> = ({ title }) => {
   const navigate = useNavigate();
 
   return (
@@ -15,7 +15,7 @@ export const ConstructionPage: React.FC = () => {
         </div>
         
         <h1 className="text-2xl font-bold mb-2 font-display" style={{ color: "var(--color-text-primary)" }}>
-          Module Under Construction
+          {title ? `${title} is under construction` : "Module Under Construction"}
         </h1>
         
         <p className="text-sm mb-8 leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
