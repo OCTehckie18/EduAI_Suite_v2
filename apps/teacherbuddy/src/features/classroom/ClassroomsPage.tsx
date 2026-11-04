@@ -1512,7 +1512,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showCourseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-8 w-full max-w-lg shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 Create New Class
@@ -1560,7 +1560,7 @@ export const ClassroomsPage: React.FC = () => {
                   No classes are set up{classOptions.department ? ` for ${classOptions.department.name}` : " for your department"} yet. Ask the master admin to add them under Institution Structure.
                 </p>
               )}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={premiumLabel}>Program</label>
                   <select
@@ -1593,7 +1593,7 @@ export const ClassroomsPage: React.FC = () => {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={premiumLabel}>Section</label>
                   <select
@@ -1681,7 +1681,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showStudentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-8 w-full max-w-lg shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 Enroll Students
@@ -1823,7 +1823,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showAnnouncementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-8 w-full max-w-lg shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 Broadcast Message
@@ -1918,7 +1918,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showAssignmentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-8 w-full max-w-lg shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 {editingAssignmentId
@@ -2033,7 +2033,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {deleteConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 w-full max-w-sm shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex flex-col items-center text-center">
               <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
                 <AlertTriangle size={32} />
@@ -2066,7 +2066,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showSubmissionsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 w-full max-w-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] max-h-[85vh] overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] max-h-[calc(100dvh-2rem)] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 Student Submissions
