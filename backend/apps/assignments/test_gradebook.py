@@ -29,7 +29,7 @@ class GradebookBase(APITestCase):
 
     def submit(self, student, assignment):
         self.client.force_authenticate(student)
-        return self.client.post(f"/api/v1/submissions/{assignment.pk}", {"files": SimpleUploadedFile("a.txt", b"x")}, format="multipart")
+        return self.client.post(f"/api/v1/submissions/{assignment.pk}", {"files": SimpleUploadedFile("a.pdf", b"%PDF-1.4 x")}, format="multipart")
 
 
 class SameNameStudentsTests(GradebookBase):
@@ -127,3 +127,24 @@ class WithdrawGradedWorkTests(GradebookBase):
         response = self.client.delete(f"/api/v1/submissions/assignment/{self.hw1.pk}/student/Sam%20Lee")
         self.assertEqual(response.status_code, 409)
         self.assertEqual(Submission.objects.count(), 1)
+
+
+class SubmissionFileTypeTests(GradebookBase):
+    def post_file(self, name, content):
+        self.client.force_authenticate(self.sam1)
+        return self.client.post(f"/api/v1/submissions/{self.hw1.pk}", {"files": SimpleUploadedFile(name, content)}, format="multipart")
+
+    def test_pdf_and_docx_are_accepted(self):
+        self.assertEqual(self.post_file("work.pdf", b"%PDF-1.7 body").status_code, 201)
+        self.assertEqual(self.post_file("work.docx", b"PK\x03\x04 body").status_code, 200)
+
+    def test_other_file_types_are_refused_and_nothing_is_saved(self):
+        for name in ("a.txt", "a.zip", "a.png", "a.doc", "a.pptx"):
+            response = self.post_file(name, b"%PDF-1.4 x")
+            self.assertEqual(response.status_code, 400, name)
+        self.assertEqual(Submission.objects.count(), 0)
+
+    def test_a_renamed_file_is_refused(self):
+        response = self.post_file("fake.pdf", b"just text")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Submission.objects.count(), 0)

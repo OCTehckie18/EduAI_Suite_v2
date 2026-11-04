@@ -12,9 +12,26 @@ from apps.core.access import can_manage_course, can_view_course
 from apps.core.services import record_student_activity
 from apps.core.permissions import IsTeacher
 from apps.announcements.models import Announcement
-from apps.core.utils.file_uploads import save_optional_upload
+from rest_framework.exceptions import ValidationError
+
+from apps.core.utils.file_uploads import save_optional_upload, validate_upload
 from .models import Assignment, Submission
 from .serializers import AssignmentSerializer, SubmissionSerializer
+
+# Students hand in PDF or Word files only, so teachers can always preview them (as in Google Classroom).
+SUBMISSION_EXTENSIONS = {".pdf", ".docx"}
+_SIGNATURES = {".pdf": b"%PDF", ".docx": b"PK\x03\x04"}
+
+
+def _check_submission_file(file):
+    try:
+        extension = validate_upload(file, SUBMISSION_EXTENSIONS)
+    except ValidationError:
+        raise ValidationError({"detail": "Only PDF or Word (.docx) files can be submitted."})
+    head = file.read(4)
+    file.seek(0)
+    if head != _SIGNATURES[extension]:
+        raise ValidationError({"detail": f"'{file.name}' is not a valid {extension[1:].upper()} file."})
 
 
 DENIED = Response({"detail": "You do not have permission to do that for this course."}, status=status.HTTP_403_FORBIDDEN)
@@ -157,9 +174,12 @@ class SubmissionListCreateView(APIView):
         student_name = user.full_name
 
         files = request.FILES.getlist("files") or request.FILES.getlist("file")
+        # Check every file before saving any, so a bad one doesn't leave a half-saved submission.
+        for f in files:
+            _check_submission_file(f)
         paths = []
         for f in files:
-            p = save_optional_upload(f, "submissions")
+            p = save_optional_upload(f, "submissions", allowed_extensions=SUBMISSION_EXTENSIONS)
             if p:
                 paths.append(p)
 

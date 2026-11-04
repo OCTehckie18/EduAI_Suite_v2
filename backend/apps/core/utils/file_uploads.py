@@ -31,7 +31,7 @@ def safe_upload_name(filename: str) -> str:
     return name or "upload"
 
 
-def save_optional_upload(file, folder: str) -> Optional[str]:
+def save_optional_upload(file, folder: str, allowed_extensions=None) -> Optional[str]:
     """
     Saves an uploaded file to settings.UPLOADS_ROOT / folder and returns the relative URL.
     Works with Django UploadedFile.
@@ -40,7 +40,7 @@ def save_optional_upload(file, folder: str) -> Optional[str]:
         return None
 
     filename = getattr(file, "name", "upload")
-    validate_upload(file)
+    validate_upload(file, allowed_extensions)
 
     safe_name = safe_upload_name(filename)
     saved_name = f"{uuid4().hex}_{safe_name}"
