@@ -1,4 +1,4 @@
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime, timedelta, timezone as dt_timezone
 
 from django.utils import timezone
 
@@ -38,6 +38,73 @@ def _record_admin_action(request, action, target, metadata=None):
     )
 
 
+def _overview_extras(User):
+    """The numbers a university board needs beyond plain counts: sign-up progress, teacher states,
+    per-campus size, setup problems to fix, and what changed this week. Every figure is counted in the database."""
+    from apps.accounts.models import AdmittedStudent
+
+    week_ago = timezone.now() - timedelta(days=7)
+    teachers = User.objects.filter(role=User.Role.TEACHER)
+    oldest_pending = teachers.filter(approval_status=User.ApprovalStatus.PENDING).order_by("created_at").first()
+
+    roster_by_class = [
+        {
+            "class_name": row["section__batch__name"],
+            "program": row["section__batch__program__name"],
+            "total": row["total"],
+            "signed_up": row["signed_up"],
+        }
+        for row in AdmittedStudent.objects.values("section__batch__name", "section__batch__program__name")
+        .annotate(total=Count("id"), signed_up=Count("id", filter=Q(user__is_profile_complete=True)))
+        .order_by("-total")[:12]
+    ]
+
+    classroom_counts = {r["department__school__campus_id"]: r["n"] for r in Classroom.objects.values("department__school__campus_id").annotate(n=Count("id"))}
+    teacher_counts = {
+        r["department__school__campus_id"]: r["n"]
+        for r in teachers.filter(approval_status=User.ApprovalStatus.APPROVED, department__isnull=False)
+        .values("department__school__campus_id").annotate(n=Count("id"))
+    }
+    campus_stats = {
+        str(campus_id): {"classrooms": classroom_counts.get(campus_id, 0), "teachers": teacher_counts.get(campus_id, 0)}
+        for campus_id in set(classroom_counts) | set(teacher_counts)
+    }
+
+    # Things that are set up incompletely. Only problems that exist are listed.
+    candidates = [
+        ("batches_without_sections", "Classes (batches) with no section. Every class needs at least one.",
+         Batch.objects.annotate(n=Count("sections")).filter(n=0).count(), "structure"),
+        ("departments_without_programs", "Departments with no program yet.",
+         Department.objects.annotate(n=Count("programs")).filter(n=0).count(), "structure"),
+        ("empty_classrooms", "Classrooms with no enrolled students.",
+         Classroom.objects.annotate(n=Count("enrollments", filter=Q(enrollments__is_active=True))).filter(n=0).count(), "users"),
+        ("idle_teachers", "Approved teachers who have not created a classroom.",
+         teachers.filter(approval_status=User.ApprovalStatus.APPROVED).annotate(n=Count("classrooms")).filter(n=0).count(), "users"),
+        ("unplaced_students", "Signed-up students who are not in any classroom.",
+         User.objects.filter(role=User.Role.STUDENT, is_profile_complete=True).annotate(n=Count("enrollments", filter=Q(enrollments__is_active=True))).filter(n=0).count(), "users"),
+        ("unfinished_signups", "Admitted students who created an account but have not finished their profile.",
+         AdmittedStudent.objects.filter(user__isnull=False, user__is_profile_complete=False).count(), "roster"),
+    ]
+    warnings = [{"key": key, "label": label, "count": count, "tab": tab} for key, label, count, tab in candidates if count]
+
+    return {
+        "teachers": {
+            "approved": teachers.filter(approval_status=User.ApprovalStatus.APPROVED).count(),
+            "pending": teachers.filter(approval_status=User.ApprovalStatus.PENDING).count(),
+            "rejected": teachers.filter(approval_status=User.ApprovalStatus.REJECTED).count(),
+            "oldest_pending_at": oldest_pending.created_at.isoformat() if oldest_pending else None,
+        },
+        "roster_by_class": roster_by_class,
+        "campus_stats": campus_stats,
+        "warnings": warnings,
+        "last_7_days": {
+            "students_joined": User.objects.filter(role=User.Role.STUDENT, created_at__gte=week_ago).count(),
+            "teachers_approved": teachers.filter(approval_status=User.ApprovalStatus.APPROVED, approval_reviewed_at__gte=week_ago).count(),
+            "classrooms_created": Classroom.objects.filter(created_at__gte=week_ago).count(),
+        },
+    }
+
+
 class MasterAdminOverviewView(APIView):
     """Cross-campus KPI snapshot for the Master Admin dashboard."""
     permission_classes = [IsAuthenticated, IsMasterAdmin]
@@ -65,6 +132,7 @@ class MasterAdminOverviewView(APIView):
                 "signed_up": AdmittedStudent.objects.filter(user__is_profile_complete=True).count(),
             },
             "recent_actions": recent_actions,
+            **_overview_extras(User),
             "institution": {
                 "campuses": Campus.objects.count(),
                 "schools": School.objects.count(),

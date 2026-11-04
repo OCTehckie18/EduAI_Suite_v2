@@ -20,6 +20,11 @@ export interface Overview {
   users: Record<string, number>;
   roster: { total: number; signed_up: number };
   recent_actions: RecentAction[];
+  teachers: { approved: number; pending: number; rejected: number; oldest_pending_at: string | null };
+  roster_by_class: { class_name: string; program: string; total: number; signed_up: number }[];
+  campus_stats: Record<string, { classrooms: number; teachers: number }>;
+  warnings: { key: string; label: string; count: number; tab: TabKey }[];
+  last_7_days: { students_joined: number; teachers_approved: number; classrooms_created: number };
 }
 
 export interface Campus {

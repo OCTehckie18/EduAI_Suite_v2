@@ -86,7 +86,7 @@ class TeacherSummaryQueries(QueryBase):
         grow(self)
         after, body = self.queries(self.teacher, url)
         print(f"teacher summary: {before} -> {after} queries")
-        self.assertLessEqual(before, 30)
+        self.assertLessEqual(before, 36)
         self.assertLessEqual(after - before, 2)
         self.assertEqual(len(body["classrooms"]), COURSES + 3)
 
@@ -122,7 +122,7 @@ class StudentSummaryQueries(QueryBase):
                 Assignment.objects.create(course=course, title=f"W{n}", due_date="2099-01-01T10:00")
         after, body = self.queries(self.students[0], url)
         print(f"student summary: {before} -> {after} queries")
-        self.assertLessEqual(before, 14)
+        self.assertLessEqual(before, 28)
         self.assertEqual(after, before)
         self.assertEqual(len(body["courses"]), COURSES + 4)
 
@@ -149,4 +149,4 @@ class OverviewTests(QueryBase):
         self.assertEqual(actions["approve_teacher"]["target"], "accounts.user:5")
         self.assertEqual(actions["create_campus"]["actor"], "An admin")  # an unknown actor never breaks the page
         self.assertIn("rejected_teacher_applications", body["users"])
-        self.assertLessEqual(count, 20)  # about a dozen counts, plus roster, history and names: a fixed cost
+        self.assertLessEqual(count, 40)  # counts, roster, warnings and history: a fixed cost, not tied to data size

@@ -392,6 +392,39 @@ export const StudentDashboard: React.FC = () => {
 
         {/* Right Sidebar */}
         <div className="space-y-6">
+          {(summary?.comingUp || []).length > 0 && (
+            <GlassCard className="p-5">
+              <h3 className="section-title text-sm flex items-center gap-2 mb-3"><Clock size={16} className="text-emerald-500" /> Today &amp; Tomorrow</h3>
+              <div className="space-y-2">
+                {summary.comingUp.map((item: any, index: number) => (
+                  <div key={`${item.title}-${index}`} className="rounded-lg border p-2.5" style={{ borderColor: "var(--color-border)" }}>
+                    <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>{item.title}</p>
+                    <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                      {item.day === "today" ? "Today" : "Tomorrow"}{item.allDay ? "" : `, ${new Date(item.start).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}{item.location ? ` · ${item.location}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
+          )}
+
+          {(summary?.exams || []).length > 0 && (
+            <GlassCard className="p-5">
+              <h3 className="section-title text-sm flex items-center gap-2 mb-3"><Target size={16} className="text-purple-500" /> Exams You Can Take</h3>
+              <div className="space-y-2">
+                {summary.exams.map((exam: any) => (
+                  <div key={exam.id} className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border p-2.5 hover:bg-slate-50" style={{ borderColor: "var(--color-border)" }} role="link" tabIndex={0} onClick={() => navigate("/exams")} onKeyDown={(e) => { if (e.key === "Enter") navigate("/exams"); }}>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>{exam.title}</p>
+                      <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>{exam.courseCode} · {exam.timeLimit} min · {exam.inProgress ? "in progress" : `${exam.attemptsLeft} attempt${exam.attemptsLeft === 1 ? "" : "s"} left`}</p>
+                    </div>
+                    <ChevronRight size={14} className="shrink-0 text-slate-400" />
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
+          )}
+
           <GlassCard className="p-5">
             <h3 className="section-title text-sm flex items-center gap-2 mb-4">
               <Calendar size={16} className="text-blue-500" /> Upcoming
@@ -441,6 +474,39 @@ export const StudentDashboard: React.FC = () => {
             </div>
           </GlassCard>
 
+
+          <GlassCard className="p-5">
+            <h3 className="section-title text-sm flex items-center gap-2 mb-3"><Award size={16} className="text-yellow-500" /> Recent Results</h3>
+            {(summary?.recentResults || []).length === 0 ? (
+              <p className="text-xs text-slate-500 italic">Your results will appear here after your first graded work, exam or game.</p>
+            ) : (
+              <div className="space-y-2">
+                {summary.recentResults.map((result: any, index: number) => (
+                  <div key={`${result.title}-${index}`} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="min-w-0 truncate" style={{ color: "var(--color-text-primary)" }}>{result.title}<span className="block text-[10px] text-slate-400">{result.type} · {new Date(result.at).toLocaleDateString()}</span></span>
+                    <span className={`shrink-0 text-xs font-bold ${result.status === "flagged" ? "text-red-600" : ""}`} style={result.status === "flagged" ? undefined : { color: "var(--color-brand-blue)" }}>
+                      {result.status === "flagged" ? "Flagged" : result.score == null ? result.status : result.type === "exam" ? `${result.score}%` : `${result.score} pts`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassCard>
+
+          {(summary?.announcements || []).length > 0 && (
+            <GlassCard className="p-5">
+              <h3 className="section-title text-sm flex items-center gap-2 mb-3"><BookOpen size={16} className="text-blue-500" /> Announcements</h3>
+              <div className="space-y-3">
+                {summary.announcements.map((item: any) => (
+                  <div key={item.id} className="cursor-pointer" role="link" tabIndex={0} onClick={() => navigate("/classroom", { state: { courseId: item.courseId, tab: "announcements" } })} onKeyDown={(e) => { if (e.key === "Enter") navigate("/classroom", { state: { courseId: item.courseId, tab: "announcements" } }); }}>
+                    <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>{item.pinned ? "📌 " : ""}{item.title}</p>
+                    <p className="line-clamp-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>{item.body}</p>
+                    <p className="text-[10px] text-slate-400">{item.courseCode} · {new Date(item.createdAt).toLocaleDateString()}</p>
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
+          )}
         </div>
       </div>
 

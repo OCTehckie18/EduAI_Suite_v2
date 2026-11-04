@@ -15,6 +15,13 @@ const SUMMARY = {
   deadlines: [{ id: 2, title: "Next week HW", course_code: "M1", course_id: 7, due_at: "2099-03-04T17:30:00+05:30", due_is_date_only: false, is_overdue: false, is_urgent: false }],
   overdue: [{ id: 1, title: "Late HW", course_code: "M1", course_id: 7, due_at: "2020-01-01T10:00:00+05:30", due_is_date_only: false, is_overdue: true, is_urgent: false }],
   liveGame: { title: "", teacher: "", active: false },
+  recentResults: [
+    { type: "exam", title: "Midterm", score: 80, status: "submitted", at: "2026-03-01T10:00:00+05:30" },
+    { type: "exam", title: "Quiz cheat", score: 0, status: "flagged", at: "2026-03-02T10:00:00+05:30" },
+  ],
+  exams: [{ id: 5, title: "Final exam", courseCode: "M1", courseId: 7, timeLimit: 60, attemptsLeft: 1, inProgress: false }],
+  announcements: [{ id: 3, title: "Class moved", body: "Room 5 tomorrow", courseCode: "M1", courseId: 7, pinned: true, createdAt: "2026-03-01T09:00:00+05:30" }],
+  comingUp: [{ title: "Study group", start: "2099-03-04T17:00:00+05:30", kind: "custom", location: "Library", allDay: false, day: "today", courseId: null }],
 };
 
 const respond = (summaryStatus: number, body: unknown) =>
@@ -56,6 +63,24 @@ describe("StudentDashboard", () => {
     vi.stubGlobal("fetch", respond(200, SUMMARY));
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(screen.getByText("Late HW")).toBeInTheDocument());
+  });
+
+  it("shows results, exams to take, announcements and today's events from the server", async () => {
+    vi.stubGlobal("fetch", respond(200, SUMMARY));
+    renderDashboard();
+    expect(await screen.findByText("Midterm")).toBeInTheDocument();
+    expect(screen.getByText("80%")).toBeInTheDocument();
+    expect(screen.getByText("Flagged")).toBeInTheDocument(); // a flagged exam shows as flagged, not as a score
+    expect(screen.getByText("Final exam")).toBeInTheDocument();
+    expect(screen.getByText(/1 attempt left/)).toBeInTheDocument();
+    expect(screen.getByText(/Class moved/)).toBeInTheDocument();
+    expect(screen.getByText("Study group")).toBeInTheDocument();
+  });
+
+  it("explains the empty results box instead of leaving it blank", async () => {
+    vi.stubGlobal("fetch", respond(200, { ...SUMMARY, recentResults: [], exams: [], announcements: [], comingUp: [] }));
+    renderDashboard();
+    expect(await screen.findByText(/Your results will appear here/)).toBeInTheDocument();
   });
 
   it("never sends the student's name to the server", async () => {

@@ -22,6 +22,9 @@ const DATA = {
   upcomingExams: [],
   engagementSnapshot: { avgAttendance: null, avgScore: null, atRiskCount: 0, studentCount: 3 },
   calendarEventsThisWeek: 0,
+  markingQueue: { total: 4, items: [{ assignmentId: 1, title: "Big essay", courseId: 1, courseCode: "M1", waiting: 4 }] },
+  dueSoon: [{ assignmentId: 2, title: "Lab report", courseId: 1, courseCode: "M1", dueAt: "2099-03-04T17:00:00+05:30", dueIsDateOnly: false, handedIn: 2, enrolled: 3 }],
+  examResults: [{ examId: 9, title: "Midterm", courseCode: "M1", status: "published", finished: 5, flagged: 1, average: 72.5 }],
 };
 
 const mockApi = (patchResult: { ok: boolean; status: number; body: unknown }, summaryOk = true) =>
@@ -50,6 +53,16 @@ describe("TeacherBuddy dashboard", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /Approve the request from Sam/ }));
     await waitFor(() => expect(screen.queryByText("Sam")).not.toBeInTheDocument());
+  });
+
+  it("shows the marking queue, what is due this week and the exam results", async () => {
+    vi.stubGlobal("fetch", mockApi({ ok: true, status: 200, body: {} }));
+    renderPage();
+    expect(await screen.findByText("4 to mark")).toBeInTheDocument();
+    expect(screen.getByText("Big essay")).toBeInTheDocument();
+    expect(screen.getByText("2 of 3 handed in")).toBeInTheDocument();
+    expect(screen.getByText(/average 72.5%/)).toBeInTheDocument();
+    expect(screen.getByText(/1 flagged for leaving the exam/)).toBeInTheDocument();
   });
 
   it("shows empty states and the real graded counts", async () => {
