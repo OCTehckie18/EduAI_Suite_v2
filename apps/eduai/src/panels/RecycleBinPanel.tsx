@@ -58,7 +58,7 @@ export function RecycleBinPanel({ search, onChanged }: { search: string; onChang
       <PanelHeader title="Recycle bin" subtitle="Deactivated records are kept here and can be restored. Restore a parent (for example a school) before its contents." />
       {types.length > 1 && (
         <div className="mb-4 flex flex-wrap gap-2">
-          {["", ...types].map((key) => <button key={key || "all"} onClick={() => setType(key)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${type === key ? "bg-[#264796] text-slate-900" : "border border-slate-300 text-slate-700 hover:text-slate-900"}`}>{key ? typeLabel(key) : "Everything"}</button>)}
+          {["", ...types].map((key) => <button key={key || "all"} onClick={() => setType(key)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${type === key ? "bg-[#264796] text-white" : "border border-slate-300 text-slate-700 hover:text-slate-900"}`}>{key ? typeLabel(key) : "Everything"}</button>)}
         </div>
       )}
       {error && <div className="mb-4"><ErrorState message={error} onRetry={() => void load()} /></div>}

@@ -164,7 +164,7 @@ export function PanelHeader({ title, subtitle, actions }: { title: string; subti
 
 export function PrimaryButton({ children, onClick, disabled, type = "button", tone = "rose" }: { children: ReactNode; onClick?: () => void; disabled?: boolean; type?: "button" | "submit"; tone?: "rose" | "sky" | "emerald" | "violet" }) {
   const tones = { rose: "bg-[#264796] hover:bg-[#1c3570]", sky: "bg-[#264796] hover:bg-[#1c3570]", emerald: "bg-emerald-600 hover:bg-emerald-500", violet: "bg-[#264796] hover:bg-[#1c3570]" };
-  return <button type={type} onClick={onClick} disabled={disabled} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-slate-900 transition disabled:opacity-50 ${tones[tone]}`}>{children}</button>;
+  return <button type={type} onClick={onClick} disabled={disabled} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-50 ${tones[tone]}`}>{children}</button>;
 }
 
 export function GhostButton({ children, onClick, disabled }: { children: ReactNode; onClick?: () => void; disabled?: boolean }) {
@@ -175,7 +175,7 @@ export function Chips<T extends string>({ value, options, onChange }: { value: T
   return (
     <div className="flex flex-wrap gap-2" role="tablist">
       {options.map(([key, label]) => (
-        <button key={key} role="tab" aria-selected={value === key} onClick={() => onChange(key)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${value === key ? "bg-[#264796] text-slate-900" : "border border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900"}`}>{label}</button>
+        <button key={key} role="tab" aria-selected={value === key} onClick={() => onChange(key)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${value === key ? "bg-[#264796] text-white" : "border border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900"}`}>{label}</button>
       ))}
     </div>
   );
