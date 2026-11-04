@@ -13,7 +13,9 @@ from apps.classrooms.models import Classroom
 from apps.core.access import can_manage_course, can_view_course, managed_courses, visible_courses
 from apps.core.permissions import IsTeacher
 from apps.announcements.models import Announcement
+from apps.core.utils.file_uploads import validate_upload
 from apps.core.utils.plan_parser import CoursePlanParser
+from rest_framework.exceptions import ValidationError
 from services.groq_service import GroqService
 from apps.games.models import ChainAnswerGame, GamePlayer, GameQuestion
 from apps.games.serializers import ChainAnswerGameSerializer
@@ -37,7 +39,7 @@ class LessonGenerateView(APIView):
             return Response(result)
         except Exception as e:
             logger.error("Error generating lesson plan: %s", e)
-            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"detail": "The lesson plan could not be generated right now. Please try again."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class LessonParsePlanView(APIView):
@@ -49,6 +51,11 @@ class LessonParsePlanView(APIView):
         if not file_obj:
             return Response({"detail": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            validate_upload(file_obj, {".pdf", ".docx", ".txt", ".md"}, 10 * 1024 * 1024)
+        except ValidationError as exc:
+            detail = exc.detail[0] if isinstance(exc.detail, list) else exc.detail
+            return Response({"detail": str(detail)}, status=status.HTTP_400_BAD_REQUEST)
         filename = file_obj.name.lower()
         content = file_obj.read()
 

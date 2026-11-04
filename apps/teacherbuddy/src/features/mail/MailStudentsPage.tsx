@@ -105,6 +105,7 @@ export const MailStudentsPage: React.FC = () => {
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingStudents, setPendingStudents] = useState<Student[]>([]);
 
   // Temporary Data state
   const [dataSource, setDataSource] = useState<"platform" | "upload">("platform");
@@ -142,68 +143,49 @@ export const MailStudentsPage: React.FC = () => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    setPendingFile(file);
+
     const formData = new FormData();
     formData.append("file", file);
-    
+
     setLoading(true);
     setStatus(null);
     try {
-        const res = await fetch(`${API_ENDPOINTS.MAIL}/preview_upload`, {
-            method: "POST",
-            body: formData
-        });
-        const data = await res.json();
-        if (res.ok) {
-            setPreviewData(data.preview);
-            setTotalRecords(data.total_records);
-            setShowPreviewModal(true);
-        } else {
-            setStatus({ type: 'error', message: data.detail || "Failed to parse file for preview" });
-            setPendingFile(null);
+        const res = await fetch(`${API_ENDPOINTS.MAIL}/parse-excel`, { method: "POST", body: formData });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            setStatus({ type: 'error', message: data.detail || "Failed to read the file" });
+            return;
         }
+        const rows: Student[] = Array.isArray(data) ? data : [];
+        if (rows.length === 0) {
+            setStatus({ type: 'error', message: "No students were found in that file. It needs at least a name and an email column." });
+            return;
+        }
+        setPendingFile(file);
+        setPendingStudents(rows);
+        setPreviewData(rows.slice(0, 10));
+        setTotalRecords(rows.length);
+        setShowPreviewModal(true);
     } catch (err) {
         setStatus({ type: 'error', message: "Error reading file" });
-        setPendingFile(null);
     } finally {
         setLoading(false);
         if (e.target) e.target.value = '';
     }
   };
 
-  const confirmImport = async () => {
+  const confirmImport = () => {
     if (!pendingFile) return;
-    
-    const formData = new FormData();
-    formData.append("file", pendingFile);
-    
-    setLoading(true);
-    setStatus(null);
+    // The sheet was already read by the server for the preview, so confirming just keeps those rows for this session.
     setShowPreviewModal(false);
-    
-    try {
-        const res = await fetch(`${API_ENDPOINTS.MAIL}/upload_students`, {
-            method: "POST",
-            body: formData
-        });
-        const data = await res.json();
-        if (res.ok) {
-            setStatus({ type: 'success', message: "Students imported temporarily for this session." });
-            setUploadedData(data.data);
-            setDataSource("upload");
-            setStudents([]); 
-            setSelectedStudents([]);
-            setUploadedFileName(pendingFile.name);
-        } else {
-            setStatus({ type: 'error', message: data.detail || "Failed to upload students" });
-        }
-    } catch (err) {
-        setStatus({ type: 'error', message: "Error uploading file" });
-    } finally {
-        setLoading(false);
-        setPendingFile(null);
-    }
+    setStatus({ type: 'success', message: `${pendingStudents.length} students imported for this session only. They are not saved to the platform.` });
+    setUploadedData(pendingStudents);
+    setDataSource("upload");
+    setStudents([]);
+    setSelectedStudents([]);
+    setUploadedFileName(pendingFile.name);
+    setPendingFile(null);
+    setPendingStudents([]);
   };
 
   const addCondition = () => {
@@ -378,7 +360,9 @@ export const MailStudentsPage: React.FC = () => {
       if (!res.ok) throw new Error(data.detail || "Groq could not generate the mail");
       setMailSubject(data.subject);
       setMailBody(data.body);
-      setStatus({ type: 'success', message: "Groq generated the subject and message body. Review them before opening Gmail." });
+      setStatus(data.source === "template"
+        ? { type: 'error', message: "The AI is not available right now, so this is a plain template. Edit it before sending." }
+        : { type: 'success', message: "The AI wrote the subject and message. Review them before sending." });
     } catch (err) {
       setStatus({ type: 'error', message: err instanceof Error ? err.message : "Mail generation failed" });
     } finally {
@@ -443,7 +427,7 @@ export const MailStudentsPage: React.FC = () => {
       const batch = batches[index];
       const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(batch.recipients.join(","))}&su=${encodeURIComponent(batch.subject)}&body=${encodeURIComponent(batch.body)}`;
       window.open(url, "_blank", "noopener,noreferrer");
-      await fetch(`${API_ENDPOINTS.MAIL}/log-gmail-send`, {
+      await fetch(`${API_ENDPOINTS.MAIL}/log-gmail`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject: batch.subject, body: batch.body, recipients: batch.recipients, sender_email: senderEmail }),
@@ -468,7 +452,7 @@ export const MailStudentsPage: React.FC = () => {
       const payload: any = {};
       
       if (dataSource === 'upload') {
-          payload.temporary_students = students.filter(s => selectedStudents.includes(s.id));
+          payload.temporary_students = uploadedData.filter(s => selectedStudents.includes(s.id));
       } else {
           payload.student_ids = selectedStudents;
       }
@@ -492,7 +476,7 @@ export const MailStudentsPage: React.FC = () => {
       });
       const data = await res.json();
       if (res.ok) {
-          setStatus({ type: 'success', message: data.message });
+          setStatus({ type: data.failed?.length ? 'error' : 'success', message: data.message || "Sent." });
           fetchHistory();
           fetchDrafts();
           

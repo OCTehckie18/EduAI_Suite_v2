@@ -209,40 +209,8 @@ export const CalendarPage: React.FC = () => {
     }
   }, [fetchGoogleStatus]);
 
-  const syncGoogleCalendar = async () => {
-    setGoogleMessage("");
-    if (!googleConnected) {
-      try {
-        const token = localStorage.getItem("token");
-        const response = await fetch(`${API_ENDPOINTS.AUTH}/google-calendar/connect`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || "Google Calendar is unavailable");
-        window.location.assign(data.authorization_url);
-      } catch (err) {
-        setGoogleMessage(err instanceof Error ? err.message : "Unable to connect Google Calendar");
-      }
-      return;
-    }
-
-    setGoogleSyncing(true);
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_ENDPOINTS.CALENDAR}/sync-google`, {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || "Google Calendar sync failed");
-      setGoogleMessage(`Synced ${data.imported || 0} from Google and ${data.exported || 0} to Google.`);
-      await fetchEventsAndNotifications();
-    } catch (err) {
-      setGoogleMessage(err instanceof Error ? err.message : "Google Calendar sync failed");
-    } finally {
-      setGoogleSyncing(false);
-    }
-  };
+  // Google Calendar sync is not built yet; the button is disabled rather than failing after a click.
+  const syncGoogleCalendar = () => setGoogleMessage("Google Calendar sync is not available yet.");
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -478,9 +446,9 @@ export const CalendarPage: React.FC = () => {
 
         <div className="flex flex-col sm:flex-row gap-3">
           {GOOGLE_CALENDAR_UI_ENABLED && (
-            <button onClick={syncGoogleCalendar} className="btn btn-outline" disabled={googleSyncing}>
+            <button onClick={syncGoogleCalendar} className="btn btn-outline opacity-60 cursor-not-allowed" disabled title="Google Calendar sync is coming soon">
               {googleSyncing ? <RefreshCw size={16} className="animate-spin" /> : <Cloud size={16} />}
-              {googleConnected ? "Sync Google Calendar" : "Connect Google Calendar"}
+              Google Calendar (coming soon)
             </button>
           )}
           <div className="relative">

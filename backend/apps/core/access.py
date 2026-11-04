@@ -57,6 +57,17 @@ def managed_courses(user):
     return Classroom.objects.all() if is_master_admin(user) else Classroom.objects.filter(teacher=user)
 
 
+def managed_students(user):
+    """Students enrolled in a classroom the user manages (every student for a master admin)."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    students = User.objects.filter(role=User.Role.STUDENT)
+    if is_master_admin(user):
+        return students
+    return students.filter(enrollments__is_active=True, enrollments__classroom__teacher=user).distinct()
+
+
 def visible_courses(user):
     """Classrooms the user may see: their own as a teacher, or the ones a student is enrolled in."""
     from apps.classrooms.models import Classroom

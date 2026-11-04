@@ -86,6 +86,7 @@ class GroqService:
         return {
             "success": True,
             "error": None,
+            "source": "template",  # not written by the AI: a generic outline the teacher should adapt
             "lecture_flow": (
                 f"1. Introduce {topic} and state the learning goals.\n"
                 f"2. Explain the core idea of {topic} with a simple definition.\n"
@@ -200,6 +201,7 @@ Important: Each section must have real, detailed content below its header. Do no
             return {
                 "success": True,
                 "error": None,
+                "source": "ai",
                 **sections
             }
         except Exception as e:

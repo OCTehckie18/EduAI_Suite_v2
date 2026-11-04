@@ -46,9 +46,10 @@ export const router = createBrowserRouter([
       { path: "games/quiz/play", element: <QuizController /> },
       { path: "games", element: <GamesPage /> },
       { path: "games/word-cloud", element: <WordCloudPlayerPage /> },
-      { path: "games/slido/submit", element: <PresentationSubmissionPortal /> },
-      { path: "games/slido/join", element: <AudienceJoinHub /> },
-      { path: "games/slido/live/:pin", element: <LiveSessionInterface /> },
+      // Slido has no server part yet, so these screens would only show errors.
+      { path: "games/slido/submit", element: <ConstructionPage title="Slido presentations" /> },
+      { path: "games/slido/join", element: <ConstructionPage title="Slido live polls" /> },
+      { path: "games/slido/live/:pin", element: <ConstructionPage title="Slido live polls" /> },
       { path: "games/trello", element: <TrelloBoardsPage /> },
       { path: "games/trello/:boardId", element: <TrelloBoardView /> },
       { path: "trello", element: <TrelloBoardsPage /> },

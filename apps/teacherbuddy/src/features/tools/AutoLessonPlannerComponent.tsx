@@ -101,7 +101,9 @@ export const AutoLessonPlannerComponent: React.FC<{ courseId?: number }> = ({
         {
           type: "ai",
           content:
-            "Lesson plan generated successfully. Review the content below and click 'Post to Students' to share it with your class.",
+            result.source === "template"
+              ? "The AI is not available right now, so this is a generic outline built from your topic. Edit it before you post it to students."
+              : "Lesson plan generated. Review the content below and click 'Post to Students' to share it with your class.",
         },
       ]);
 
