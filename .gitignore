@@ -33,3 +33,6 @@ docs/*PLAN.md
 MASTER_ADMIN_OPERATIONS.md
 # local database backups (contain personal data)
 backend/backups/
+
+# Files uploaded while running the app or its tests
+backend/uploads/
