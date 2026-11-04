@@ -360,8 +360,8 @@ export const GamesPage: React.FC = () => {
                         className="px-6 py-2.5 rounded-xl font-semibold text-white transition-transform hover:scale-105 active:scale-95"
                         style={{
                           background:
-                            "linear-gradient(135deg, var(--color-brand-blue), #3460c4)",
-                          boxShadow: "0 4px 15px rgba(38,71,150,0.3)",
+                            "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
+                          boxShadow: "0 4px 15px color-mix(in srgb, var(--color-brand-blue) 30%, transparent)",
                         }}
                       >
                         Go Back

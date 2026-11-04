@@ -314,7 +314,7 @@ const LiveSessionInterface: React.FC<Props> = ({
         {isPresenter && pendingInteraction && (
           <div
             className="border-t border-blue-500/30 px-4 py-3 flex items-center justify-between"
-            style={{ background: "linear-gradient(135deg, rgba(38,71,150,0.15), rgba(52,96,196,0.10))" }}
+            style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--color-brand-blue) 15%, transparent), rgba(52,96,196,0.10))" }}
           >
             <div className="flex items-center gap-3">
               <BarChart3 className="w-5 h-5 text-blue-400" />
@@ -328,7 +328,7 @@ const LiveSessionInterface: React.FC<Props> = ({
             <button
               onClick={() => launchInteraction(pendingInteraction)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition"
-              style={{ background: "linear-gradient(135deg, #264796, #3460c4)", boxShadow: "0 4px 12px rgba(38,71,150,0.4)" }}
+              style={{ background: "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))", boxShadow: "0 4px 12px color-mix(in srgb, var(--color-brand-blue) 40%, transparent)" }}
             >
               <Zap className="w-4 h-4" /> Launch
             </button>

@@ -346,7 +346,7 @@ export const ChainGameBoard: React.FC<ChainGameBoardProps> = ({
                       className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
                       style={{
                         background:
-                          "linear-gradient(135deg, var(--color-brand-blue), #3460c4)",
+                          "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
                       }}
                     >
                       {player.name?.charAt(0).toUpperCase() || "?"}
@@ -416,7 +416,7 @@ export const ChainGameBoard: React.FC<ChainGameBoardProps> = ({
                 className="px-4 py-2 rounded-lg font-semibold text-white flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform"
                 style={{
                   background:
-                    "linear-gradient(135deg, var(--color-brand-blue), #3460c4)",
+                    "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
                 }}
               >
                 {copied ? (
@@ -673,7 +673,7 @@ export const ChainGameBoard: React.FC<ChainGameBoardProps> = ({
                 className="px-6 py-3 rounded-lg font-semibold flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform disabled:opacity-50"
                 style={{
                   background:
-                    "linear-gradient(135deg, var(--color-brand-blue), #3460c4)",
+                    "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
                   color: "white",
                 }}
               >

@@ -64,8 +64,8 @@ interface Props {
 }
 
 // ─── Constants ────────────────────────────────────────────────
-const BRAND_BLUE = "#264796";
-const BRAND_BLUE_LIGHT = "#3460c4";
+const BRAND_BLUE = "var(--color-brand-blue)";
+const BRAND_BLUE_LIGHT = "var(--color-brand-blue-light)";
 
 const INTERACTION_ICONS: Record<string, React.FC<{ className?: string; style?: React.CSSProperties }>> = {
   poll_multiple_choice: BarChart3,
@@ -295,7 +295,7 @@ const PresenterView: React.FC<Props> = ({ submissionId, fileUrl, fileName, onBac
             className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-lg text-white transition-all disabled:opacity-50"
             style={{
               background: `linear-gradient(135deg, ${BRAND_BLUE}, ${BRAND_BLUE_LIGHT})`,
-              boxShadow: "0 8px 32px rgba(38,71,150,0.4)",
+              boxShadow: "0 8px 32px color-mix(in srgb, var(--color-brand-blue) 40%, transparent)",
             }}
           >
             {creatingSession ? (
@@ -335,7 +335,7 @@ const PresenterView: React.FC<Props> = ({ submissionId, fileUrl, fileName, onBac
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white transition"
             style={{
               background: `linear-gradient(135deg, ${BRAND_BLUE}, ${BRAND_BLUE_LIGHT})`,
-              boxShadow: "0 4px 12px rgba(38,71,150,0.3)",
+              boxShadow: "0 4px 12px color-mix(in srgb, var(--color-brand-blue) 30%, transparent)",
             }}
           >
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard
@@ -428,7 +428,7 @@ const PresenterView: React.FC<Props> = ({ submissionId, fileUrl, fileName, onBac
             <div
               className="px-5 py-3 flex items-center justify-between border-t border-blue-500/30 animate-fade-in"
               style={{
-                background: "linear-gradient(135deg, rgba(38,71,150,0.2), rgba(52,96,196,0.15))",
+                background: "linear-gradient(135deg, color-mix(in srgb, var(--color-brand-blue) 20%, transparent), rgba(52,96,196,0.15))",
               }}
             >
               <div className="flex items-center gap-4">
@@ -464,7 +464,7 @@ const PresenterView: React.FC<Props> = ({ submissionId, fileUrl, fileName, onBac
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition text-white animate-pulse"
                 style={{
                   background: `linear-gradient(135deg, ${BRAND_BLUE}, ${BRAND_BLUE_LIGHT})`,
-                  boxShadow: "0 4px 16px rgba(38,71,150,0.5)",
+                  boxShadow: "0 4px 16px color-mix(in srgb, var(--color-brand-blue) 50%, transparent)",
                   animationDuration: "2s",
                 }}
               >

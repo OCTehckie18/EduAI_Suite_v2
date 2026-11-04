@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { applyBrand } from "./brand";
 import { API_BASE_URL } from "./utils/apiConfig";
 
 /** The university this installation belongs to, as set by the master admin. */
@@ -12,11 +13,15 @@ export interface University {
   website: string;
   address: string;
   logo_url: string | null;
+  primary_color: string;
+  secondary_color: string;
+  tertiary_color: string;
 }
 
 const EMPTY: University = {
   configured: false, name: "", short_name: "", email_domain: "", contact_email: "",
   phone: "", website: "", address: "", logo_url: null,
+  primary_color: "#264796", secondary_color: "#d0ae61", tertiary_color: "#0f766e",
 };
 const CACHE_KEY = "eduai-university";
 
@@ -30,11 +35,13 @@ const readCache = (): University => {
 };
 
 let current: University = readCache();
+applyBrand(current); // paint the saved colours before the first render, so there is no flash of the default theme
 let inflight: Promise<void> | null = null;
 const listeners = new Set<(value: University) => void>();
 
 const publish = (next: University) => {
   current = next;
+  applyBrand(next);
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(next));
   } catch {

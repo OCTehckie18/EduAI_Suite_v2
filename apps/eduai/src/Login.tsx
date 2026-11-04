@@ -59,7 +59,7 @@ export function LoginScreen({ onLogin }: { onLogin: (user: AdminUser) => void })
         <label className="mb-6 block text-sm text-slate-700">Password
           <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" className={`${inputClass} mt-2 px-4 py-3`} />
         </label>
-        <button type="submit" disabled={loading} className="w-full rounded-xl bg-[#264796] px-4 py-3 font-semibold text-white transition hover:bg-[#1c3570] disabled:opacity-50">{loading ? "Signing in..." : "Sign in"}</button>
+        <button type="submit" disabled={loading} className="w-full rounded-xl bg-brand-blue px-4 py-3 font-semibold text-white transition hover:bg-brand-blue-dark disabled:opacity-50">{loading ? "Signing in..." : "Sign in"}</button>
         {university.contact_email && <p className="mt-5 text-center text-xs text-slate-500">Need help? <a href={`mailto:${university.contact_email}`} className="text-slate-700 underline">{university.contact_email}</a></p>}
       </form>
     </div>

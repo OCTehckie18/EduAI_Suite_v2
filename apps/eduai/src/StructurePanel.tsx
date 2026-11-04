@@ -101,7 +101,7 @@ function RecordForm({ level, row, parentId, onClose, onSaved }: { level: Level; 
           : <input required type={field.type} min={field.type === "number" ? 1 : undefined} placeholder={field.placeholder} value={values[field.name]} onChange={(e) => setValues({ ...values, [field.name]: e.target.value })} className={`${inputClass} mt-1`} />}
       </label>)}
       {!row && level.endpoint === "batches" && <p className="text-xs text-slate-500">A new class starts with Section A. Add more sections afterwards.</p>}
-      <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">Cancel</button><button type="submit" disabled={saving} className="rounded-lg bg-[#264796] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save"}</button></div>
+      <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">Cancel</button><button type="submit" disabled={saving} className="rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save"}</button></div>
     </form>
   </Modal>;
 }
@@ -178,7 +178,7 @@ export function StructurePanel({ search, onChanged }: { search: string; onChange
             <td className="p-4 text-slate-700">{row.child_count ?? 0}</td>
             <td className="p-4 text-right">
               {depth < LEVELS.length - 1 && <button onClick={() => setPath([...path, { id: row.id, name: row.name }])} className="mr-3 text-sky-700 hover:text-sky-800">Open</button>}
-              {!readOnly && <><button onClick={() => setForm({ row })} className="mr-3 text-[#264796] hover:text-[#1c3570]">Edit</button><button onClick={() => void remove(row)} className="text-rose-700 hover:text-rose-800">Deactivate</button></>}
+              {!readOnly && <><button onClick={() => setForm({ row })} className="mr-3 text-brand-blue hover:text-brand-blue-dark">Edit</button><button onClick={() => void remove(row)} className="text-rose-700 hover:text-rose-800">Deactivate</button></>}
             </td>
           </tr>)}
         </tbody>

@@ -280,7 +280,7 @@ export const AppointmentBookingPage: React.FC = () => {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
-            style={{ background: "rgba(208,174,97,0.12)", color: "var(--color-brand-gold-dark)" }}>
+            style={{ background: "color-mix(in srgb, var(--color-brand-gold) 12%, transparent)", color: "var(--color-brand-gold-dark)" }}>
             <Sparkles size={12} />
             Student Appointment Center
           </div>
@@ -337,13 +337,13 @@ export const AppointmentBookingPage: React.FC = () => {
                       onClick={() => setSelectedTeacherName(teacher.teacher_name)}
                       className={`text-left rounded-2xl p-4 transition-all border ${active ? "shadow-lg" : "hover:shadow-sm"}`}
                       style={{
-                        background: active ? "rgba(38,71,150,0.06)" : "var(--color-surface-base)",
-                        borderColor: active ? "rgba(38,71,150,0.28)" : "var(--color-border)",
+                        background: active ? "color-mix(in srgb, var(--color-brand-blue) 6%, transparent)" : "var(--color-surface-base)",
+                        borderColor: active ? "color-mix(in srgb, var(--color-brand-blue) 28%, transparent)" : "var(--color-border)",
                       }}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold shrink-0"
-                          style={{ background: "linear-gradient(135deg, #264796, #3460c4)" }}>
+                          style={{ background: "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))" }}>
                           {teacher.teacher_name.split(" ").map((part) => part[0]).join("").slice(0, 2)}
                         </div>
                         {active && <ChevronRight size={16} style={{ color: "var(--color-brand-blue)" }} />}
@@ -354,7 +354,7 @@ export const AppointmentBookingPage: React.FC = () => {
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {teacher.courses.slice(0, 2).map((course) => (
-                          <span key={course.id} className="badge text-[10px]" style={{ background: "rgba(38,71,150,0.08)", color: "var(--color-brand-blue)" }}>
+                          <span key={course.id} className="badge text-[10px]" style={{ background: "color-mix(in srgb, var(--color-brand-blue) 8%, transparent)", color: "var(--color-brand-blue)" }}>
                             {course.code}
                           </span>
                         ))}
@@ -389,7 +389,7 @@ export const AppointmentBookingPage: React.FC = () => {
                         onClick={() => setMode(item)}
                         className="rounded-xl px-4 py-3 text-sm font-semibold transition-all"
                         style={{
-                          background: mode === item ? "linear-gradient(135deg, #264796, #3460c4)" : "rgba(100,116,139,0.08)",
+                          background: mode === item ? "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))" : "rgba(100,116,139,0.08)",
                           color: mode === item ? "white" : "var(--color-text-secondary)",
                         }}
                       >
@@ -401,7 +401,7 @@ export const AppointmentBookingPage: React.FC = () => {
 
                 <label className="space-y-2">
                   <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-text-muted)" }}>Selected Teacher</span>
-                  <div className="rounded-xl px-4 py-3 border" style={{ borderColor: "var(--color-border)", background: "rgba(38,71,150,0.03)" }}>
+                  <div className="rounded-xl px-4 py-3 border" style={{ borderColor: "var(--color-border)", background: "color-mix(in srgb, var(--color-brand-blue) 3%, transparent)" }}>
                     <p className="text-sm font-bold" style={{ color: "var(--color-text-primary)" }}>{selectedTeacher?.teacher_name ?? "No teacher selected"}</p>
                     <p className="text-[11px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>
                       {selectedTeacher?.courses.map((course) => course.code).join(" · ") || "Choose a teacher above"}
@@ -503,7 +503,7 @@ export const AppointmentBookingPage: React.FC = () => {
                 <p>Booking requests are saved to the shared backend so teacher approvals update the same record.</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(208,174,97,0.12)", color: "#d97706" }}>2</span>
+                <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: "color-mix(in srgb, var(--color-brand-gold) 12%, transparent)", color: "#d97706" }}>2</span>
                 <p>Use the refresh button below to manually sync statuses from the teacher portal.</p>
               </div>
               <button
@@ -557,7 +557,7 @@ export const AppointmentBookingPage: React.FC = () => {
                         <button
                           onClick={() => handleReschedule(appointment)}
                           className="mt-3 w-full btn btn-primary text-[10px] font-black uppercase tracking-widest py-2 h-auto"
-                          style={{ background: "linear-gradient(135deg, #264796, #3460c4)" }}
+                          style={{ background: "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))" }}
                         >
                           <RefreshCw size={12} strokeWidth={3} /> Reschedule Meeting
                         </button>

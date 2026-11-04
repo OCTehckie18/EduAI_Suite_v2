@@ -48,8 +48,8 @@ interface RubricItem {
 }
 
 // ─── Constants ────────────────────────────────────────────────
-const BRAND_BLUE = "#264796";
-const BRAND_BLUE_LIGHT = "#3460c4";
+const BRAND_BLUE = "var(--color-brand-blue)";
+const BRAND_BLUE_LIGHT = "var(--color-brand-blue-light)";
 
 const DEFAULT_RUBRIC: RubricItem[] = [
   { id: "content", label: "Content & Accuracy", description: "Depth of research, factual accuracy, and relevance", weight: 25, score: 0, maxScore: 25 },
@@ -202,7 +202,7 @@ const SplitViewGrading: React.FC = () => {
         style={{
           background: "rgba(255,255,255,0.95)",
           backdropFilter: "blur(12px)",
-          borderColor: "rgba(38,71,150,0.08)",
+          borderColor: "color-mix(in srgb, var(--color-brand-blue) 8%, transparent)",
         }}
       >
         <div className="flex items-center gap-3">
@@ -254,7 +254,7 @@ const SplitViewGrading: React.FC = () => {
                 : `linear-gradient(135deg, ${BRAND_BLUE}, ${BRAND_BLUE_LIGHT})`,
               boxShadow: success
                 ? "0 4px 12px rgba(22, 163, 74, 0.25)"
-                : "0 4px 12px rgba(38, 71, 150, 0.25)",
+                : "0 4px 12px color-mix(in srgb, var(--color-brand-blue) 25%, transparent)",
             }}
           >
             {saving ? (
@@ -429,9 +429,9 @@ const SplitViewGrading: React.FC = () => {
                             onClick={() => updateRubricScore(item.id, preset)}
                             className="flex-1 py-1 text-[10px] font-bold rounded-lg transition"
                             style={{
-                              background: item.score === preset ? `${BRAND_BLUE}15` : "rgba(241,245,249,1)",
+                              background: item.score === preset ? `color-mix(in srgb, var(--color-brand-blue) 8%, transparent)` : "rgba(241,245,249,1)",
                               color: item.score === preset ? BRAND_BLUE : "#94a3b8",
-                              border: item.score === preset ? `1.5px solid ${BRAND_BLUE}30` : "1.5px solid transparent",
+                              border: item.score === preset ? `1.5px solid color-mix(in srgb, var(--color-brand-blue) 19%, transparent)` : "1.5px solid transparent",
                             }}
                           >
                             {preset}

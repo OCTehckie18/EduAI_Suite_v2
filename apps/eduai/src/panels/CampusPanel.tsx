@@ -110,7 +110,7 @@ export function CampusPanel({ search, onChanged }: { search: string; onChanged: 
                 <td className="p-3 sm:p-4">{campus.departments}</td>
                 <td className="p-3 sm:p-4">{campus.students}</td>
                 <td className="p-3 text-right sm:p-4">
-                  <button onClick={() => setEditing(campus)} className="mr-2 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[#264796] hover:bg-[#264796]/10"><Pencil className="h-3.5 w-3.5" />Edit</button>
+                  <button onClick={() => setEditing(campus)} className="mr-2 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-brand-blue hover:bg-brand-blue/10"><Pencil className="h-3.5 w-3.5" />Edit</button>
                   <button onClick={() => void deactivate(campus)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-rose-700 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5" />Deactivate</button>
                 </td>
               </tr>

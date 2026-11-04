@@ -20,7 +20,7 @@ interface TabDef { tab: TabKey; label: string; title: string; subtitle: string; 
 
 const NAV: { heading: string; items: TabDef[] }[] = [
   { heading: "", items: [
-    { tab: "overview", label: "Overview", title: "Overview", subtitle: "Where your institution stands today", Icon: BarChart3, color: "text-[#264796]", search: false },
+    { tab: "overview", label: "Overview", title: "Overview", subtitle: "Where your institution stands today", Icon: BarChart3, color: "text-brand-blue", search: false },
   ] },
   { heading: "Institution", items: [
     { tab: "university", label: "University", title: "University settings", subtitle: "Name, logo and contact details shown across every portal", Icon: Landmark, color: "text-yellow-700", search: false },
@@ -103,7 +103,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
         <div>
           <div className="mb-8 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-[#264796] to-[#d0ae61] shadow-lg shadow-rose-900/30"><img src={logo} alt="EduAI Suite" className="h-8 w-8 object-contain" /></div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-blue to-brand-gold shadow-lg shadow-rose-900/30"><img src={logo} alt="EduAI Suite" className="h-8 w-8 object-contain" /></div>
               <div><h1 className="text-lg font-bold text-slate-900">EduAI Suite</h1><span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">Master Admin</span></div>
             </div>
             <button onClick={() => setMenuOpen(false)} className="rounded-lg p-1 text-slate-500 hover:text-slate-900 lg:hidden" aria-label="Close menu"><X className="h-5 w-5" /></button>
@@ -125,7 +125,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
           </nav>
         </div>
         <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-          <div className={`mb-1 flex items-center gap-2 text-xs font-semibold ${overviewError ? "text-rose-600" : loading ? "text-[#264796]" : "text-emerald-600"}`}>
+          <div className={`mb-1 flex items-center gap-2 text-xs font-semibold ${overviewError ? "text-rose-600" : loading ? "text-brand-blue" : "text-emerald-600"}`}>
             <span className={`h-2 w-2 rounded-full ${overviewError ? "bg-rose-400" : loading ? "animate-pulse bg-amber-300" : "bg-emerald-400"}`} />
             {overviewError ? "Backend unreachable" : loading ? "Syncing..." : "Backend connected"}
           </div>
@@ -140,7 +140,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
           {active.search && (
             <div className="relative order-last w-full sm:order-none sm:w-64">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-              <input type="search" placeholder="Search this page..." value={search} onChange={(event) => setSearch(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#264796] focus:ring-2 focus:ring-[#264796]/20" />
+              <input type="search" placeholder="Search this page..." value={search} onChange={(event) => setSearch(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20" />
             </div>
           )}
           <button onClick={refresh} disabled={loading} className="rounded-xl border border-slate-300 p-2 text-slate-700 hover:text-slate-900 disabled:opacity-50" title="Refresh" aria-label="Refresh"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></button>

@@ -366,8 +366,8 @@ const PresentationSubmissionPortal: React.FC = () => {
                 onClick={() => setLiveMode(true)}
                 className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white transition"
                 style={{
-                  background: "linear-gradient(135deg, #264796, #3460c4)",
-                  boxShadow: "0 4px 16px rgba(38,71,150,0.3)",
+                  background: "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
+                  boxShadow: "0 4px 16px color-mix(in srgb, var(--color-brand-blue) 30%, transparent)",
                 }}
               >
                 <Radio className="w-5 h-5" /> Go Live — Present Now

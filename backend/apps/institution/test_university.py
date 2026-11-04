@@ -132,3 +132,38 @@ class UniversityLogoTests(APITestCase):
         self.assertEqual(self.client.get(PUBLIC_LOGO).status_code, 404)
         again = self.client.post(LOGO, {"file": image_file(size=(120, 120))}, format="multipart").json()["logo_url"]
         self.assertTrue(first and again)
+
+
+class UniversityColorTests(APITestCase):
+    def setUp(self):
+        self.master = User.objects.create_user(email="m@x.com", password="pw", role="MASTER_ADMIN")
+        self.client.force_authenticate(self.master)
+
+    def test_defaults_are_published_before_anything_is_set(self):
+        self.client.force_authenticate(None)
+        body = self.client.get(PUBLIC).json()
+        self.assertEqual((body["primary_color"], body["secondary_color"], body["tertiary_color"]), ("#264796", "#d0ae61", "#0f766e"))
+
+    def test_three_colours_are_saved_normalised_and_public(self):
+        response = self.client.put(DETAILS, {"primary_color": "#7A1F2B", "secondary_color": "#F2C94C", "tertiary_color": "#2D9CDB"}, format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.client.force_authenticate(None)
+        body = self.client.get(PUBLIC).json()
+        self.assertEqual((body["primary_color"], body["secondary_color"], body["tertiary_color"]), ("#7a1f2b", "#f2c94c", "#2d9cdb"))
+
+    def test_invalid_colours_are_refused(self):
+        for bad in ("red", "#fff", "#12345g", "264796", "url(x)", ""):
+            response = self.client.put(DETAILS, {"secondary_color": bad}, format="json")
+            self.assertEqual(response.status_code, 400, bad)
+            self.assertEqual(response.json()["field"], "secondary_color")
+
+    def test_a_primary_colour_too_light_for_white_text_is_refused(self):
+        response = self.client.put(DETAILS, {"primary_color": "#ffee99"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("too light", response.json()["detail"])
+        self.assertEqual(UniversityProfile.load().primary_color, "#264796")
+
+    def test_only_a_master_admin_can_change_colours(self):
+        teacher = User.objects.create_user(email="t@x.com", password="pw", role="TEACHER")
+        self.client.force_authenticate(teacher)
+        self.assertEqual(self.client.put(DETAILS, {"primary_color": "#7a1f2b"}, format="json").status_code, 403)

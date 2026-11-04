@@ -7,7 +7,13 @@ import { PanelCard, useConfirm, useToast } from "./ui";
 
 const ENDPOINT = `${API_BASE_URL}/master-admin/university`;
 
-type Details = Pick<University, "name" | "short_name" | "email_domain" | "contact_email" | "phone" | "website" | "address">;
+type Details = Pick<University, "name" | "short_name" | "email_domain" | "contact_email" | "phone" | "website" | "address" | "primary_color" | "secondary_color" | "tertiary_color">;
+
+const COLOR_FIELDS: { key: "primary_color" | "secondary_color" | "tertiary_color"; label: string; hint: string }[] = [
+  { key: "primary_color", label: "Primary", hint: "Main buttons, headings and active tabs. Must be dark enough for white text." },
+  { key: "secondary_color", label: "Secondary", hint: "Highlights and decorative accents." },
+  { key: "tertiary_color", label: "Tertiary", hint: "Focus rings and small interactive accents." },
+];
 
 const FIELDS: { key: keyof Details; label: string; placeholder: string; multiline?: boolean; hint?: string }[] = [
   { key: "name", label: "University name", placeholder: "Example University", hint: "Shown on every login page and in the page title." },
@@ -34,7 +40,7 @@ export function UniversityPanel() {
 
   const apply = (data: University) => {
     setLocal(data);
-    setForm({ name: data.name, short_name: data.short_name, email_domain: data.email_domain, contact_email: data.contact_email, phone: data.phone, website: data.website, address: data.address });
+    setForm({ name: data.name, short_name: data.short_name, email_domain: data.email_domain, contact_email: data.contact_email, phone: data.phone, website: data.website, address: data.address, primary_color: data.primary_color, secondary_color: data.secondary_color, tertiary_color: data.tertiary_color });
     setUniversity(data);
   };
 
@@ -130,7 +136,26 @@ export function UniversityPanel() {
           {field.hint && <span className="mt-1 block text-xs text-slate-500">{field.hint}</span>}
         </label>)}
       </div>
-      <div className="flex justify-end"><button type="submit" disabled={saving} className="rounded-lg bg-[#264796] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save details"}</button></div>
+      <div className="border-t border-slate-200 pt-4">
+        <h3 className="text-base font-semibold">Brand colours</h3>
+        <p className="mt-1 text-xs text-slate-500">Used across TeacherBuddy, EduGames and this portal so every screen matches your institution. Lighter and darker shades are worked out automatically.</p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-3">
+          {COLOR_FIELDS.map((field) => <label key={field.key} className="block text-sm text-slate-700">{field.label}
+            <span className="mt-1 flex items-center gap-2">
+              <input type="color" value={form[field.key]} onChange={(e) => setForm({ ...form, [field.key]: e.target.value })} className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-slate-300 bg-white p-1" aria-label={`${field.label} colour`} />
+              <input value={form[field.key]} maxLength={7} onChange={(e) => setForm({ ...form, [field.key]: e.target.value })} className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-900" aria-label={`${field.label} colour code`} />
+            </span>
+            <span className="mt-1 block text-xs text-slate-500">{field.hint}</span>
+          </label>)}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3" aria-label="Colour preview">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preview</span>
+          <span className="rounded-lg px-4 py-2 text-sm font-semibold text-white" style={{ background: form.primary_color }}>Primary button</span>
+          <span className="rounded-lg px-4 py-2 text-sm font-semibold" style={{ background: form.secondary_color, color: "#1f2937" }}>Highlight</span>
+          <span className="rounded-lg border-2 bg-white px-4 py-2 text-sm font-semibold text-slate-800" style={{ borderColor: form.tertiary_color }}>Focused field</span>
+        </div>
+      </div>
+      <div className="flex justify-end"><button type="submit" disabled={saving} className="rounded-lg bg-brand-blue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save details"}</button></div>
     </form>
   </div>;
 }

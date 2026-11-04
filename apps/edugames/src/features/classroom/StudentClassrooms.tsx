@@ -492,7 +492,7 @@ export const StudentClassrooms: React.FC = () => {
                 <div
                   className="p-6 text-white"
                   style={{
-                    background: `linear-gradient(135deg, ${selectedCourse.color}, #1c3570)`,
+                    background: `linear-gradient(135deg, ${selectedCourse.color}, var(--color-brand-blue-dark))`,
                   }}
                 >
                   <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">

@@ -101,7 +101,7 @@
   transition: background 0.15s ease;
 }
 .trello-column-cards-active {
-  background: rgba(38, 71, 150, 0.06);
+  background: color-mix(in srgb, var(--color-brand-blue) 6%, transparent);
   border-radius: 8px;
 }
 
@@ -118,7 +118,7 @@
 }
 .trello-card:hover {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-  border-color: rgba(38, 71, 150, 0.15);
+  border-color: color-mix(in srgb, var(--color-brand-blue) 15%, transparent);
 }
 .trello-card-dragging {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18) !important;
@@ -142,7 +142,7 @@
   transition: all 0.15s ease;
 }
 .trello-add-card-btn:hover {
-  background: rgba(38, 71, 150, 0.06);
+  background: color-mix(in srgb, var(--color-brand-blue) 6%, transparent);
   color: var(--color-text-primary);
 }
 
@@ -260,7 +260,7 @@
 .trello-column-cards::-webkit-scrollbar { width: 4px; }
 .trello-column-cards::-webkit-scrollbar-track { background: transparent; }
 .trello-column-cards::-webkit-scrollbar-thumb {
-  background: rgba(38, 71, 150, 0.15);
+  background: color-mix(in srgb, var(--color-brand-blue) 15%, transparent);
   border-radius: 99px;
 }
 

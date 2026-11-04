@@ -114,8 +114,8 @@ export const AuthPage: React.FC = () => {
       {/* ── Left Panel ── */}
       <div className="hidden lg:flex w-1/2 flex-col justify-between p-12 relative overflow-hidden" style={{ background: "linear-gradient(135deg,#1e0f45 0%,#351c70 50%,#682696 100%)" }}>
         {/* Decorative circles */}
-        <div className="absolute -top-20 -left-20 w-80 h-80 rounded-full" style={{ background: "rgba(208,174,97,0.08)" }} />
-        <div className="absolute -bottom-20 -right-20 w-96 h-96 rounded-full" style={{ background: "rgba(38,71,150,0.25)" }} />
+        <div className="absolute -top-20 -left-20 w-80 h-80 rounded-full" style={{ background: "color-mix(in srgb, var(--color-brand-gold) 8%, transparent)" }} />
+        <div className="absolute -bottom-20 -right-20 w-96 h-96 rounded-full" style={{ background: "color-mix(in srgb, var(--color-brand-blue) 25%, transparent)" }} />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full" style={{ background: "rgba(255,255,255,0.02)" }} />
 
         {/* Logo */}

@@ -168,7 +168,7 @@ export function UsersPanel({ search, onChanged }: { search: string; onChanged: (
                   <td className="p-3 text-xs text-slate-500 sm:p-4">{user.register_no || user.emp_no || "—"}</td>
                   <td className="p-3 text-right sm:p-4">
                     {user.is_active ? <>
-                      <button onClick={() => setEditing(user)} className="mr-2 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[#264796] hover:bg-[#264796]/10"><Pencil className="h-3.5 w-3.5" />Edit</button>
+                      <button onClick={() => setEditing(user)} className="mr-2 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-brand-blue hover:bg-brand-blue/10"><Pencil className="h-3.5 w-3.5" />Edit</button>
                       <button onClick={() => void deactivate(user)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-rose-700 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5" />Deactivate</button>
                     </> : <button onClick={() => void restore(user)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50"><RotateCcw className="h-3.5 w-3.5" />Restore</button>}
                   </td>

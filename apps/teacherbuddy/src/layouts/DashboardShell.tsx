@@ -531,7 +531,7 @@ export const DashboardShell: React.FC = () => {
                         }}
                         style={{
                           backgroundColor: n.unread
-                            ? "rgba(38, 71, 150, 0.05)"
+                            ? "color-mix(in srgb, var(--color-brand-blue) 5%, transparent)"
                             : "transparent",
                         }}
                         onMouseEnter={(e) =>
@@ -540,7 +540,7 @@ export const DashboardShell: React.FC = () => {
                         }
                         onMouseLeave={(e) =>
                           (e.currentTarget.style.backgroundColor = n.unread
-                            ? "rgba(38, 71, 150, 0.05)"
+                            ? "color-mix(in srgb, var(--color-brand-blue) 5%, transparent)"
                             : "transparent")
                         }
                       >
@@ -615,7 +615,7 @@ export const DashboardShell: React.FC = () => {
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow"
                 style={{
-                  background: "linear-gradient(135deg,#264796,#3460c4)",
+                  background: "linear-gradient(135deg,var(--color-brand-blue),var(--color-brand-blue-light))",
                 }}
               >
                 {user?.name?.charAt(0) || "U"}
@@ -801,7 +801,7 @@ export const DashboardShell: React.FC = () => {
       {toast && (
         <div className="fixed top-20 left-4 right-4 sm:left-auto sm:right-6 z-[100] animate-slide-in-right">
           <div
-            className="glass-card p-4 flex items-start gap-4 shadow-2xl border-l-4 border-l-[#264796] sm:min-w-[300px] cursor-pointer"
+            className="glass-card p-4 flex items-start gap-4 shadow-2xl border-l-4 border-l-brand-blue sm:min-w-[300px] cursor-pointer"
             onClick={() => {
               navigate(toast.href);
               setToast(null);
@@ -813,9 +813,9 @@ export const DashboardShell: React.FC = () => {
           >
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-              style={{ background: "rgba(38, 71, 150, 0.12)" }}
+              style={{ background: "color-mix(in srgb, var(--color-brand-blue) 12%, transparent)" }}
             >
-              <Bell size={20} className="text-[#264796]" />
+              <Bell size={20} className="text-brand-blue" />
             </div>
             <div className="flex-1 min-w-0 pr-6">
               <p

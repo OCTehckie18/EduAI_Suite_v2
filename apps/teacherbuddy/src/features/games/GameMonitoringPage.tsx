@@ -112,7 +112,7 @@ export const GameMonitoringPage: React.FC<GameMonitoringPageProps> = ({
             className="mt-4 px-6 py-2 rounded-lg font-semibold text-white"
             style={{
               background:
-                "linear-gradient(135deg, var(--color-brand-blue), #3460c4)",
+                "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
             }}
           >
             Go Back
@@ -243,7 +243,7 @@ export const GameMonitoringPage: React.FC<GameMonitoringPageProps> = ({
                       className="px-4 py-2 rounded-lg font-semibold text-white"
                       style={{
                         background:
-                          "linear-gradient(135deg, var(--color-brand-blue), #3460c4)",
+                          "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
                       }}
                     >
                       {w.word}

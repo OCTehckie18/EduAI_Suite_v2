@@ -2160,7 +2160,7 @@ export const ClassroomsPage: React.FC = () => {
                   <div
                     className="p-8 pb-6"
                     style={{
-                      background: "linear-gradient(135deg, #264796, #1a202c)",
+                      background: "linear-gradient(135deg, var(--color-brand-blue), #1a202c)",
                     }}
                   >
                     <button
@@ -2174,7 +2174,7 @@ export const ClassroomsPage: React.FC = () => {
                         className="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-black text-3xl shadow-2xl"
                         style={{
                           background:
-                            "linear-gradient(135deg, #3460c4, #d0ae61)",
+                            "linear-gradient(135deg, var(--color-brand-blue-light), var(--color-brand-gold))",
                         }}
                       >
                         {(studentProfileData.name ?? "?").charAt(0)}

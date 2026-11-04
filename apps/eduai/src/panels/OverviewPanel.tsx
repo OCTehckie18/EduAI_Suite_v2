@@ -86,7 +86,7 @@ export function OverviewPanel({ overview, onNavigate, refreshKey }: { overview: 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         {kpis.map(({ label, value, hint, Icon, tab, tone }) => (
           <button key={label} onClick={() => onNavigate(tab)} className={`group rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-400 sm:p-5 ${tone ?? ""}`}>
-            <div className="mb-3 flex items-center justify-between text-slate-500"><span className="text-xs font-semibold uppercase tracking-wide">{label}</span><Icon className="h-4 w-4 text-[#264796]" /></div>
+            <div className="mb-3 flex items-center justify-between text-slate-500"><span className="text-xs font-semibold uppercase tracking-wide">{label}</span><Icon className="h-4 w-4 text-brand-blue" /></div>
             <div className="text-3xl font-bold text-slate-900">{value}</div>
             <div className="mt-1 flex items-center gap-1 text-xs text-slate-500 group-hover:text-slate-700">{hint}<ChevronRight className="h-3 w-3" /></div>
           </button>
@@ -129,7 +129,7 @@ export function OverviewPanel({ overview, onNavigate, refreshKey }: { overview: 
       </div>
 
       <PanelCard>
-        <PanelHeader title="Campuses at a glance" actions={<button onClick={() => onNavigate("structure")} className="text-sm text-[#264796] hover:text-[#1c3570]">Open institution structure →</button>} />
+        <PanelHeader title="Campuses at a glance" actions={<button onClick={() => onNavigate("structure")} className="text-sm text-brand-blue hover:text-brand-blue-dark">Open institution structure →</button>} />
         {campuses === null ? <SkeletonRows rows={3} cols={4} /> : campuses.length === 0 ? (
           <EmptyState icon={<Building2 className="h-5 w-5" />} title="No campuses yet" hint="Add your first campus to start building the structure." />
         ) : (
