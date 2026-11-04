@@ -24,6 +24,15 @@ from .serializers import MailDraftSerializer, MailHistorySerializer
 logger = logging.getLogger(__name__)
 
 
+def _optional_number(value):
+    """A number from a spreadsheet cell, or None when it is empty or not a number."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if number != number else number  # NaN (an empty cell) is not a value
+
+
 class MailGenerateView(APIView):
     permission_classes = [IsTeacher]
 
@@ -73,27 +82,41 @@ Return ONLY the raw JSON string."""
 
 
 class MailFilterView(APIView):
+    """Pick the teacher's own students by their real marks. Attendance is not recorded, so a student
+    never matches an attendance condition and the field is returned as ``None``."""
     permission_classes = [IsTeacher]
 
+    OPERATORS = {
+        "<": lambda a, b: a < b, "<=": lambda a, b: a <= b, ">": lambda a, b: a > b,
+        ">=": lambda a, b: a >= b, "==": lambda a, b: a == b,
+    }
+
     def post(self, request):
+        from apps.assignments.stats import average_by_student
+        from apps.core.access import managed_courses
+
         conditions = request.data.get("conditions", [])
-        students = User.objects.filter(role=User.Role.STUDENT)
+        courses = managed_courses(request.user)
+        course_ids = list(courses.values_list("id", flat=True))
+        students = User.objects.filter(
+            enrollments__classroom__in=courses, enrollments__is_active=True, role=User.Role.STUDENT
+        ).distinct()
+        averages = average_by_student(list(students.values_list("id", flat=True)), course_ids)
         results = []
 
         for s in students:
+            values = {"avg_score": averages.get(s.id), "score": averages.get(s.id), "attendance": None}
             match = True
-            # Mock or check attributes
             for c in conditions:
-                field = c.get("field", "")
-                op = c.get("operator", "")
-                val = float(c.get("value", 0))
-                # For demonstration/compatibility with old backend:
-                current_val = 80.0
-                if op == "<" and not (current_val < val): match = False
-                elif op == "<=" and not (current_val <= val): match = False
-                elif op == ">" and not (current_val > val): match = False
-                elif op == ">=" and not (current_val >= val): match = False
-                elif op == "==" and not (current_val == val): match = False
+                compare = self.OPERATORS.get(c.get("operator", ""))
+                try:
+                    threshold = float(c.get("value", 0))
+                except (TypeError, ValueError):
+                    return Response({"detail": "Condition values must be numbers."}, status=status.HTTP_400_BAD_REQUEST)
+                current = values.get(c.get("field", ""))
+                if compare is None or current is None or not compare(current, threshold):
+                    match = False
+                    break
 
             if match:
                 results.append({
@@ -101,8 +124,8 @@ class MailFilterView(APIView):
                     "name": s.full_name,
                     "email": s.email,
                     "registration_number": s.register_no or f"REG-{s.id}",
-                    "attendance": 85.0,
-                    "avg_score": 75.0,
+                    "attendance": None,
+                    "avg_score": averages.get(s.id),
                 })
 
         return Response(results)
@@ -140,8 +163,8 @@ class MailParseExcelView(APIView):
                     "name": str(row.get("name") or row.get("student_name") or f"Student {idx + 1}"),
                     "email": str(row.get("email") or ""),
                     "registration_number": str(row.get("registration_number") or row.get("reg_no") or f"R-{idx+1}"),
-                    "attendance": float(row.get("attendance", 85.0)),
-                    "avg_score": float(row.get("avg_score", row.get("score", 75.0))),
+                    "attendance": _optional_number(row.get("attendance")),
+                    "avg_score": _optional_number(row.get("avg_score", row.get("score"))),
                 })
 
             return Response(students)

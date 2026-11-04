@@ -221,7 +221,7 @@ def _get_student_engagement(student: User, course_id: int):
     reg_no = student.register_no or f"REG-{student.id}"
     dept_name = student.department.name if student.department else "General"
     cls_name = student.section.name if student.section else (
-        student.batch.name if student.batch else "Batch A")
+        student.batch.name if student.batch else "")
 
     result = {
         "student_id": student.id,
@@ -293,7 +293,7 @@ class CourseEngagementSummaryView(APIView):
         ]
         avg_attendance = round(
             sum(attendance_values) / len(attendance_values), 1
-        ) if attendance_values else 0.0
+        ) if attendance_values else None
         avg_assignment = round(sum(e["assignments"]["completion_rate"]
                                for e in all_engagement) / total, 1) if total > 0 else 0.0
         at_risk = sum(

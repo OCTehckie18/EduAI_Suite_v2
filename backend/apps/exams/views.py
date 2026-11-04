@@ -70,12 +70,15 @@ class ExamStatsView(APIView):
             attempts = attempts.filter(exam__course__teacher=request.user)
         today = timezone.now().date()
         total_attempts = attempts.count()
+        started = ExamAttempt.objects.all() if _is_admin(request.user) else ExamAttempt.objects.filter(exam__course__teacher=request.user)
+        started_count = started.count()
 
         return Response({
             "total_exams": exams.count(),
             "submissions_today": attempts.filter(end_time__date=today).count(),
             "total_attempts": total_attempts,
-            "avg_completion_rate": 100.0 if total_attempts > 0 else 0.0,
+            # Of the attempts students started, how many were handed in; None before anyone has started one.
+            "avg_completion_rate": round(100 * total_attempts / started_count, 1) if started_count else None,
         })
 
 
