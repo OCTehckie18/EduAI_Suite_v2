@@ -1512,7 +1512,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showCourseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg lg:max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 Create New Class
@@ -1527,7 +1527,7 @@ export const ClassroomsPage: React.FC = () => {
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleCreateCourse} className="space-y-5">
+            <form onSubmit={handleCreateCourse} className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5">
               <div>
                 <label className={premiumLabel}>Course Code</label>
                 <input
@@ -1553,14 +1553,14 @@ export const ClassroomsPage: React.FC = () => {
                 />
               </div>
               {classOptionsError && (
-                <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600">{classOptionsError}</p>
+                <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600 lg:col-span-2">{classOptionsError}</p>
               )}
               {classOptions && classOptions.programs.every((p) => p.batches.length === 0) && (
-                <p className="rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-700">
+                <p className="rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-700 lg:col-span-2">
                   No classes are set up{classOptions.department ? ` for ${classOptions.department.name}` : " for your department"} yet. Ask the master admin to add them under Institution Structure.
                 </p>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:contents gap-4">
                 <div>
                   <label className={premiumLabel}>Program</label>
                   <select
@@ -1593,7 +1593,7 @@ export const ClassroomsPage: React.FC = () => {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:contents gap-4">
                 <div>
                   <label className={premiumLabel}>Section</label>
                   <select
@@ -1622,7 +1622,7 @@ export const ClassroomsPage: React.FC = () => {
                   />
                 </div>
               </div>
-              <div>
+              <div className="lg:col-span-2">
                 <label className={premiumLabel}>Description</label>
                 <textarea
                   className={premiumInput}
@@ -1670,7 +1670,7 @@ export const ClassroomsPage: React.FC = () => {
               </div>
               <button
                 type="submit"
-                className="w-full bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-brand-blue/30 py-4 rounded-xl font-bold text-lg transition-all hover:-translate-y-1"
+                className="w-full lg:col-span-2 bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-brand-blue/30 py-4 rounded-xl font-bold text-lg transition-all hover:-translate-y-1"
               >
                 Initialize Course
               </button>
@@ -1681,7 +1681,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showStudentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg lg:max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 Enroll Students
@@ -1710,7 +1710,7 @@ export const ClassroomsPage: React.FC = () => {
             </div>
 
             {studentTab === "manual" ? (
-              <form onSubmit={handleAddStudentManual} className="space-y-4">
+              <form onSubmit={handleAddStudentManual} className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4">
                 <div>
                   <label className={premiumLabel}>Full Name</label>
                   <input
@@ -1736,7 +1736,7 @@ export const ClassroomsPage: React.FC = () => {
                     }
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 lg:col-span-2">
                   <div>
                     <label className={premiumLabel}>Reg Number</label>
                     <input
@@ -1768,7 +1768,7 @@ export const ClassroomsPage: React.FC = () => {
                     />
                   </div>
                 </div>
-                <div>
+                <div className="lg:col-span-2">
                   <label className={premiumLabel}>Department</label>
                   <select
                     className={`${premiumInput} appearance-none cursor-pointer`}
@@ -1789,7 +1789,7 @@ export const ClassroomsPage: React.FC = () => {
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-brand-blue/30 py-4 mt-2 rounded-xl font-bold text-lg transition-all hover:-translate-y-1"
+                  className="w-full lg:col-span-2 bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-brand-blue/30 py-4 mt-2 rounded-xl font-bold text-lg transition-all hover:-translate-y-1"
                 >
                   Add Student
                 </button>
@@ -1918,7 +1918,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showAssignmentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg lg:max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 {editingAssignmentId
@@ -1935,8 +1935,8 @@ export const ClassroomsPage: React.FC = () => {
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSaveAssignment} className="space-y-4">
-              <div>
+            <form onSubmit={handleSaveAssignment} className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4">
+              <div className="lg:col-span-2">
                 <label className={premiumLabel}>Designation Title</label>
                 <input
                   required
@@ -1951,7 +1951,7 @@ export const ClassroomsPage: React.FC = () => {
                   }
                 />
               </div>
-              <div>
+              <div className="lg:col-span-2">
                 <label className={premiumLabel}>Instructions Payload</label>
                 <textarea
                   required
@@ -2020,7 +2020,7 @@ export const ClassroomsPage: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full bg-gold text-slate-900 border-none font-bold py-4 rounded-xl hover:bg-yellow-400 shadow-xl shadow-yellow-500/20 text-lg transition-all hover:-translate-y-1 mt-2"
+                className="w-full lg:col-span-2 bg-gold text-slate-900 border-none font-bold py-4 rounded-xl hover:bg-yellow-400 shadow-xl shadow-yellow-500/20 text-lg transition-all hover:-translate-y-1 mt-2"
               >
                 {editingAssignmentId
                   ? "Save Changes & Announce"
