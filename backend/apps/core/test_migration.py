@@ -311,11 +311,13 @@ class MigrationSmokeTestCase(TestCase):
             "/dashboard/summary",
             "/api/v1/api/dashboard/summary?teacher_name=Jane%20Prof",
             "/api/v1/api/dashboard/discoverable-classrooms",
-            "/api/v1/api/dashboard/student-summary?student_name=Aarav",
         ]
         for ep in endpoints:
             res = self.client.get(ep)
             self.assertEqual(res.status_code, status.HTTP_200_OK, f"Endpoint {ep} failed with {res.status_code}")
+
+        # The student dashboard belongs to students (covered in analytics.test_student_summary).
+        self.assertEqual(self.client.get("/api/v1/api/dashboard/student-summary").status_code, status.HTTP_403_FORBIDDEN)
 
         # Check expected payload keys for TeacherBuddy dashboard
         summary_res = self.client.get("/api/v1/api/dashboard/summary?teacher_name=Jane%20Prof")
