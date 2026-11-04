@@ -143,6 +143,9 @@ export const DashboardPage: React.FC = () => {
     upcomingExams = [],
     engagementSnapshot = { avgAttendance: null, avgScore: null, atRiskCount: 0, studentCount: 0 },
     calendarEventsThisWeek = 0,
+    markingQueue = { total: 0, items: [] },
+    dueSoon = [],
+    examResults = [],
   } = data;
 
   return (
@@ -358,6 +361,54 @@ export const DashboardPage: React.FC = () => {
             </div>
           </GlassCard>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <GlassCard padding="sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2"><CheckCircle2 size={15} className="text-emerald-600" /><h3 className="section-title text-sm">Waiting for Your Marks</h3></div>
+            <span className="text-xs font-bold" style={{ color: markingQueue.total ? "var(--color-brand-blue)" : "var(--color-text-muted)" }}>{markingQueue.total}</span>
+          </div>
+          <div className="space-y-2">
+            {markingQueue.items.length === 0 ? <p className="py-4 text-center text-xs italic text-muted-foreground">Nothing is waiting to be marked.</p> : markingQueue.items.map((item: any) => (
+              <Link key={item.assignmentId} to={`/classrooms/${item.courseId}`} className="flex items-center justify-between gap-2 rounded-lg border p-2.5 hover:bg-slate-50" style={{ borderColor: "var(--color-border)" }}>
+                <span className="min-w-0"><span className="block truncate text-xs font-semibold">{item.title}</span><span className="text-[10px] text-muted-foreground">{item.courseCode}</span></span>
+                <span className="badge badge-orange text-[9px]">{item.waiting} to mark</span>
+              </Link>
+            ))}
+          </div>
+        </GlassCard>
+
+        <GlassCard padding="sm">
+          <div className="mb-3 flex items-center gap-2"><Clock size={15} className="text-blue-600" /><h3 className="section-title text-sm">Due This Week</h3></div>
+          <div className="space-y-2">
+            {dueSoon.length === 0 ? <p className="py-4 text-center text-xs italic text-muted-foreground">No assignments are due in the next 7 days.</p> : dueSoon.map((item: any) => (
+              <Link key={item.assignmentId} to={`/classrooms/${item.courseId}`} className="block rounded-lg border p-2.5 hover:bg-slate-50" style={{ borderColor: "var(--color-border)" }}>
+                <p className="truncate text-xs font-semibold">{item.title}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {item.courseCode} · {item.dueIsDateOnly ? new Date(item.dueAt).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : new Date(item.dueAt).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                </p>
+                <p className="mt-1 text-[10px] font-semibold" style={{ color: "var(--color-brand-blue)" }}>{item.handedIn} of {item.enrolled} handed in</p>
+              </Link>
+            ))}
+          </div>
+        </GlassCard>
+
+        <GlassCard padding="sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2"><BarChart2 size={15} className="text-purple-600" /><h3 className="section-title text-sm">Exam Results</h3></div>
+            <Link to="/exams" className="text-[10px] font-semibold text-blue-600">View All →</Link>
+          </div>
+          <div className="space-y-2">
+            {examResults.length === 0 ? <p className="py-4 text-center text-xs italic text-muted-foreground">No exams yet.</p> : examResults.map((exam: any) => (
+              <Link key={exam.examId} to="/exams" className="block rounded-lg border p-2.5 hover:bg-slate-50" style={{ borderColor: "var(--color-border)" }}>
+                <p className="truncate text-xs font-semibold">{exam.title}</p>
+                <p className="text-[10px] text-muted-foreground">{exam.courseCode} · {exam.finished} finished · {exam.average == null ? "no average yet" : `average ${exam.average}%`}</p>
+                {exam.flagged > 0 && <p className="mt-1 text-[10px] font-semibold text-red-600">{exam.flagged} flagged for leaving the exam</p>}
+              </Link>
+            ))}
+          </div>
+        </GlassCard>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">

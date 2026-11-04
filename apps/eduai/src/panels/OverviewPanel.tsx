@@ -91,6 +91,68 @@ export function OverviewPanel({ overview, loadFailed, onRetry, onNavigate, refre
         })}
       </div>
 
+      {overview.warnings.length > 0 && (
+        <PanelCard>
+          <PanelHeader title="Needs your attention" subtitle="Parts of the setup that are incomplete. Click one to fix it." />
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {overview.warnings.map((warning) => (
+              <li key={warning.key}>
+                <button onClick={() => onNavigate(warning.tab)} className="flex w-full items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left transition hover:border-amber-400">
+                  <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-amber-500 px-2 text-sm font-bold text-white">{warning.count}</span>
+                  <span className="text-sm text-amber-900">{warning.label}</span>
+                  <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-amber-600" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </PanelCard>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <PanelCard>
+          <PanelHeader title="Student sign-ups" subtitle="Admitted students who finished creating their account." />
+          {overview.roster.total === 0 ? <EmptyState title="No roster yet" hint="Upload the admitted students to let them sign up." /> : (
+            <>
+              <p className="text-3xl font-bold text-slate-900">{overview.roster.signed_up}<span className="text-lg font-medium text-slate-500"> of {overview.roster.total}</span></p>
+              <div className="my-3 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuenow={overview.roster.signed_up} aria-valuemin={0} aria-valuemax={overview.roster.total}>
+                <div className="h-full rounded-full bg-emerald-500" style={{ width: `${(overview.roster.signed_up / overview.roster.total) * 100}%` }} />
+              </div>
+              <ul className="space-y-1.5 text-sm">
+                {overview.roster_by_class.map((row) => (
+                  <li key={`${row.program}-${row.class_name}`} className="flex items-center justify-between gap-2">
+                    <span className="truncate text-slate-700">{row.class_name}<span className="text-xs text-slate-400"> · {row.program}</span></span>
+                    <span className="shrink-0 text-xs font-semibold text-slate-600">{row.signed_up}/{row.total}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </PanelCard>
+
+        <PanelCard>
+          <PanelHeader title="Teachers" subtitle="By approval status." />
+          <dl className="grid grid-cols-3 gap-2 text-center text-xs">
+            {[["Approved", overview.teachers.approved, "bg-emerald-50 text-emerald-800"], ["Waiting", overview.teachers.pending, "bg-violet-50 text-violet-800"], ["Rejected", overview.teachers.rejected, "bg-slate-100 text-slate-700"]].map(([label, value, tone]) => (
+              <div key={label as string} className={`rounded-lg py-3 ${tone}`}><dt>{label}</dt><dd className="text-2xl font-bold">{value}</dd></div>
+            ))}
+          </dl>
+          {overview.teachers.oldest_pending_at && (
+            <button onClick={() => onNavigate("approvals")} className="mt-3 w-full rounded-lg border border-violet-200 px-3 py-2 text-left text-xs text-violet-800 hover:bg-violet-50">
+              The longest-waiting application was received {timeAgo(overview.teachers.oldest_pending_at)}. Review applications →
+            </button>
+          )}
+        </PanelCard>
+
+        <PanelCard>
+          <PanelHeader title="This week" subtitle="The last 7 days." />
+          <ul className="space-y-2 text-sm">
+            {[["New student accounts", overview.last_7_days.students_joined], ["Teachers approved", overview.last_7_days.teachers_approved], ["Classrooms created", overview.last_7_days.classrooms_created]].map(([label, value]) => (
+              <li key={label as string} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"><span className="text-slate-700">{label}</span><span className="text-lg font-bold text-slate-900">{value}</span></li>
+            ))}
+          </ul>
+        </PanelCard>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <PanelCard>
           <PanelHeader title="Getting started" subtitle={`${doneCount} of ${steps.length} steps done${universityName ? ` for ${universityName}` : ""}.`} />
@@ -135,8 +197,8 @@ export function OverviewPanel({ overview, loadFailed, onRetry, onNavigate, refre
             {campuses.map((campus) => (
               <div key={campus.id} className="rounded-xl border border-slate-200 p-4">
                 <div className="flex items-start justify-between gap-2"><div><p className="font-semibold text-slate-900">{campus.name}</p><p className="text-xs text-slate-500">{campus.code} · {campus.city}</p></div><Badge tone={campus.is_active ? "green" : "stone"}>{campus.is_active ? "Active" : "Inactive"}</Badge></div>
-                <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                  {[["Schools", campus.schools], ["Depts", campus.departments], ["Students", campus.students]].map(([label, value]) => (
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-xs sm:grid-cols-5">
+                  {[["Schools", campus.schools], ["Depts", campus.departments], ["Classrooms", overview.campus_stats[String(campus.id)]?.classrooms ?? 0], ["Teachers", overview.campus_stats[String(campus.id)]?.teachers ?? 0], ["Students", campus.students]].map(([label, value]) => (
                     <div key={label as string} className="rounded-lg bg-slate-100 py-2"><dt className="text-slate-500">{label}</dt><dd className="text-base font-bold text-slate-900">{value}</dd></div>
                   ))}
                 </dl>

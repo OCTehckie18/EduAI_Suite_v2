@@ -74,6 +74,70 @@ def format_relative_time(dt):
     return "Just now"
 
 
+def _marking_queue(classrooms_qs):
+    """Handed-in work waiting for a mark: the total, and the assignments with the most waiting."""
+    waiting = Submission.objects.filter(assignment__course__in=classrooms_qs, grade__isnull=True)
+    rows = (
+        waiting.values("assignment_id", "assignment__title", "assignment__course_id", "assignment__course__subject_code")
+        .annotate(n=Count("id")).order_by("-n", "assignment_id")[:5]
+    )
+    return {
+        "total": waiting.count(),
+        "items": [
+            {"assignmentId": r["assignment_id"], "title": r["assignment__title"] or "Untitled", "courseId": r["assignment__course_id"],
+             "courseCode": r["assignment__course__subject_code"], "waiting": r["n"]}
+            for r in rows
+        ],
+    }
+
+
+def _due_soon(classrooms_qs):
+    """Assignments due in the next 7 days with how many students have handed in so far."""
+    from apps.calendar_app.feed import parse_when
+
+    now = timezone.now()
+    today = timezone.localdate()
+    candidates = (
+        Assignment.objects.filter(course__in=classrooms_qs, due_date__gte=today.isoformat(), due_date__lt=(today + timedelta(days=8)).isoformat())
+        .select_related("course").annotate(handed_in=Count("submissions"))
+    )
+    enrolled = {
+        r["classroom_id"]: r["n"]
+        for r in Enrollment.objects.filter(classroom__in=classrooms_qs, is_active=True).values("classroom_id").annotate(n=Count("id"))
+    }
+    items = []
+    for asgn in candidates:
+        due, all_day = parse_when(asgn.due_date)
+        if due is None:
+            continue
+        deadline = due + timedelta(days=1) if all_day else due
+        if deadline < now or deadline > now + timedelta(days=7):
+            continue
+        items.append((deadline, {
+            "assignmentId": asgn.id, "title": asgn.title or "Untitled", "courseId": asgn.course_id, "courseCode": asgn.course.subject_code,
+            "dueAt": timezone.localtime(due).isoformat(), "dueIsDateOnly": all_day,
+            "handedIn": asgn.handed_in, "enrolled": enrolled.get(asgn.course_id, 0),
+        }))
+    return [item for _, item in sorted(items, key=lambda pair: pair[0])[:5]]
+
+
+def _exam_results(classrooms_qs):
+    """The most recent exams with how many students finished, the average, and how many were flagged."""
+    rows = (
+        Exam.objects.filter(course__in=classrooms_qs).select_related("course")
+        .annotate(
+            finished=Count("attempts", filter=Q(attempts__status="submitted")),
+            flagged=Count("attempts", filter=Q(attempts__status="flagged")),
+            average=Avg("attempts__score", filter=Q(attempts__status="submitted")),
+        ).order_by("-created_at")[:3]
+    )
+    return [
+        {"examId": e.id, "title": e.title or "Untitled exam", "courseCode": e.course.subject_code, "status": e.status,
+         "finished": e.finished, "flagged": e.flagged, "average": round(e.average, 1) if e.average is not None else None}
+        for e in rows
+    ]
+
+
 def _recent_activity(user, classrooms_qs, color_map):
     """What happened in this teacher's own classes lately (newest first), not everyone's audit log."""
     entries = []
@@ -359,7 +423,61 @@ class DashboardSummaryView(APIView):
             "engagementSnapshot": engagement_snapshot,
             "calendarEventsToday": calendar_today,
             "calendarEventsThisWeek": calendar_events_this_week,
+            "markingQueue": _marking_queue(classrooms_qs),
+            "dueSoon": _due_soon(classrooms_qs),
+            "examResults": _exam_results(classrooms_qs),
         })
+
+
+def _student_extras(student, course_ids):
+    """Recent results, exams the student can take now, the latest announcements, and what is on today and tomorrow."""
+    from apps.announcements.models import Announcement
+    from apps.calendar_app.feed import build_feed
+    from apps.core.models import StudentActivity
+
+    results = [
+        {"type": a.activity_type, "title": a.title, "score": a.score, "status": a.status, "at": timezone.localtime(a.occurred_at).isoformat()}
+        for a in StudentActivity.objects.filter(student_id=student.pk).order_by("-occurred_at")[:5]
+    ]
+
+    attempts = {}
+    for exam_id, status_value in ExamAttempt.objects.filter(student_id=student.pk, exam__course_id__in=course_ids).values_list("exam_id", "status"):
+        info = attempts.setdefault(exam_id, {"used": 0, "flagged": False, "running": False})
+        if status_value == "in_progress":
+            info["running"] = True
+        else:
+            info["used"] += 1
+            info["flagged"] = info["flagged"] or status_value == "flagged"
+    exams = []
+    for exam in Exam.objects.filter(course_id__in=course_ids, status="published").select_related("course").order_by("-created_at"):
+        info = attempts.get(exam.id, {"used": 0, "flagged": False, "running": False})
+        left = max(0, exam.attempts_allowed - info["used"])
+        if info["flagged"] or (left == 0 and not info["running"]):
+            continue  # nothing more this student can do with it
+        exams.append({"id": exam.id, "title": exam.title or "Untitled exam", "courseCode": exam.course.subject_code, "courseId": exam.course_id,
+                      "timeLimit": exam.time_limit, "attemptsLeft": left, "inProgress": info["running"]})
+    exams = exams[:5]
+
+    announcements = [
+        {"id": a.id, "title": a.title or "Announcement", "body": (a.body or "")[:160], "courseCode": a.course.subject_code,
+         "courseId": a.course_id, "pinned": a.pinned, "createdAt": timezone.localtime(a.created_at).isoformat()}
+        for a in Announcement.objects.filter(course_id__in=course_ids).select_related("course").order_by("-pinned", "-created_at", "-id")[:5]
+    ]
+
+    today = timezone.localdate()
+    tomorrow = today + timedelta(days=1)
+    upcoming = []
+    for event in build_feed(student):
+        if event["source"] not in ("custom", "appointment", "assignment"):
+            continue  # exams and lessons are not scheduled to a time, and past activity is not "coming up"
+        start = datetime.fromisoformat(event["start"])
+        if timezone.is_naive(start):
+            start = timezone.make_aware(start)
+        start = timezone.localtime(start)
+        if start.date() in (today, tomorrow) and (event.get("is_all_day") or start >= timezone.localtime() - timedelta(minutes=30)):
+            upcoming.append({"title": event["title"], "start": start.isoformat(), "kind": event["source"], "location": event.get("location") or "",
+                             "allDay": bool(event.get("is_all_day")), "day": "today" if start.date() == today else "tomorrow", "courseId": event.get("course_id")})
+    return {"recentResults": results, "exams": exams, "announcements": announcements, "comingUp": upcoming[:6]}
 
 
 class StudentDashboardSummaryView(APIView):
@@ -474,6 +592,7 @@ class StudentDashboardSummaryView(APIView):
             "courses": courses_payload,
             "deadlines": upcoming_deadlines,
             "overdue": overdue_deadlines,
+            **_student_extras(student, course_ids),
             "liveGame": live_game_info,
         })
 
