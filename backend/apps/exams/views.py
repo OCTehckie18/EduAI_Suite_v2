@@ -151,7 +151,17 @@ def _save_questions(exam, questions):
             ExamChoice.objects.create(question=question, choice_text=c_data["choice_text"], is_correct=c_data["is_correct"])
 
 
-def _finish(attempt, *, score, earned, total, final_status="submitted"):
+# Why an attempt was ended. The exam player reports one of these keys when the student leaves the exam.
+VIOLATIONS = {
+    "tab_hidden": "Switched to another tab or opened a new tab or window",
+    "window_blur": "Left the exam window (switched window or desktop)",
+    "fullscreen_exit": "Exited full-screen mode",
+    "page_unload": "Closed or refreshed the exam page",
+}
+
+
+def _finish(attempt, *, score, earned, total, final_status="submitted", flag_reason=""):
+    attempt.flag_reason = flag_reason
     attempt.score = score
     attempt.earned_points = earned
     attempt.total_points = total
@@ -338,6 +348,11 @@ class ExamAttemptStartView(APIView):
                 return Response({"detail": "This exam has no questions yet."}, status=status.HTTP_409_CONFLICT)
 
             previous = list(ExamAttempt.objects.filter(exam=exam, student_id=user.pk).select_related("exam"))
+            if any(a.status == "flagged" for a in previous):
+                return Response(
+                    {"detail": "You left the exam earlier and were flagged for cheating, so you cannot attempt it again."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             for attempt in previous:
                 _expire_if_overdue(attempt)
             in_progress = next((a for a in previous if a.status == "in_progress"), None)
@@ -365,6 +380,8 @@ class ExamAttemptSubmitView(APIView):
             attempt = get_object_or_404(ExamAttempt.objects.select_for_update().select_related("exam"), pk=attempt_id, exam_id=exam_id)
             if attempt.student_id != request.user.pk:
                 return _forbidden()
+            if attempt.status == "flagged":
+                return Response({"detail": "This attempt was ended because you left the exam. It cannot be submitted."}, status=status.HTTP_409_CONFLICT)
             if attempt.status != "in_progress":
                 return Response({"detail": "This attempt has already been submitted."}, status=status.HTTP_409_CONFLICT)
             if _expire_if_overdue(attempt):
@@ -402,6 +419,28 @@ class ExamAttemptSubmitView(APIView):
             score_percent = round(earned_points / total_points * 100, 1) if total_points > 0 else 0.0
             _finish(attempt, score=score_percent, earned=earned_points, total=total_points)
 
+        return Response(ExamAttemptSerializer(attempt).data)
+
+
+class ExamAttemptViolationView(APIView):
+    """The exam player reports that the student left the exam (tab, window, desktop or full screen).
+
+    The attempt ends at once: it is marked ``flagged``, scores 0 and cannot be retaken. Reporting is
+    idempotent, and a report that arrives after the exam was already handed in changes nothing.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, exam_id, attempt_id):
+        kind = request.data.get("type")
+        if kind not in VIOLATIONS:
+            return _bad("Unknown violation type.")
+        with transaction.atomic():
+            attempt = get_object_or_404(ExamAttempt.objects.select_for_update().select_related("exam"), pk=attempt_id, exam_id=exam_id)
+            if attempt.student_id != request.user.pk:
+                return _forbidden()
+            if attempt.status == "in_progress":
+                _finish(attempt, score=0.0, earned=0.0, total=_total_points(attempt.exam), final_status="flagged", flag_reason=VIOLATIONS[kind])
         return Response(ExamAttemptSerializer(attempt).data)
 
 

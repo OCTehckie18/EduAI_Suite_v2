@@ -7,6 +7,7 @@ from .views import (
     ExamAttemptSubmitView,
     ExamAttemptDetailView,
     ExamAttemptListView,
+    ExamAttemptViolationView,
 )
 from .import_views import ExamExtractView, ExamImportExcelView, ExamTemplateView
 
@@ -20,5 +21,6 @@ urlpatterns = [
     path("<int:exam_id>/attempts", ExamAttemptListView.as_view(), name="exam-attempts-list"),
     path("<int:exam_id>/attempts/start", ExamAttemptStartView.as_view(), name="exam-attempt-start"),
     path("<int:exam_id>/attempts/<int:attempt_id>", ExamAttemptDetailView.as_view(), name="exam-attempt-detail"),
+    path("<int:exam_id>/attempts/<int:attempt_id>/violation", ExamAttemptViolationView.as_view(), name="exam-attempt-violation"),
     path("<int:exam_id>/attempts/<int:attempt_id>/submit", ExamAttemptSubmitView.as_view(), name="exam-attempt-submit"),
 ]

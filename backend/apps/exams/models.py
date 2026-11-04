@@ -57,6 +57,8 @@ class ExamAttempt(models.Model):
     # The server enforces the time limit: after this moment (plus a short grace period) the attempt is closed.
     expires_at = models.DateTimeField(null=True, blank=True)
     earned_points = models.FloatField(null=True, blank=True)
+    # Set when the attempt was ended for leaving the exam (status "flagged").
+    flag_reason = models.CharField(max_length=200, blank=True, default="")
     total_points = models.FloatField(null=True, blank=True)
 
     class Meta:

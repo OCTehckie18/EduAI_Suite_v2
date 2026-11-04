@@ -113,7 +113,8 @@ export const StudentExams: React.FC = () => {
             const inProgress = myAttempts.some((a) => a.status === "in_progress");
             const scores = finished.filter((a) => a.status === "submitted" && a.score != null).map((a) => a.score as number);
             const bestScore = scores.length ? Math.max(...scores) : null;
-            const outOfAttempts = !inProgress && finished.length >= (exam.attempts_allowed ?? 1);
+            const flagged = myAttempts.some((a) => a.status === "flagged");
+            const outOfAttempts = flagged || (!inProgress && finished.length >= (exam.attempts_allowed ?? 1));
 
             return (
               <GlassCard key={exam.id} className="p-0 overflow-hidden flex flex-col justify-between hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
@@ -122,7 +123,7 @@ export const StudentExams: React.FC = () => {
                         <p className="text-xs font-bold uppercase tracking-widest text-blue-500">
                             {exam.course_code || `COURSE-${exam.course_id}`}
                         </p>
-                        <span className="badge badge-blue text-[10px]">{inProgress ? "In progress" : outOfAttempts ? "Done" : "Open"}</span>
+                        <span className="badge badge-blue text-[10px]">{flagged ? "Flagged" : inProgress ? "In progress" : outOfAttempts ? "Done" : "Open"}</span>
                     </div>
                     <h2 className="text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>{exam.title}</h2>
                     {exam.course_name && (
@@ -138,6 +139,11 @@ export const StudentExams: React.FC = () => {
                         Attempts: {finished.length} of {exam.attempts_allowed ?? 1}
                         {bestScore != null && <> · Best score: <strong>{bestScore}%</strong></>}
                       </p>
+                      {flagged && (
+                        <p className="mt-1 text-xs font-semibold text-red-600">
+                          Flagged for leaving the exam: recorded as failed (0%). You cannot retake it.
+                        </p>
+                      )}
                     </div>
                     
                     <div className="text-right">
@@ -146,7 +152,7 @@ export const StudentExams: React.FC = () => {
                         disabled={outOfAttempts}
                         className="btn btn-primary text-xs px-5 shadow-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <PlayCircle size={16} className="mr-1"/> {inProgress ? "Resume Exam" : outOfAttempts ? "No attempts left" : "Take Exam"}
+                        <PlayCircle size={16} className="mr-1"/> {flagged ? "Not allowed" : inProgress ? "Resume Exam" : outOfAttempts ? "No attempts left" : "Take Exam"}
                       </button>
                     </div>
                 </div>

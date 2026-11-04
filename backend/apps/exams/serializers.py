@@ -50,7 +50,7 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
         model = ExamAttempt
         fields = [
             "id", "student_id", "student_name", "student_email", "score", "earned_points", "total_points",
-            "status", "start_time", "end_time", "expires_at", "remaining_seconds", "answers", "exam",
+            "status", "flag_reason", "start_time", "end_time", "expires_at", "remaining_seconds", "answers", "exam",
         ]
 
     def _student(self, attempt):
@@ -77,8 +77,8 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
     def get_exam(self, attempt):
         if not self.context.get("include_review"):
             return None
-        if attempt.status == "in_progress" and not self.context.get("viewer_manages"):
-            return None  # a student must not see the answer key while still sitting the exam
+        if attempt.status in ("in_progress", "flagged") and not self.context.get("viewer_manages"):
+            return None  # no answer key while sitting the exam, and none for an attempt ended for cheating
         exam = attempt.exam
         questions = [
             {

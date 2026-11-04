@@ -196,14 +196,15 @@ export const ExamsPage: React.FC = () => {
       if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
       return `"${text.replace(/"/g, '""')}"`;
     };
-    const headers = ["Student Name", "Email", "Score (%)", "Points", "Finished", "Status"];
+    const headers = ["Student Name", "Email", "Score (%)", "Points", "Finished", "Status", "Flag reason"];
     const rows = rowsSource.map((a: any) => [
       a.student_name,
       a.student_email,
-      a.status === "submitted" ? a.score : "",
+      a.status === "submitted" || a.status === "flagged" ? a.score : "",
       a.status === "submitted" && a.total_points != null ? `${a.earned_points} / ${a.total_points}` : "",
       a.end_time ? new Date(a.end_time).toLocaleString() : "",
       a.status,
+      a.flag_reason || "",
     ]);
     const csvContent = [headers, ...rows].map((r) => r.map(cell).join(",")).join("\n");
 
@@ -504,6 +505,9 @@ export const ExamsPage: React.FC = () => {
                                 <div>
                                   <p className="font-semibold text-sm" style={{ color: "var(--color-text-primary)" }}>{attempt.student_name}</p>
                                   <p className="text-[10px]" style={{ color: "var(--color-text-muted)" }}>{attempt.student_email}</p>
+                                  {attempt.status === "flagged" && (
+                                    <p className="text-[10px] font-semibold text-red-600 mt-0.5">{attempt.flag_reason || "Left the exam"}</p>
+                                  )}
                                 </div>
                               </div>
 
@@ -517,7 +521,7 @@ export const ExamsPage: React.FC = () => {
                                 <div className="text-right">
                                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-0.5" style={{ fontSize: '9px' }}>Score</p>
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-lg font-black text-blue-600">{attempt.status === "expired" ? "Timed out" : attempt.status === "in_progress" ? "In progress" : `${attempt.score ?? 0}%`}</span>
+                                    <span className="text-lg font-black text-blue-600">{attempt.status === "flagged" ? "Flagged: cheating" : attempt.status === "expired" ? "Timed out" : attempt.status === "in_progress" ? "In progress" : `${attempt.score ?? 0}%`}</span>
                                   </div>
                                 </div>
                                 <button

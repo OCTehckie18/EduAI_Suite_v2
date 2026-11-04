@@ -243,3 +243,68 @@ class ReviewTests(ExamBase):
         first, second = self.client.get(url).json(), self.client.get(url).json()
         self.assertEqual([q["id"] for q in first["questions"]], [q["id"] for q in second["questions"]])
         self.assertNotIn("is_correct", first["questions"][0]["choices"][0])
+
+
+class ProctoringTests(ExamBase):
+    def setUp(self):
+        super().setUp()
+        self.exam_obj = self.exam(attempts_allowed=3)
+        self.attempt_id = self.start(self.exam_obj).json()["id"]
+
+    def report(self, kind="tab_hidden", user=None, attempt_id=None):
+        self.client.force_authenticate(user or self.student)
+        url = reverse("exam-attempt-violation", args=[self.exam_obj.pk, attempt_id or self.attempt_id])
+        return self.client.post(url, {"type": kind}, format="json")
+
+    def test_leaving_the_exam_flags_the_attempt_with_a_zero_score(self):
+        response = self.report("tab_hidden")
+        body = response.json()
+        self.assertEqual((response.status_code, body["status"], body["score"]), (200, "flagged", 0.0))
+        self.assertIn("tab", body["flag_reason"])
+        from apps.core.models import StudentActivity
+        activity = StudentActivity.objects.get(activity_type="exam")
+        self.assertEqual((activity.score, activity.status), (0.0, "flagged"))
+
+    def test_every_kind_of_violation_is_accepted_and_unknown_ones_are_not(self):
+        for kind in ("tab_hidden", "window_blur", "fullscreen_exit", "page_unload"):
+            attempt = ExamAttempt.objects.create(exam=self.exam_obj, student_id=self.student.pk, status="in_progress")
+            self.assertEqual(self.report(kind, attempt_id=attempt.pk).json()["status"], "flagged", kind)
+        attempt = ExamAttempt.objects.create(exam=self.exam_obj, student_id=self.student.pk, status="in_progress")
+        self.assertEqual(self.report("made_up", attempt_id=attempt.pk).status_code, 400)
+
+    def test_a_flagged_student_cannot_start_again_even_with_attempts_left(self):
+        self.report()
+        response = self.start(self.exam_obj)
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("flagged", response.json()["detail"])
+        self.assertEqual(ExamAttempt.objects.count(), 1)
+
+    def test_a_flagged_attempt_cannot_be_submitted_afterwards(self):
+        self.report()
+        q = self.exam_obj.questions.first()
+        response = self.submit(self.exam_obj, self.attempt_id, [{"question_id": q.pk, "selected_choice_id": q.choices.first().pk}])
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(ExamAttempt.objects.get().score, 0.0)
+
+    def test_reporting_twice_changes_nothing_and_a_late_report_cannot_undo_a_submission(self):
+        self.report("window_blur")
+        again = self.report("tab_hidden").json()
+        self.assertIn("window", again["flag_reason"])  # the first reason is kept
+        other = ExamAttempt.objects.create(exam=self.exam_obj, student_id=self.student.pk, status="in_progress")
+        self.submit(self.exam_obj, other.pk, [])
+        self.assertEqual(self.report("tab_hidden", attempt_id=other.pk).json()["status"], "submitted")
+
+    def test_nobody_can_flag_someone_elses_attempt(self):
+        self.assertEqual(self.report(user=self.other).status_code, 403)
+        self.assertEqual(self.report(user=self.teacher).status_code, 403)
+        self.assertEqual(ExamAttempt.objects.get().status, "in_progress")
+
+    def test_the_teacher_sees_the_flag_and_the_student_gets_no_answer_key(self):
+        self.report("fullscreen_exit")
+        self.client.force_authenticate(self.teacher)
+        rows = self.client.get(reverse("exam-attempts-list", args=[self.exam_obj.pk])).json()
+        self.assertEqual((rows[0]["status"], rows[0]["flag_reason"]), ("flagged", "Exited full-screen mode"))
+        url = reverse("exam-attempt-detail", args=[self.exam_obj.pk, self.attempt_id])
+        self.assertIsNotNone(self.client.get(url).json()["exam"])
+        self.client.force_authenticate(self.student)
+        self.assertIsNone(self.client.get(url).json()["exam"])

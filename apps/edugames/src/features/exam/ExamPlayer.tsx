@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { 
   Timer, ChevronRight, ChevronLeft, CheckCircle2, 
-  AlertTriangle, ArrowRight, Home
+  AlertTriangle, ArrowRight, Home, ShieldAlert, Maximize, Lock
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { GlassCard } from "../../shared/components/GlassCard";
@@ -32,6 +32,14 @@ interface Exam {
   questions: Question[];
 }
 
+// What the student sees when the server ends their attempt, keyed by the event the player detected.
+const VIOLATION_TEXT: Record<string, string> = {
+  tab_hidden: "You switched to another tab or opened a new tab or window.",
+  window_blur: "You left the exam window (switched window or desktop).",
+  fullscreen_exit: "You exited full-screen mode.",
+  page_unload: "You closed or refreshed the exam page.",
+};
+
 interface ExamPlayerProps {
   exam: Exam;
   onComplete: (results: any) => void;
@@ -55,6 +63,11 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
   const [showReview, setShowReview] = useState(false);
   const [fullSubmissionDetail, setFullSubmissionDetail] = useState<any>(null);
   const [isLoadingReview, setIsLoadingReview] = useState(false);
+  // intro: rules and the Start button; running: the exam; flagged: the attempt was ended for leaving the exam.
+  const [phase, setPhase] = useState<"intro" | "running" | "flagged">("intro");
+  const [starting, setStarting] = useState(false);
+  const [flagReason, setFlagReason] = useState("");
+  const [confirmFinish, setConfirmFinish] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // The timer callback outlives any one render, so it reads the latest values through refs.
@@ -62,6 +75,8 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
   const attemptIdRef = useRef<number | null>(null);
   const doneRef = useRef(false);
   const submittingRef = useRef(false);
+  // Monitoring is armed shortly after the exam begins so entering full screen itself is not counted.
+  const armedRef = useRef(false);
   answersRef.current = answers;
   useEffect(() => {
     if (!attemptId || doneRef.current) return;
@@ -73,11 +88,107 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
   }, [answers, attemptId]);
 
   useEffect(() => {
-    void startAttempt();
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
+
+  const fullscreenElement = () => document.fullscreenElement || (document as any).webkitFullscreenElement;
+  const canFullscreen = !!(document.documentElement.requestFullscreen || (document.documentElement as any).webkitRequestFullscreen);
+
+  const enterFullscreen = async () => {
+    const el: any = document.documentElement;
+    const request = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!request) throw new Error("unsupported");
+    await request.call(el);
+  };
+
+  const leaveFullscreen = () => {
+    try {
+      if (fullscreenElement()) void ((document as any).exitFullscreen || (document as any).webkitExitFullscreen)?.call(document);
+    } catch {
+      /* already out of full screen */
+    }
+  };
+
+  // Tell the server the student left. It ends the attempt (flagged, score 0) and blocks any retake.
+  const sendViolation = async (attempt: number, kind: string) => {
+    const token = localStorage.getItem("token");
+    for (let i = 0; i < 3; i++) {
+      try {
+        // keepalive lets the request finish even while the page is being closed or refreshed.
+        const response = await fetch(`${API_BASE_URL}/exams/${exam.id}/attempts/${attempt}/violation`, {
+          method: "POST",
+          keepalive: true,
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ type: kind }),
+        });
+        if (response.ok) return;
+      } catch {
+        /* retry */
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+  };
+
+  const reportViolation = (kind: string) => {
+    if (!armedRef.current || doneRef.current) return;
+    armedRef.current = false;
+    doneRef.current = true;
+    if (timerRef.current) clearInterval(timerRef.current);
+    const attempt = attemptIdRef.current;
+    try { localStorage.removeItem(`exam-draft-${attempt}`); } catch { /* ignore */ }
+    setFlagReason(VIOLATION_TEXT[kind] || "You left the exam.");
+    setPhase("flagged");
+    leaveFullscreen();
+    if (attempt) void sendViolation(attempt, kind);
+  };
+
+  // Watch for anything that means the student left the exam.
+  useEffect(() => {
+    if (phase !== "running") return;
+    const armTimer = setTimeout(() => { armedRef.current = true; }, 1500);
+    const onVisibility = () => { if (document.hidden) reportViolation("tab_hidden"); };
+    const onBlur = () => {
+      // A short grace avoids reacting to a focus change that corrects itself straight away.
+      setTimeout(() => {
+        if (!document.hasFocus()) reportViolation(document.hidden ? "tab_hidden" : "window_blur");
+      }, 150);
+    };
+    const onFullscreen = () => { if (!fullscreenElement()) reportViolation("fullscreen_exit"); };
+    const onPageHide = () => reportViolation("page_unload");
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("blur", onBlur);
+    document.addEventListener("fullscreenchange", onFullscreen);
+    document.addEventListener("webkitfullscreenchange", onFullscreen);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      clearTimeout(armTimer);
+      armedRef.current = false;
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("fullscreenchange", onFullscreen);
+      document.removeEventListener("webkitfullscreenchange", onFullscreen);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [phase]);
+
+  // The Start button: full screen needs a click, so the attempt only begins once it is granted.
+  const beginExam = async () => {
+    setStarting(true);
+    setError(null);
+    try {
+      await enterFullscreen();
+    } catch {
+      setError("Full screen was blocked. Allow full screen for this site, then press Start again.");
+      setStarting(false);
+      return;
+    }
+    const started = await startAttempt();
+    setStarting(false);
+    if (started) setPhase("running");
+    else leaveFullscreen();
+  };
 
   const startClock = (remainingSeconds: number) => {
     // Count down against the clock rather than ticking once a second, so a throttled tab stays accurate.
@@ -95,7 +206,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
     timerRef.current = setInterval(tick, 1000);
   };
 
-  const startAttempt = async () => {
+  const startAttempt = async (): Promise<boolean> => {
     try {
       setError(null);
       const token = localStorage.getItem("token");
@@ -123,28 +234,28 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
       }
       // The server owns the clock: resuming after a refresh continues from the time that is really left.
       startClock(data.remaining_seconds ?? exam.time_limit * 60);
+      return true;
     } catch (err: any) {
       console.error("Failed to start attempt", err);
       setError(err.message || "Connection error. Please check your internet.");
+      return false;
     }
   };
 
-  const submitExam = async (status: "submitted" | "time_up" = "submitted") => {
+  const submitExam = async (status: "submitted" | "time_up" = "submitted", confirmed = false) => {
     if (doneRef.current || submittingRef.current) return;
 
     if (!attemptIdRef.current) {
-      alert("No active session found. Please try refreshing the page or contact support.");
+      setError("No active session found. Please contact your instructor.");
       return;
     }
 
-    if (status === "submitted") {
-      const unansweredCount = displayQuestions.length - Object.keys(answersRef.current).length;
-      if (unansweredCount > 0) {
-        if (!confirm(`You have ${unansweredCount} unanswered questions. Are you sure you want to finish?`)) {
-          return;
-        }
-      }
+    // An in-page prompt, not confirm(): a browser dialog would take focus and count as leaving the exam.
+    if (status === "submitted" && !confirmed && displayQuestions.length - Object.keys(answersRef.current).length > 0) {
+      setConfirmFinish(true);
+      return;
     }
+    setConfirmFinish(false);
 
     submittingRef.current = true;
     setIsSubmitting(true);
@@ -178,6 +289,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
       try { localStorage.removeItem(`exam-draft-${attemptIdRef.current}`); } catch { /* ignore */ }
       setIsSubmitted(true);
       if (timerRef.current) clearInterval(timerRef.current);
+      leaveFullscreen();
 
       // The server's score is already a percentage of the exam's total points.
       setResults({
@@ -242,6 +354,72 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
   const currentQuestion = displayQuestions[currentIdx];
   const progress = ((currentIdx + 1) / displayQuestions.length) * 100;
   const timerColor = timeLeft != null && timeLeft < 300 ? "text-red-500 animate-pulse" : "text-blue-600";
+
+  if (phase === "flagged") {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4 animate-fade-in">
+        <GlassCard className="max-w-md w-full text-center p-10 space-y-6 shadow-2xl">
+          <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+            <ShieldAlert size={40} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-red-700">Exam ended: flagged for cheating</h2>
+            <p className="text-slate-600 mt-3">{flagReason}</p>
+            <p className="text-slate-500 mt-3 text-sm">
+              Leaving the exam is not allowed. This attempt is recorded as failed with a score of 0, your instructor can see why, and you cannot take this exam again.
+            </p>
+          </div>
+          <button onClick={() => onComplete({ flagged: true })} className="btn btn-primary w-full py-3 flex items-center justify-center gap-2">
+            <Home size={18} /> Exit
+          </button>
+        </GlassCard>
+      </div>
+    );
+  }
+
+  if (phase === "intro") {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+        <GlassCard className="max-w-lg w-full p-8 space-y-5 shadow-2xl">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Maximize size={30} />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800">{exam.title}</h2>
+            <p className="text-sm text-slate-500 mt-1">{displayQuestions.length} questions · {exam.time_limit} minutes</p>
+          </div>
+
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-2">
+            <p className="font-bold flex items-center gap-2"><ShieldAlert size={16} /> Strict exam rules</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>The exam runs in <strong>full screen</strong> and cannot be paused.</li>
+              <li>Switching tabs, opening a new tab or window, switching windows or desktops, pressing Esc to leave full screen, or refreshing the page <strong>ends the exam immediately</strong>.</li>
+              <li>That attempt is recorded as <strong>cheating: failed, score 0</strong>, and you cannot retake the exam.</li>
+              <li>Close other programs and silence notifications first, so nothing steals focus.</li>
+            </ul>
+          </div>
+
+          {!canFullscreen && (
+            <p className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700 font-semibold">
+              This browser or device cannot run exams in full screen. Use a laptop or desktop with Chrome, Edge, Firefox or Safari.
+            </p>
+          )}
+          {error && <p className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700 font-semibold">{error}</p>}
+
+          <div className="flex gap-3">
+            <button onClick={onClose} disabled={starting} className="btn btn-outline flex-1 py-3 disabled:opacity-50">Back</button>
+            <button
+              onClick={() => void beginExam()}
+              disabled={starting || !canFullscreen}
+              className="btn btn-primary flex-1 py-3 font-bold disabled:opacity-50"
+            >
+              {starting ? "Starting..." : "I understand, start the exam"}
+            </button>
+          </div>
+        </GlassCard>
+      </div>
+    );
+  }
 
   if (isSubmitted && results) {
     return (
@@ -311,20 +489,28 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
         </div>
       )}
 
+      {confirmFinish && (
+        <div className="absolute inset-0 z-[70] bg-slate-900/50 flex items-center justify-center p-4">
+          <GlassCard className="max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <AlertTriangle className="mx-auto text-orange-500" size={36} />
+            <p className="font-semibold text-slate-800">
+              You have {displayQuestions.length - Object.keys(answers).length} unanswered question(s). Finish anyway?
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmFinish(false)} className="btn btn-outline flex-1 py-2">Keep working</button>
+              <button onClick={() => void submitExam("submitted", true)} className="btn btn-primary flex-1 py-2">Finish exam</button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
       {/* Top Bar */}
       <div className="h-16 border-b px-6 flex items-center justify-between bg-white sticky top-0 z-10">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => {
-              if (confirm("Leave the exam? Your timer keeps running and you can resume it from My Exams until time is up.")) onClose();
-            }}
-            className="text-slate-400 hover:text-slate-600"
-            title="Leave the exam (the timer keeps running)"
-            aria-label="Leave the exam"
-          >
-             <Home size={20} />
-          </button>
-          <div className="h-6 w-px bg-slate-200"></div>
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400" title="Leaving the exam window ends the exam">
+             <Lock size={14} /> Full-screen exam
+          </div>
+                    <div className="h-6 w-px bg-slate-200"></div>
           <h2 className="font-bold text-slate-700 truncate max-w-[200px] md:max-w-md">{exam.title}</h2>
         </div>
 
