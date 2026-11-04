@@ -1,37 +1,29 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  getOrCreateChainAnswerPlayerSession,
-  loadChainAnswerPlayerSession,
-  saveChainAnswerPlayerSession,
+  clearChainAnswerSession,
+  loadChainAnswerSession,
+  saveChainAnswerSession,
 } from "./chainAnswerPlayerSession";
 
-describe("Chain Answer player sessions", () => {
+describe("Chain Answer session memory", () => {
   beforeEach(() => {
     sessionStorage.clear();
   });
 
-  it("creates and persists a trimmed player session", () => {
-    const session = getOrCreateChainAnswerPlayerSession(42, "session-1", " Ada ");
-
-    expect(session.gameId).toBe(42);
-    expect(session.sessionId).toBe("session-1");
-    expect(session.playerName).toBe("Ada");
-    expect(loadChainAnswerPlayerSession()).toEqual(session);
+  it("remembers the game the student is playing", () => {
+    expect(loadChainAnswerSession()).toBeNull();
+    saveChainAnswerSession("game_abc123");
+    expect(loadChainAnswerSession()).toBe("game_abc123");
   });
 
-  it("keeps the player id when the name changes in the same session", () => {
-    const original = saveChainAnswerPlayerSession(42, "session-1", "Ada");
-    const updated = getOrCreateChainAnswerPlayerSession(42, "session-1", "Grace");
-
-    expect(updated.playerId).toBe(original.playerId);
-    expect(updated.playerName).toBe("Grace");
+  it("forgets it when told to, so leaving a game really leaves it", () => {
+    saveChainAnswerSession("game_abc123");
+    clearChainAnswerSession();
+    expect(loadChainAnswerSession()).toBeNull();
   });
 
-  it("creates a new player id for a different session", () => {
-    const original = getOrCreateChainAnswerPlayerSession(42, "session-1", "Ada");
-    const next = getOrCreateChainAnswerPlayerSession(43, "session-2", "Ada");
-
-    expect(next.playerId).not.toBe(original.playerId);
-    expect(next.gameId).toBe(43);
+  it("never stores anything about who the player is", () => {
+    saveChainAnswerSession("game_abc123");
+    expect(JSON.stringify(Object.entries(sessionStorage))).not.toMatch(/name|student|player/i);
   });
 });

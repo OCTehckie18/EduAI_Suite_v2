@@ -112,9 +112,7 @@ def _get_student_engagement(student: User, course_id: int):
                       ) if exam_attempts.exists() else None
 
     # Games
-    game_players = GamePlayer.objects.filter(
-        Q(student_id__in=student_keys(student)) | Q(name__iexact=student.full_name)
-    )
+    game_players = GamePlayer.objects.filter(student=student).select_related("game")
     games_data = []
     total_game_score = 0.0
     total_words_submitted = 0

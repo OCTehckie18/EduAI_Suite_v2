@@ -42,6 +42,7 @@ export const router = createBrowserRouter([
       { path: "classroom", element: <StudentClassrooms /> },
       { path: "exams", element: <StudentExams /> },
       { path: "games/chain-answer", element: <ChainAnswerGamePage /> },
+      { path: "games/chain-answer/:sessionId", element: <ChainAnswerGamePage /> },
       { path: "games/quiz/play", element: <QuizController /> },
       { path: "games", element: <GamesPage /> },
       { path: "games/word-cloud", element: <WordCloudPlayerPage /> },

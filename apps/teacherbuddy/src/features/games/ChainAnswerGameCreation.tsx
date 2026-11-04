@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { GlassCard } from "../../shared/components/GlassCard";
 import { motion } from "framer-motion";
 import {
@@ -11,14 +11,15 @@ import {
   Check,
 } from "lucide-react";
 import { gameAPI } from "../../shared/utils/gameAPI";
+import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
+import { eduGamesUrl } from "../../shared/utils/eduGamesUrl";
 import { useActiveStudents } from "./useActiveStudents";
 
 type ChainVariation =
   | "standard"
   | "category"
   | "compound"
-  | "ladder"
-  | "geography";
+  | "ladder";
 
 interface ChainAnswerGameCreationProps {
   onBack: () => void;
@@ -39,7 +40,20 @@ export const ChainAnswerGameCreation: React.FC<
     timePerTurn: 30,
   });
 
-  const [courseId, setCourseId] = useState<number>(1);
+  const [courses, setCourses] = useState<{ id: number; code?: string; name: string }[]>([]);
+  const [coursesState, setCoursesState] = useState<"loading" | "ready" | "failed">("loading");
+  const [courseId, setCourseId] = useState<number | null>(null);
+  useEffect(() => {
+    fetch(API_ENDPOINTS.COURSES)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Could not load your courses"))))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setCourses(list);
+        setCoursesState("ready");
+        setCourseId((current) => current ?? list[0]?.id ?? null);
+      })
+      .catch(() => setCoursesState("failed"));
+  }, []);
   const {
     students: availableStudents,
     isLoading: loadingStudents,
@@ -71,7 +85,11 @@ export const ChainAnswerGameCreation: React.FC<
 
   const handleCreateGame = async () => {
     if (selectedPlayerIds.size < 2) {
-      setError("At least 2 players required to start a game!");
+      setError("Choose at least 2 players for the game.");
+      return;
+    }
+    if (gameConfig.chainVariation === "category" && !gameConfig.category) {
+      setError("Choose a category for this game type.");
       return;
     }
 
@@ -102,10 +120,8 @@ export const ChainAnswerGameCreation: React.FC<
         })),
       };
 
+      // The game opens in a lobby. You start it from the next screen once the students are in.
       const game = await gameAPI.createGame(gameData);
-
-      // Start the game automatically
-      await gameAPI.startGame(game.id);
 
       // Show success screen
       setCreatedGame({ id: game.id, session_id: game.session_id });
@@ -119,7 +135,8 @@ export const ChainAnswerGameCreation: React.FC<
     }
   };
 
-  const categories = ["Animals", "Objects", "Countries", "Food", "Sports"];
+  // The server can check these topics: its own word lists, plus WordNet for animals, food and sports.
+  const categories = ["Animals", "Food", "Sports", "Science", "Geography", "History", "Mathematics"];
 
   const copySessionToClipboard = () => {
     if (createdGame?.session_id) {
@@ -131,7 +148,7 @@ export const ChainAnswerGameCreation: React.FC<
 
   const getGameLink = () => {
     if (createdGame?.session_id) {
-      return `${window.location.origin}/games/chain-answer/${createdGame.session_id}`;
+      return eduGamesUrl(`/games/chain-answer/${createdGame.session_id}`);
     }
     return "";
   };
@@ -344,7 +361,7 @@ export const ChainAnswerGameCreation: React.FC<
               }}
             >
               <Play size={20} />
-              Monitor Game
+              Open Lobby &amp; Start
             </motion.button>
           </div>
         </GlassCard>
@@ -437,9 +454,6 @@ export const ChainAnswerGameCreation: React.FC<
                   </option>
                   <option value="ladder">
                     Ladder (Same length, 1 letter change)
-                  </option>
-                  <option value="geography">
-                    Geography (Cities/Countries)
                   </option>
                 </select>
               </div>
@@ -599,6 +613,24 @@ export const ChainAnswerGameCreation: React.FC<
               </div>
             </h2>
 
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Course</label>
+            <select
+              value={courseId ?? ""}
+              onChange={(e) => {
+                setCourseId(e.target.value ? Number(e.target.value) : null);
+                setSelectedPlayerIds(new Set());
+              }}
+              disabled={courses.length === 0}
+              className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-slate-50"
+            >
+              {courses.length === 0 && (
+                <option value="">{coursesState === "loading" ? "Loading your courses..." : coursesState === "failed" ? "Could not load your courses" : "You have no courses yet"}</option>
+              )}
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>{course.code ? `${course.code} - ` : ""}{course.name}</option>
+              ))}
+            </select>
+
             {/* Loading State */}
             {loadingStudents && (
               <div className="flex items-center justify-center py-8">
@@ -688,7 +720,7 @@ export const ChainAnswerGameCreation: React.FC<
                 className="text-sm mt-2"
                 style={{ color: "var(--color-text-secondary)" }}
               >
-                Select at least 2 players to start the game
+                Select at least 2 players to create the game
               </p>
             )}
           </GlassCard>
@@ -735,12 +767,12 @@ export const ChainAnswerGameCreation: React.FC<
             {isLoading ? (
               <>
                 <Loader size={20} className="animate-spin" />
-                Creating & Starting Game...
+                Creating Game...
               </>
             ) : (
               <>
                 <Play size={20} />
-                Create & Start Game
+                Create Game
               </>
             )}
           </motion.button>
