@@ -317,7 +317,7 @@ class DashboardSummaryView(APIView):
                 "status": r.status,
                 "generatedAt": r.generated_at.isoformat() if r.generated_at else None,
             }
-            for r in Report.objects.order_by("-generated_at")[:3]
+            for r in (Report.objects.all() if is_master_admin(user) else Report.objects.filter(owner=user)).order_by("-generated_at")[:3]
         ]
 
         # Mail Stats

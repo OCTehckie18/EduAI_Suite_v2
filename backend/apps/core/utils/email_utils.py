@@ -7,6 +7,11 @@ from email.mime.text import MIMEText
 logger = logging.getLogger(__name__)
 
 
+def email_configured() -> bool:
+    """True when real SMTP credentials are set (otherwise send_email only pretends to send)."""
+    return bool(os.getenv("SMTP_USER") and os.getenv("SMTP_PASSWORD"))
+
+
 def send_email(to_email: str, subject: str, body: str) -> bool:
     """
     Sends an email using SMTP settings from environment variables.
