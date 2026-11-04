@@ -307,14 +307,10 @@ class ChainAnswerGameJoinView(APIView):
             return _denied("This game is for another teacher's students.")
         if game.status == "completed":
             return Response({"detail": "This game has already finished."}, status=status.HTTP_409_CONFLICT)
-        with transaction.atomic():
-            locked = ChainAnswerGame.objects.select_for_update().get(pk=game.pk)
-            player = GamePlayer.objects.filter(game=locked, student=user).first()
-            created = player is None
-            if created:
-                player = GamePlayer.objects.create(
-                    game=locked, student=user, name=user.full_name, join_order=locked.players.count() + 1
-                )
+        try:
+            player, created = engine.join(session_id, user)
+        except engine.GameError as exc:
+            return Response({"detail": exc.message}, status=exc.status)
         return Response(GamePlayerSerializer(player).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 

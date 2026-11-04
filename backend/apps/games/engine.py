@@ -99,11 +99,26 @@ def skip_if_overdue(game):
 
 
 def refresh(session_id):
-    """Apply a turn timeout if one is due (used when the game is read over plain HTTP, with no live timer)."""
+    """Apply a turn timeout if one is due. Returns ``(game, skipped)``."""
     with transaction.atomic():
         game = lock(session_id)
-        skip_if_overdue(game)
-        return game
+        skipped = skip_if_overdue(game)
+        return game, skipped
+
+
+def join(session_id, user):
+    """Add a student to a game as themselves. Returns ``(player, created)``."""
+    with transaction.atomic():
+        game = lock(session_id)
+        if game.status == "completed":
+            raise GameError("This game has already finished.")
+        player = GamePlayer.objects.filter(game=game, student=user).first()
+        if player is not None:
+            return player, False
+        player = GamePlayer.objects.create(
+            game=game, student=user, name=user.full_name, join_order=game.players.count() + 1
+        )
+        return player, True
 
 
 # ---------------------------------------------------------------- actions
