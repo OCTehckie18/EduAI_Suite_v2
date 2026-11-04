@@ -95,14 +95,20 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(len(res.json()), 1)
 
-        # Create submission
-        res = self.client.post(f"/submissions/{asgn_id}", {
-            "student_name": "Alice Smith",
-        })
+        # A student enrolled in the course submits under their own name
+        from apps.classrooms.models import Enrollment
+        alice = User.objects.create_user(
+            email="alice@university.in", first_name="Alice", last_name="Smith", role=User.Role.STUDENT,
+        )
+        Enrollment.objects.create(classroom=self.course, student=alice)
+        self.client.force_authenticate(user=alice)
+        res = self.client.post(f"/submissions/{asgn_id}", {"student_name": "Someone Else"})
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.json()["student_name"], "Alice Smith")
         sub_id = res.json()["id"]
 
-        # Grade submission
+        # Grade submission (teacher)
+        self.client.force_authenticate(user=self.teacher)
         res = self.client.put(f"/submissions/grade/{sub_id}", {
             "grade": 95.0,
         })
@@ -128,11 +134,11 @@ class MigrationSmokeTestCase(TestCase):
         self.client.force_authenticate(user=self.teacher)
         # Update status
         res = self.client.patch(f"/appointments/{appt_id}/status", {
-            "status": "accepted",
+            "status": "approved",
             "notes": "See you in lab 3",
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.json()["status"], "accepted")
+        self.assertEqual(res.json()["status"], "approved")
 
     def test_lessons(self):
         res = self.client.post("/lessons/", {
