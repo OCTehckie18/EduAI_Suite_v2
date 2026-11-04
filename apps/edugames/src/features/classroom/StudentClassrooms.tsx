@@ -226,9 +226,10 @@ export const StudentClassrooms: React.FC = () => {
       });
       
       if (!response.ok) {
-        throw new Error("Failed to submit assignment.");
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || body.error?.message || "Failed to submit assignment.");
       }
-      
+
       alert("Assignment submitted successfully!");
       setSubmittedAssignmentIds(prev => Array.from(new Set([...prev, assignmentId])));
       setSelectedFiles(prev => {
@@ -763,9 +764,14 @@ export const StudentClassrooms: React.FC = () => {
                                           <label className="inline-flex items-center justify-center gap-2 rounded-full border border-indigo-200 bg-white px-3 py-2 text-indigo-600 transition-colors hover:bg-indigo-50 cursor-pointer text-xs font-bold w-full text-center">
                                             <Paperclip size={14} className="shrink-0" />
                                             <span>Add Files</span>
-                                            <input type="file" className="hidden" multiple accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip" onChange={(e) => {
+                                            <input type="file" className="hidden" multiple accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => {
                                                 if (e.target.files) {
-                                                    const files = Array.from(e.target.files);
+                                                    const all = Array.from(e.target.files);
+                                                    const files = all.filter((f) => /\.(pdf|docx)$/i.test(f.name));
+                                                    if (files.length < all.length) {
+                                                        alert("Only PDF or Word (.docx) files can be submitted. Other files were skipped.");
+                                                    }
+                                                    e.target.value = "";
                                                     setSelectedFiles(prev => ({ 
                                                        ...prev, 
                                                        [assignment.id]: [...(prev[assignment.id] || []), ...files] 

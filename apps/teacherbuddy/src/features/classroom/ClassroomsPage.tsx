@@ -640,10 +640,10 @@ export const ClassroomsPage: React.FC = () => {
           headers: authHeaders(),
         }),
       announcement: () =>
-        fetch(`${API_URL}/announcements/${id}`, { method: "DELETE" }),
+        fetch(`${API_URL}/announcements/detail/${id}`, { method: "DELETE" }),
       student: () => fetch(`${API_URL}/students/${id}`, { method: "DELETE" }),
       assignment: () =>
-        fetch(`${API_URL}/assignments/${id}`, { method: "DELETE" }),
+        fetch(`${API_URL}/assignments/detail/${id}`, { method: "DELETE" }),
     };
 
     handleApiCall(actionMap[type], () => {
