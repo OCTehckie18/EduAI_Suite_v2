@@ -4,6 +4,7 @@ import {
   Building2,
   ChevronRight,
   GraduationCap,
+  Layers,
   LogOut,
   Plus,
   RefreshCw,
@@ -13,7 +14,9 @@ import {
   Users,
 } from "lucide-react";
 import logo from "../../logo/eduai_logo.png";
-import { API_ENDPOINTS, authHeaders } from "./shared/apiConfig";
+import { API_ENDPOINTS } from "./shared/apiConfig";
+import { requestJson } from "./shared/request";
+import { StructurePanel } from "./StructurePanel";
 
 interface AdminUser {
   id: number;
@@ -84,22 +87,6 @@ const clearSession = () => {
   localStorage.removeItem("user");
   localStorage.removeItem("lastActivity");
 };
-
-async function requestJson<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      ...authHeaders(),
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...options.headers,
-    },
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.detail || data.error?.message || "Request failed.");
-  }
-  return data as T;
-}
 
 function LoginScreen({ onLogin }: { onLogin: (user: AdminUser) => void }) {
   const [username, setUsername] = useState("");
@@ -176,7 +163,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 export default function App() {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "campuses" | "users" | "approvals" | "recycle_bin">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "campuses" | "structure" | "users" | "approvals" | "recycle_bin">("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -257,6 +244,7 @@ export default function App() {
             {[
               { tab: "overview" as const, label: "Overview & Analytics", Icon: BarChart3, color: "text-amber-400" },
               { tab: "campuses" as const, label: "Campus Governance", Icon: Building2, color: "text-emerald-400" },
+              { tab: "structure" as const, label: "Institution Structure", Icon: Layers, color: "text-teal-400" },
               { tab: "users" as const, label: "Global User Directory", Icon: Users, color: "text-sky-400" },
               { tab: "approvals" as const, label: "Teacher Approvals", Icon: UserCheck, color: "text-violet-400" },
               { tab: "recycle_bin" as const, label: "Universal Recycle Bin", Icon: Trash2, color: "text-rose-400" },
@@ -299,6 +287,7 @@ export default function App() {
         )}
 
         {activeTab === "campuses" && <CampusPanel campuses={filteredCampuses} onCreate={() => { setEditingCampus(null); setModal("campus"); }} onEdit={(campus) => { setEditingCampus(campus); setModal("campus"); }} onRefresh={refresh} />}
+        {activeTab === "structure" && <StructurePanel search={searchQuery} onChanged={refresh} />}
         {activeTab === "users" && <UserPanel users={filteredUsers} onCreate={() => { setEditingUser(null); setModal("user"); }} onEdit={(directoryUser) => { setEditingUser(directoryUser); setModal("user"); }} onRefresh={refresh} />}
         {activeTab === "approvals" && <ApprovalsPanel search={searchQuery} onChanged={refresh} />}
         {activeTab === "recycle_bin" && <RecycleBinPanel items={deletedItems.filter((item) => `${item.label} ${item.content_type}`.toLowerCase().includes(searchQuery.toLowerCase()))} onRefresh={refresh} />}
