@@ -215,7 +215,7 @@ class MigrationSmokeTestCase(TestCase):
     def test_analytics_and_dashboard(self):
         res = self.client.get("/dashboard/summary")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.json()["total_courses"], 1)
+        self.assertEqual(len(res.json()["classrooms"]), 1)
 
         res = self.client.get("/analytics/risk-global")
         self.assertEqual(res.status_code, status.HTTP_200_OK)

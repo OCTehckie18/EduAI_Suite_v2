@@ -65,8 +65,8 @@ export const DashboardPage: React.FC = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const query = authUser?.name ? `?teacher_name=${encodeURIComponent(authUser.name)}` : '';
-        const response = await fetch(`${API_ENDPOINTS.DASHBOARD}/summary${query}`);
+        // The server works out which teacher you are from your login; nothing about you is sent.
+        const response = await fetch(`${API_ENDPOINTS.DASHBOARD}/summary`);
         if (!response.ok) throw new Error("Failed to fetch dashboard data");
         const json = await response.json();
         setData(json);
@@ -225,7 +225,7 @@ export const DashboardPage: React.FC = () => {
                       <div className="flex items-center gap-1.5">
                         {cls.time && <><Clock size={13} /> {cls.time}</>}
                       </div>
-                      <span className="font-semibold" style={{ color: "var(--color-brand-blue)" }}>{cls.progress == null ? "No assignments yet" : `${cls.progress}%`}</span>
+                      <span className="font-semibold" style={{ color: "var(--color-brand-blue)" }}>{cls.progress == null ? "No work handed in yet" : `${cls.graded} of ${cls.submitted} graded`}</span>
                     </div>
                   </div>
                 </GlassCard>
@@ -274,9 +274,14 @@ export const DashboardPage: React.FC = () => {
           <GlassCard padding="sm">
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle size={15} className="text-red-500" />
-              <h3 className="section-title text-sm">AI Risk Alerts</h3>
+              <h3 className="section-title text-sm">Students Needing Support</h3>
             </div>
             <div className="space-y-2">
+              {riskAlerts.length === 0 && (
+                <p className="py-3 text-center text-xs italic" style={{ color: "var(--color-text-muted)" }}>
+                  No student is below 60% on graded work right now.
+                </p>
+              )}
               {riskAlerts.map((alert: any) => (
                 <div key={alert.id} className="flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors"
                   style={{}}
@@ -294,14 +299,14 @@ export const DashboardPage: React.FC = () => {
                   </div>
                   <div className="text-right shrink-0">
                     <span className={`badge text-[9px] px-1.5 py-0.5 ${alert.level === "high" ? "badge-red" : "badge-orange"}`}>
-                      {alert.score}
+                      {alert.score}%
                     </span>
                   </div>
                 </div>
               ))}
             </div>
             <Link to="/analytics" className="btn btn-primary w-full mt-3 text-xs py-2">
-              <Zap size={13} /> Run Global AI Analysis
+              <Zap size={13} /> Open Analytics
             </Link>
           </GlassCard>
 
@@ -379,14 +384,14 @@ export const DashboardPage: React.FC = () => {
 
         <GlassCard padding="sm" className="xl:col-span-2">
           <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2"><ClipboardList size={15} className="text-purple-600" /><h3 className="section-title text-sm">Upcoming Exams</h3></div>
+            <div className="flex items-center gap-2"><ClipboardList size={15} className="text-purple-600" /><h3 className="section-title text-sm">Recent Exams</h3></div>
             <Link to="/exams" className="text-[10px] font-semibold text-blue-600">View All →</Link>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-1">
-            {upcomingExams.length === 0 ? <p className="py-4 text-xs italic text-muted-foreground">No upcoming exams.</p> : upcomingExams.map((exam: any) => (
+            {upcomingExams.length === 0 ? <p className="py-4 text-xs italic text-muted-foreground">No exams yet.</p> : upcomingExams.map((exam: any) => (
               <Link to="/exams" key={exam.id} className="min-w-[180px] rounded-xl border p-3 hover:bg-slate-50" style={{ borderColor: "var(--color-border)" }}>
                 <p className="truncate text-sm font-bold">{exam.title}</p>
-                <p className="mt-1 text-[10px] text-muted-foreground">{exam.scheduledAt ? new Date(exam.scheduledAt).toLocaleDateString() : "Date pending"}</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">{exam.scheduledAt ? `Created ${new Date(exam.scheduledAt).toLocaleDateString()}` : ""}</p>
                 <span className="mt-2 inline-block badge badge-blue text-[9px]">{exam.status}</span>
               </Link>
             ))}

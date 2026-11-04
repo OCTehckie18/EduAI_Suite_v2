@@ -188,7 +188,7 @@ class DashboardSummaryView(APIView):
         seven_days_ago = timezone.now() - timedelta(days=7)
         new_students = Enrollment.objects.filter(
             classroom__in=classrooms_qs, is_active=True, enrolled_at__gte=seven_days_ago
-        ).count()
+        ).values("student").distinct().count()
         student_delta = f"+{new_students}" if new_students else ""
 
         # Risk alerts come from graded work only. Attendance is not recorded, so it is never used.
@@ -239,52 +239,33 @@ class DashboardSummaryView(APIView):
             },
         ]
 
-        # Classrooms. Progress is the share of the class's assignments whose due date has passed.
-        now_for_progress = timezone.now()
+        # Every class of this teacher, with real counts. "progress" is the share of handed-in work that has
+        # been graded, so a teacher can see where marking is waiting. There is no invented time or room.
         classrooms = []
-        for c in classrooms_qs.select_related("batch", "teacher")[:4]:
-            latest_lesson = Lesson.objects.filter(course=c).order_by("-posted_at").first()
-            time_str = latest_lesson.posted_at.strftime("%I:%M %p") if latest_lesson and latest_lesson.posted_at else None
-            count = Enrollment.objects.filter(classroom=c, is_active=True).count()
-            due_dates = [_parse_date_safe(a.due_date) for a in Assignment.objects.filter(course=c)]
-            total_assignments = len(due_dates)
-            past_due = 0
-            for d in due_dates:
-                if d is None:
-                    continue
-                d = timezone.make_aware(d) if isinstance(d, datetime) and timezone.is_naive(d) else d
-                if isinstance(d, datetime) and d < now_for_progress:
-                    past_due += 1
+        for c in classrooms_qs.select_related("batch")[:12]:
+            submitted = Submission.objects.filter(assignment__course=c).count()
+            graded = Submission.objects.filter(assignment__course=c, grade__isnull=False).count()
             classrooms.append({
                 "id": c.id,
                 "code": c.subject_code,
                 "name": c.name,
                 "batch": c.batch.name if c.batch else "",
-                "students": count,
-                "time": time_str,
-                "progress": round(100 * past_due / total_assignments) if total_assignments else None,
+                "students": Enrollment.objects.filter(classroom=c, is_active=True).count(),
+                "time": None,
+                "submitted": submitted,
+                "graded": graded,
+                "progress": round(100 * graded / submitted) if submitted else None,
                 "teacher": c.teacher.full_name if c.teacher else "Not Assigned",
             })
 
-        # Recent Activity
         color_map = {
             "mail": "#264796",
             "appointment": "#16a34a",
-            "calendar": "#d0ae61",
             "omr": "#dc2626",
-            "student": "#2563eb",
             "course": "#7c3aed",
             "default": "#264796",
         }
-        icon_map = {
-            "mail": "BookOpen",
-            "appointment": "CheckCircle2",
-            "calendar": "Calendar",
-            "omr": "BrainCircuit",
-            "student": "Users",
-            "course": "BookOpen",
-            "default": "Activity",
-        }
+
         # Everything below is limited to the signed-in teacher's own classes, appointments, mail and
         # reports (a master admin sees the whole university). Nothing is matched by a typed name.
         recent_activity = _recent_activity(user, classrooms_qs, color_map)
@@ -351,15 +332,6 @@ class DashboardSummaryView(APIView):
             "engagementSnapshot": engagement_snapshot,
             "calendarEventsToday": calendar_today,
             "calendarEventsThisWeek": calendar_events_this_week,
-            # Legacy fields for backward compatibility
-            "total_courses": classrooms_qs.count(),
-            "total_students": total_students,
-            "total_assignments": Assignment.objects.filter(course__in=classrooms_qs).count(),
-            "total_submissions": Submission.objects.filter(assignment__course__in=classrooms_qs).count(),
-            "total_exams": Exam.objects.filter(course__in=classrooms_qs).count(),
-            "avg_attendance": avg_attendance,
-            "recent_activities": recent_activity,
-            "upcoming_deadlines": [],
         })
 
 
@@ -382,30 +354,37 @@ class StudentDashboardSummaryView(APIView):
             .values_list("assignment_id", flat=True)
         )
 
+        from apps.calendar_app.feed import parse_when
+
         now = timezone.now()
-        open_assignments = []
+        open_work = []
         for asgn in Assignment.objects.filter(course_id__in=course_ids).select_related("course"):
             if asgn.id in submitted_ids:
                 continue
-            due_dt = _parse_date_safe(asgn.due_date)
-            due_aware = None
-            if due_dt:
-                due_aware = timezone.make_aware(due_dt) if timezone.is_naive(due_dt) else due_dt
-            open_assignments.append((due_aware, asgn))
-        # Soonest deadline first; assignments with no (or unreadable) due date go last.
-        open_assignments.sort(key=lambda pair: (pair[0] is None, pair[0] or now))
+            due, all_day = parse_when(asgn.due_date)
+            # A date with no time ("2026-03-04") means "by the end of that day".
+            deadline = due + timedelta(days=1) if (due and all_day) else due
+            open_work.append((deadline, due, all_day, asgn))
 
-        upcoming_deadlines = [
-            {
+        def item(deadline, due, all_day, asgn):
+            overdue = bool(deadline and deadline < now)
+            return {
                 "id": asgn.id,
                 "title": asgn.title,
                 "course_code": asgn.course.subject_code,
                 "course_id": asgn.course_id,
-                "due_date": asgn.due_date,
-                "is_urgent": bool(due_aware and (due_aware - now).days < 2),
+                # ISO text in campus time (the screen formats it); null when the teacher set no readable date.
+                "due_at": timezone.localtime(due).isoformat() if due else None,
+                "due_is_date_only": all_day,
+                "is_overdue": overdue,
+                "is_urgent": bool(deadline and not overdue and deadline - now < timedelta(hours=48)),
             }
-            for due_aware, asgn in open_assignments[:5]
-        ]
+
+        overdue_items = sorted((w for w in open_work if w[0] and w[0] < now), key=lambda w: w[0], reverse=True)
+        upcoming_items = sorted((w for w in open_work if w[0] and w[0] >= now), key=lambda w: w[0])
+        undated_items = [w for w in open_work if not w[0]]
+        upcoming_deadlines = [item(*w) for w in (upcoming_items + undated_items)[:5]]
+        overdue_deadlines = [item(*w) for w in overdue_items[:5]]
 
         live_games = ChainAnswerGame.objects.filter(status="active", players__student=student).distinct()
         live_game_info = {"title": "", "teacher": "", "active": False}
@@ -430,6 +409,12 @@ class StudentDashboardSummaryView(APIView):
             total = assignment_counts.get(course_id, 0)
             return round(100 * submitted_per_course.get(course_id, 0) / total, 1) if total else None
 
+        from apps.assignments.stats import average_by_student
+
+        # Per-course graded averages (earned over possible marks), or None when nothing is graded.
+        course_averages = {cid: average_by_student([student.pk], [cid]).get(student.pk) for cid in course_ids}
+        overall_average = average_by_student([student.pk], course_ids).get(student.pk)
+
         courses_payload = [
             {
                 "id": c.id,
@@ -439,6 +424,7 @@ class StudentDashboardSummaryView(APIView):
                 "students": Enrollment.objects.filter(classroom=c, is_active=True).count(),
                 "batch": c.batch.name if c.batch else "",
                 "progress": progress(c.id),
+                "average": course_averages.get(c.id),
                 "description": c.description or "",
                 "course_plan_path": c.course_plan_path or None,
                 "color": c.color or "#3b82f6",
@@ -449,13 +435,14 @@ class StudentDashboardSummaryView(APIView):
         return Response({
             "student": {
                 "name": student.full_name,
-                "gpa": None,
-                "level": None,
-                "pendingAssignments": len(open_assignments),
+                "average": overall_average,
+                "pendingAssignments": len(open_work),
+                "overdueAssignments": len(overdue_items),
                 "liveGames": live_games.count(),
             },
             "courses": courses_payload,
             "deadlines": upcoming_deadlines,
+            "overdue": overdue_deadlines,
             "liveGame": live_game_info,
         })
 

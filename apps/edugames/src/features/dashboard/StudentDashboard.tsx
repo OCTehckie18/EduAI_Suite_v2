@@ -47,6 +47,15 @@ interface LessonDetail extends Lesson {
   quiz_questions?: string | null;
 }
 
+/** A deadline as the student reads it: "Wed 4 Mar, 5:30 PM", or just the date when no time was set. */
+const formatDue = (deadline: { due_at: string | null; due_is_date_only?: boolean }): string => {
+  if (!deadline.due_at) return "";
+  const date = new Date(deadline.due_at);
+  return deadline.due_is_date_only
+    ? date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })
+    : date.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+};
+
 export const StudentDashboard: React.FC = () => {
   const { user: authUser } = useAuthStore();
   const [summary, setSummary] = useState<any>(null);
@@ -135,8 +144,8 @@ export const StudentDashboard: React.FC = () => {
   }
 
   const studentName = authUser?.name || summary?.student?.name || "Student";
-  const gpa = "TBD";
-  const experiencePercentage = "TBD";
+  // The average of graded work (marks earned over marks possible); nothing else is computed, so nothing else is shown.
+  const average: number | null = summary?.student?.average ?? null;
   const pendingCount = summary?.student?.pendingAssignments || 0;
   const liveGamesCount = summary?.student?.liveGames || 0;
 
@@ -164,24 +173,16 @@ export const StudentDashboard: React.FC = () => {
             background: "var(--color-surface-card)",
           }}
         >
-          <div className="text-center" title="To be computed when exam data is provided">
+          <div className="text-center" title="Marks earned over marks possible on graded work">
             <p
               className="text-xs uppercase font-bold"
               style={{ color: "var(--color-text-muted)" }}
             >
-              GPA Level
+              Average Score
             </p>
-            <p className="text-lg font-black text-slate-400">{gpa}</p>
-          </div>
-          <div className="w-px bg-slate-200" />
-          <div className="text-center" title="Will be calculated as a percentage when results are available">
-            <p
-              className="text-xs uppercase font-bold"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              Experience
+            <p className="text-lg font-black" style={{ color: average == null ? "var(--color-text-muted)" : "var(--color-brand-blue)" }}>
+              {average == null ? "Not recorded" : `${average}%`}
             </p>
-            <p className="text-lg font-black text-slate-400">{experiencePercentage}</p>
           </div>
         </div>
       </div>
@@ -365,43 +366,43 @@ export const StudentDashboard: React.FC = () => {
               Deadlines
             </h3>
             <div className="space-y-3">
+              {(summary?.overdue || []).map((deadline: any) => (
+                <div
+                  key={`late-${deadline.id}`}
+                  className="flex border-l-2 pl-3 py-1 cursor-pointer hover:bg-slate-50 transition-colors rounded-r-md"
+                  style={{ borderColor: "#ef4444" }}
+                  onClick={() => navigate("/classroom")}
+                >
+                  <div>
+                    <h4 className="text-sm font-bold" style={{ color: "var(--color-text-primary)" }}>{deadline.title}</h4>
+                    <p className="text-xs font-semibold text-red-600">
+                      Overdue &bull; {deadline.course_code} &bull; was due {formatDue(deadline)}
+                    </p>
+                  </div>
+                </div>
+              ))}
               {summary?.deadlines?.length > 0 ? (
                 summary.deadlines.map((deadline: any) => (
                   <div
                     key={deadline.id}
                     className="flex border-l-2 pl-3 py-1 cursor-pointer hover:bg-slate-50 transition-colors rounded-r-md"
-                    style={{ borderColor: deadline.is_urgent ? "#ef4444" : "var(--color-brand-blue)" }}
+                    style={{ borderColor: deadline.is_urgent ? "#f59e0b" : "var(--color-brand-blue)" }}
                     onClick={() => navigate("/classroom")}
                   >
                     <div>
-                      <h4
-                        className="text-sm font-bold"
-                        style={{ color: "var(--color-text-primary)" }}
-                      >
-                        {deadline.title}
-                      </h4>
-                      <p
-                        className="text-xs"
-                        style={{ color: "var(--color-text-secondary)" }}
-                      >
-                        {deadline.course_code} &bull; Due {deadline.due_date}
+                      <h4 className="text-sm font-bold" style={{ color: "var(--color-text-primary)" }}>{deadline.title}</h4>
+                      <p className="text-xs" style={{ color: deadline.is_urgent ? "#b45309" : "var(--color-text-secondary)" }}>
+                        {deadline.course_code} &bull; {deadline.due_at ? `Due ${formatDue(deadline)}` : "No due date set"}
                       </p>
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-slate-500 italic">No upcoming deadlines.</p>
+                !(summary?.overdue || []).length && <p className="text-xs text-slate-500 italic">No upcoming deadlines.</p>
               )}
             </div>
           </GlassCard>
 
-          <GlassCard className="p-5 text-center bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200" title="Rankings will be available once exam data is computed">
-            <Award size={40} className="mx-auto text-yellow-400 mb-2 opacity-60" />
-            <h3 className="font-black text-yellow-800/60">Rankings TBD</h3>
-            <p className="text-xs text-yellow-700/60 mt-1">
-              Leaderboard ranking will be unlocked after the first exam results are published.
-            </p>
-          </GlassCard>
         </div>
       </div>
 
