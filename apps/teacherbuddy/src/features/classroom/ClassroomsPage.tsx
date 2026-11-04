@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
+import { GradebookTab } from "./GradebookTab";
 
 const API_URL = API_ENDPOINTS.BASE;
 
@@ -69,7 +70,7 @@ export const ClassroomsPage: React.FC = () => {
 
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<
-    "home" | "assignments" | "students" | "engagement"
+    "home" | "assignments" | "students" | "gradebook" | "engagement"
   >("home");
 
   // Engagement State
@@ -841,7 +842,7 @@ export const ClassroomsPage: React.FC = () => {
               </div>
 
               <div className="flex justify-center gap-10 border-b border-slate-200 pb-0 mt-6 px-4">
-                {["home", "assignments", "students", "engagement"].map(
+                {["home", "assignments", "students", "gradebook", "engagement"].map(
                   (tab) => (
                     <button
                       key={tab}
@@ -1065,6 +1066,8 @@ export const ClassroomsPage: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {activeTab === "gradebook" && selectedId && <GradebookTab courseId={selectedId} />}
 
                 {activeTab === "students" && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">

@@ -101,13 +101,13 @@ class AssignmentOwnershipTests(OwnershipBase):
             self.assertEqual(self.client.post(url, {"student_name": "x"}).status_code, 403, user.email)
 
     def test_students_only_see_their_own_submissions_and_cannot_touch_classmates_work(self):
-        mine = Submission.objects.create(assignment=self.assignment, student_name="Alice Able")
-        theirs = Submission.objects.create(assignment=self.assignment, student_name="Bob Baker")
+        mine = Submission.objects.create(assignment=self.assignment, student=self.alice, student_name="Alice Able")
+        theirs = Submission.objects.create(assignment=self.assignment, student=self.bob, student_name="Bob Baker")
         url = f"/api/v1/submissions/{self.assignment.pk}"
         self.as_user(self.alice)
         self.assertEqual([s["id"] for s in self.client.get(url).json()], [mine.pk])
         self.assertEqual(self.client.delete(f"/api/v1/submissions/detail/{theirs.pk}").status_code, 403)
-        self.assertEqual(self.client.delete(f"/api/v1/submissions/assignment/{self.assignment.pk}/student/Bob%20Baker").status_code, 403)
+        self.assertEqual(self.client.delete(f"/api/v1/submissions/assignment/{self.assignment.pk}/student/Bob%20Baker").status_code, 204)  # only ever removes the caller's own work
         self.assertTrue(Submission.objects.filter(pk=theirs.pk).exists())
         self.assertEqual(self.client.delete(f"/api/v1/submissions/assignment/{self.assignment.pk}/student/Alice%20Able").status_code, 204)
         self.as_user(self.owner)

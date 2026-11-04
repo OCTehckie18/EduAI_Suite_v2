@@ -108,10 +108,7 @@ def _course_payload(classroom, viewer=None):
 
 
 def _student_payload(student, course_id):
-    subs = Submission.objects.filter(
-        Q(student_name__iexact=student.full_name) | Q(student_name__iexact=student.email),
-        grade__isnull=False,
-    )
+    subs = Submission.objects.filter(student=student, grade__isnull=False)
     grades = [sub.grade for sub in subs if sub.grade is not None]
     avg_score = round(sum(grades) / len(grades), 1) if grades else round(75.0 + (student.id % 20), 1)
     attendance = round(85.0 - (student.id * 7 % 30), 1)

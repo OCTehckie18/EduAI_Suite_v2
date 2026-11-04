@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from apps.classrooms.models import Classroom
 
@@ -20,6 +21,11 @@ class Assignment(models.Model):
 
 class Submission(models.Model):
     assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name="submissions")
+    # The real owner of the work. ``student_name`` stays as a display snapshot (and for rows that
+    # could not be matched to an account when this link was introduced).
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="submissions"
+    )
     student_name = models.CharField(max_length=255, blank=True, null=True)
     file_path = models.TextField(blank=True, null=True)
     submitted_at = models.CharField(max_length=100, blank=True, null=True)

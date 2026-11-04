@@ -120,10 +120,7 @@ class DashboardSummaryView(APIView):
         # Risk Alerts
         real_risk_alerts = []
         for s in students_qs:
-            subs = Submission.objects.filter(
-                Q(student_name__iexact=s.full_name) | Q(student_name__iexact=s.email),
-                grade__isnull=False,
-            )
+            subs = Submission.objects.filter(student=s, grade__isnull=False)
             grades = [sub.grade for sub in subs if sub.grade is not None]
             if grades:
                 avg = round(sum(grades) / len(grades), 1)
@@ -494,10 +491,8 @@ class StudentDashboardSummaryView(APIView):
         enrolled_classrooms = visible_courses(student).select_related("teacher", "batch")
         course_ids = list(enrolled_classrooms.values_list("id", flat=True))
 
-        # Submissions are still filed under the student's name or email.
-        own_work = Q(student_name__iexact=student.full_name) | Q(student_name__iexact=student.email)
         submitted_ids = set(
-            Submission.objects.filter(assignment__course_id__in=course_ids).filter(own_work)
+            Submission.objects.filter(assignment__course_id__in=course_ids, student=student)
             .values_list("assignment_id", flat=True)
         )
 
