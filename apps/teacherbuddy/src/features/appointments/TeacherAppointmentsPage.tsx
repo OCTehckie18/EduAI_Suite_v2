@@ -289,7 +289,7 @@ export const TeacherAppointmentsPage: React.FC = () => {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
-            style={{ background: "rgba(208,174,97,0.12)", color: "var(--color-brand-gold-dark)" }}>
+            style={{ background: "color-mix(in srgb, var(--color-brand-gold) 12%, transparent)", color: "var(--color-brand-gold-dark)" }}>
             <BadgeCheck size={12} />
             Teacher Appointment Review
           </div>
@@ -392,13 +392,13 @@ export const TeacherAppointmentsPage: React.FC = () => {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Requests", value: counts.total, icon: Users, color: "#264796" },
+          { label: "Total Requests", value: counts.total, icon: Users, color: "var(--color-brand-blue)" },
           { label: "Pending", value: counts.pending, icon: Clock, color: "#d97706" },
           { label: "Approved", value: counts.approved, icon: CheckCircle2, color: "#16a34a" },
           { label: "Rejected", value: counts.rejected, icon: XCircle, color: "#dc2626" },
         ].map((stat) => (
           <GlassCard key={stat.label} padding="sm" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${stat.color}18` }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `color-mix(in srgb, ${stat.color} 9%, transparent)` }}>
               <stat.icon size={18} style={{ color: stat.color }} />
             </div>
             <div>
@@ -416,7 +416,7 @@ export const TeacherAppointmentsPage: React.FC = () => {
             onClick={() => setStatusTab(tab.id)}
             className="px-4 py-2 rounded-full text-sm font-semibold transition-all"
             style={{
-              background: statusTab === tab.id ? "linear-gradient(135deg, #264796, #3460c4)" : "rgba(100,116,139,0.08)",
+              background: statusTab === tab.id ? "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))" : "rgba(100,116,139,0.08)",
               color: statusTab === tab.id ? "white" : "var(--color-text-secondary)",
             }}
           >
@@ -443,7 +443,7 @@ export const TeacherAppointmentsPage: React.FC = () => {
         <button
           onClick={fetchData}
           className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all"
-          style={{ background: "rgba(208,174,97,0.12)", color: "var(--color-brand-gold-dark)" }}
+          style={{ background: "color-mix(in srgb, var(--color-brand-gold) 12%, transparent)", color: "var(--color-brand-gold-dark)" }}
         >
           <RefreshCw size={15} />
           Refresh
@@ -472,14 +472,14 @@ export const TeacherAppointmentsPage: React.FC = () => {
                   key={appointment.id}
                   interactive
                   className={`cursor-pointer border-l-4 ${selected ? "shadow-lg" : ""}`}
-                  style={{ borderLeftColor: selected ? "#264796" : "transparent" }}
+                  style={{ borderLeftColor: selected ? "var(--color-brand-blue)" : "transparent" }}
                   onClick={() => setSelectedId(appointment.id)}
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <span className="badge text-[10px] font-black uppercase tracking-wider" style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
-                        <span className="badge text-[10px] font-black uppercase tracking-wider" style={{ background: "rgba(38,71,150,0.08)", color: "var(--color-brand-blue)" }}>
+                        <span className="badge text-[10px] font-black uppercase tracking-wider" style={{ background: "color-mix(in srgb, var(--color-brand-blue) 8%, transparent)", color: "var(--color-brand-blue)" }}>
                           {appointment.teacher_name}
                         </span>
                       </div>
@@ -595,7 +595,7 @@ export const TeacherAppointmentsPage: React.FC = () => {
                   )}
                 </div>
                 <div className="grid grid-cols-1 gap-3">
-                  <div className="rounded-2xl p-4 border flex items-center gap-4" style={{ borderColor: "var(--color-border)", background: "rgba(38,71,150,0.02)" }}>
+                  <div className="rounded-2xl p-4 border flex items-center gap-4" style={{ borderColor: "var(--color-border)", background: "color-mix(in srgb, var(--color-brand-blue) 2%, transparent)" }}>
                     <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
                       <User size={20} />
                     </div>
@@ -606,7 +606,7 @@ export const TeacherAppointmentsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl p-4 border flex items-center gap-4" style={{ borderColor: "var(--color-border)", background: "rgba(208,174,97,0.05)" }}>
+                  <div className="rounded-2xl p-4 border flex items-center gap-4" style={{ borderColor: "var(--color-border)", background: "color-mix(in srgb, var(--color-brand-gold) 5%, transparent)" }}>
                     <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
                       <Calendar size={20} />
                     </div>
@@ -672,7 +672,7 @@ export const TeacherAppointmentsPage: React.FC = () => {
                 <p>Approve or reject a booking using the action buttons on the list or detail pane.</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(38,71,150,0.12)", color: "#264796" }}>3</span>
+                <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: "color-mix(in srgb, var(--color-brand-blue) 12%, transparent)", color: "var(--color-brand-blue)" }}>3</span>
                 <p>The student portal refreshes the same appointment record and shows the updated status.</p>
               </div>
             </div>

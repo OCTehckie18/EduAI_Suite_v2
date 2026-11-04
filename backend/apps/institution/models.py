@@ -167,6 +167,10 @@ class UniversityProfile(TimeStampedModel):
     logo_data = models.BinaryField(null=True, blank=True, editable=False)
     logo_content_type = models.CharField(max_length=50, blank=True)
     logo_updated_at = models.DateTimeField(null=True, blank=True)
+    # Brand colours used across all three portals (#rrggbb).
+    primary_color = models.CharField(max_length=7, default="#264796")
+    secondary_color = models.CharField(max_length=7, default="#d0ae61")
+    tertiary_color = models.CharField(max_length=7, default="#0f766e")
 
     def __str__(self):
         return self.name or "University (not configured)"

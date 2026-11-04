@@ -25,8 +25,8 @@ export const GlassCard: React.FC<GlassCardProps> = ({
 }) => {
   const base = "glass-card";
   const variantClass =
-    variant === "gold" ? "bg-gradient-to-br from-[#d0ae61]/10 to-[#ddb867]/5 border-[#d0ae61]/25" :
-    variant === "blue" ? "bg-gradient-to-br from-[#264796]/10 to-[#3460c4]/5 border-[#264796]/20" :
+    variant === "gold" ? "bg-gradient-to-br from-brand-gold/10 to-brand-gold-light/5 border-brand-gold/25" :
+    variant === "blue" ? "bg-gradient-to-br from-brand-blue/10 to-brand-blue-light/5 border-brand-blue/20" :
     "";
 
   return (

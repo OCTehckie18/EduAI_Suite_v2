@@ -69,7 +69,7 @@ const RiskCell: React.FC<{ value: number; label: string }> = ({ value, label }) 
     <div className="flex flex-col items-center gap-1">
       <div
         className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-transform hover:scale-110 cursor-pointer"
-        style={{ background: bg, color, border: `1.5px solid ${color}30` }}
+        style={{ background: bg, color, border: `1.5px solid color-mix(in srgb, ${color} 19%, transparent)` }}
         title={`${label}: ${safeValue}`}
       >
         {safeValue}
@@ -272,7 +272,7 @@ export const AnalyticsPage: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  const COLORS = ['#264796', '#3460c4', '#d0ae61', '#d97706', '#dc2626'];
+  const COLORS = ['var(--color-brand-blue)', 'var(--color-brand-blue-light)', 'var(--color-brand-gold)', '#d97706', '#dc2626'];
 
   const renderOverview = () => {
     const data = dataSource === "platform" ? analytics : uploadedData;
@@ -280,13 +280,13 @@ export const AnalyticsPage: React.FC = () => {
 
     const stats = dataSource === "platform" 
       ? [
-          { label: "Average Score", value: analytics?.overview?.avg_score || "0%", color: "#264796", icon: <TrendingUp size={16}/> },
+          { label: "Average Score", value: analytics?.overview?.avg_score || "0%", color: "var(--color-brand-blue)", icon: <TrendingUp size={16}/> },
           { label: "Total Students", value: analytics?.overview?.total_students || 0, color: "#16a34a", icon: <Users size={16}/> },
           { label: "At-Risk Count", value: analytics?.overview?.at_risk_count || 0, color: "#dc2626", icon: <AlertTriangle size={16}/> },
           { label: "Average Attendance", value: analytics?.overview?.attendance_rate || "0%", color: "#d97706", icon: <Activity size={16}/> },
         ]
       : [
-          { label: "Average Score", value: `${uploadedData?.summary?.avg_score}${uploadedData?.summary?.scale === 100 ? '%' : ''}`, color: "#264796", icon: <TrendingUp size={16}/> },
+          { label: "Average Score", value: `${uploadedData?.summary?.avg_score}${uploadedData?.summary?.scale === 100 ? '%' : ''}`, color: "var(--color-brand-blue)", icon: <TrendingUp size={16}/> },
           { label: "Total Students", value: uploadedData?.summary?.rows || 0, color: "#16a34a", icon: <Users size={16}/> },
           { label: "At-Risk", value: uploadedData?.risk_students?.length || 0, color: "#dc2626", icon: <AlertTriangle size={16}/> },
           { label: "Average Attendance", value: uploadedData?.summary?.avg_attendance != null ? `${uploadedData.summary.avg_attendance}%` : "Not in upload", color: "#d97706", icon: <Activity size={16}/> },
@@ -328,8 +328,8 @@ export const AnalyticsPage: React.FC = () => {
                 <AreaChart data={analytics?.performance_trend}>
                   <defs>
                     <linearGradient id="colorAvg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#264796" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#264796" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="var(--color-brand-blue)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--color-brand-blue)" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
@@ -338,7 +338,7 @@ export const AnalyticsPage: React.FC = () => {
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                   />
-                  <Area type="monotone" dataKey="score" stroke="#264796" fillOpacity={1} fill="url(#colorAvg)" strokeWidth={3} />
+                  <Area type="monotone" dataKey="score" stroke="var(--color-brand-blue)" fillOpacity={1} fill="url(#colorAvg)" strokeWidth={3} />
                 </AreaChart>
               ) : (
                 <BarChart data={uploadedData?.distribution}>
@@ -352,7 +352,7 @@ export const AnalyticsPage: React.FC = () => {
                     ]}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                   />
-                  <Bar dataKey="count" name="Students" fill="#3460c4" radius={[4, 4, 0, 0]} barSize={40}>
+                  <Bar dataKey="count" name="Students" fill="var(--color-brand-blue-light)" radius={[4, 4, 0, 0]} barSize={40}>
                     {uploadedData?.distribution.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
@@ -442,7 +442,7 @@ export const AnalyticsPage: React.FC = () => {
                     {/* The Curve */}
                     <Scatter 
                       data={curvePoints} 
-                      line={{ stroke: '#264796', strokeWidth: 2 }} 
+                      line={{ stroke: 'var(--color-brand-blue)', strokeWidth: 2 }} 
                       shape={() => null} 
                       isAnimationActive={false}
                     />

@@ -105,13 +105,13 @@ function ConfirmDialog({ options, onCancel, onConfirm }: { options: ConfirmOptio
         {options.input && (
           <label className="mt-4 block text-sm text-slate-700">{options.input.label}
             {options.input.multiline
-              ? <textarea autoFocus rows={3} required={options.input.required} value={text} onChange={(event) => setText(event.target.value)} placeholder={options.input.placeholder} className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-[#264796] focus:ring-2 focus:ring-[#264796]/20" />
-              : <input autoFocus required={options.input.required} value={text} onChange={(event) => setText(event.target.value)} placeholder={options.input.placeholder} className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-[#264796] focus:ring-2 focus:ring-[#264796]/20" />}
+              ? <textarea autoFocus rows={3} required={options.input.required} value={text} onChange={(event) => setText(event.target.value)} placeholder={options.input.placeholder} className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20" />
+              : <input autoFocus required={options.input.required} value={text} onChange={(event) => setText(event.target.value)} placeholder={options.input.placeholder} className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20" />}
           </label>
         )}
         <div className="mt-6 flex justify-end gap-3">
           <button type="button" onClick={onCancel} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:text-slate-900">Cancel</button>
-          <button type="submit" autoFocus={!options.input} className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${danger ? "bg-[#264796] hover:bg-[#1c3570]" : "bg-sky-600 hover:bg-sky-500"}`}>{options.confirmLabel ?? "Confirm"}</button>
+          <button type="submit" autoFocus={!options.input} className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${danger ? "bg-brand-blue hover:bg-brand-blue-dark" : "bg-sky-600 hover:bg-sky-500"}`}>{options.confirmLabel ?? "Confirm"}</button>
         </div>
       </form>
     </div>
@@ -138,7 +138,7 @@ export function Modal({ title, onClose, children, wide = false }: { title: strin
 
 const BADGE_TONES: Record<string, string> = {
   green: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  amber: "bg-amber-50 text-[#264796] border-amber-200",
+  amber: "bg-amber-50 text-brand-blue border-amber-200",
   red: "bg-rose-50 text-rose-700 border-rose-200",
   blue: "bg-sky-50 text-sky-700 border-sky-200",
   violet: "bg-violet-50 text-violet-700 border-violet-200",
@@ -163,7 +163,7 @@ export function PanelHeader({ title, subtitle, actions }: { title: string; subti
 }
 
 export function PrimaryButton({ children, onClick, disabled, type = "button", tone = "rose" }: { children: ReactNode; onClick?: () => void; disabled?: boolean; type?: "button" | "submit"; tone?: "rose" | "sky" | "emerald" | "violet" }) {
-  const tones = { rose: "bg-[#264796] hover:bg-[#1c3570]", sky: "bg-[#264796] hover:bg-[#1c3570]", emerald: "bg-emerald-600 hover:bg-emerald-500", violet: "bg-[#264796] hover:bg-[#1c3570]" };
+  const tones = { rose: "bg-brand-blue hover:bg-brand-blue-dark", sky: "bg-brand-blue hover:bg-brand-blue-dark", emerald: "bg-emerald-600 hover:bg-emerald-500", violet: "bg-brand-blue hover:bg-brand-blue-dark" };
   return <button type={type} onClick={onClick} disabled={disabled} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-50 ${tones[tone]}`}>{children}</button>;
 }
 
@@ -175,7 +175,7 @@ export function Chips<T extends string>({ value, options, onChange }: { value: T
   return (
     <div className="flex flex-wrap gap-2" role="tablist">
       {options.map(([key, label]) => (
-        <button key={key} role="tab" aria-selected={value === key} onClick={() => onChange(key)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${value === key ? "bg-[#264796] text-white" : "border border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900"}`}>{label}</button>
+        <button key={key} role="tab" aria-selected={value === key} onClick={() => onChange(key)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${value === key ? "bg-brand-blue text-white" : "border border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900"}`}>{label}</button>
       ))}
     </div>
   );
@@ -223,10 +223,10 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
 
 export function Avatar({ name }: { name: string }) {
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
-  return <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#264796]/15 to-[#264796]/25 text-xs font-bold text-slate-900">{initials}</div>;
+  return <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-blue/15 to-brand-blue/25 text-xs font-bold text-slate-900">{initials}</div>;
 }
 
-export const inputClass = "mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-[#264796] focus:ring-2 focus:ring-[#264796]/20";
+export const inputClass = "mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/25";
 
 export function timeAgo(value: string | null | undefined): string {
   if (!value) return "—";

@@ -160,7 +160,7 @@ export const WordCloudPlayerPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(135deg, #264796 0%, #2a4fa7 100%)" }}>
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(135deg, var(--color-brand-blue) 0%, var(--color-brand-blue-light) 100%)" }}>
       <GlassCard className="w-full max-w-lg p-8">
         <div className="text-center mb-8">
           <p className="text-sm uppercase tracking-wider font-bold" style={{ color: "var(--color-brand-gold)" }}>Live Prompt</p>

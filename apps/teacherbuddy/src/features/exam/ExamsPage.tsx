@@ -15,10 +15,10 @@ import { getGreeting, getFormattedDate } from "../../shared/utils/dateUtils";
 type ExamView = "list" | "take" | "review";
 
 const statusStyle: Record<string, { color: string; bg: string; label: string }> = {
-  upcoming: { color: "#264796", bg: "rgba(38,71,150,0.1)", label: "Upcoming" },
+  upcoming: { color: "var(--color-brand-blue)", bg: "color-mix(in srgb, var(--color-brand-blue) 10%, transparent)", label: "Upcoming" },
   ongoing: { color: "#d97706", bg: "rgba(217,119,6,0.1)", label: "Ongoing" },
   completed: { color: "#16a34a", bg: "rgba(22,163,74,0.1)", label: "Completed" },
-  published: { color: "#264796", bg: "rgba(38,71,150,0.1)", label: "Live" },
+  published: { color: "var(--color-brand-blue)", bg: "color-mix(in srgb, var(--color-brand-blue) 10%, transparent)", label: "Live" },
   draft: { color: "#64748b", bg: "rgba(100,116,139,0.1)", label: "Draft" },
 };
 
@@ -273,13 +273,13 @@ export const ExamsPage: React.FC = () => {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
-          { label: "Total Exams", value: String(stats.total_exams), icon: ClipboardList, color: "#264796" },
+          { label: "Total Exams", value: String(stats.total_exams), icon: ClipboardList, color: "var(--color-brand-blue)" },
           { label: "Submissions Today", value: String(stats.submissions_today), icon: CheckCircle2, color: "#16a34a" },
           { label: "Avg Completion", value: stats.avg_completion, icon: Users, color: "#7c3aed" },
         ].map(s => (
           <GlassCard key={s.label} padding="sm" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: `${s.color}18` }}>
+              style={{ background: `color-mix(in srgb, ${s.color} 9%, transparent)` }}>
               <s.icon size={19} style={{ color: s.color }} />
             </div>
             <div>
@@ -313,7 +313,7 @@ export const ExamsPage: React.FC = () => {
                 <div
                   key={exam.id}
                   onClick={() => setSelectedExam(exam)}
-                  className={`glass-card p-4 cursor-pointer transition-all hover:shadow-md border-l-4 ${selectedExam?.id === exam.id ? "border-l-[#264796] shadow-lg" : "border-l-transparent"
+                  className={`glass-card p-4 cursor-pointer transition-all hover:shadow-md border-l-4 ${selectedExam?.id === exam.id ? "border-l-brand-blue shadow-lg" : "border-l-transparent"
                     }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -379,10 +379,10 @@ export const ExamsPage: React.FC = () => {
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b" style={{ borderColor: "rgba(38,71,150,0.1)" }}>
+                <div className="flex border-b" style={{ borderColor: "color-mix(in srgb, var(--color-brand-blue) 10%, transparent)" }}>
                   {(["overview", "take", "review"] as const).map(tab => (
                     <button key={tab} onClick={() => setActiveTab(tab)}
-                      className={`px-5 py-3.5 text-sm font-semibold capitalize transition-colors flex items-center gap-1.5 ${activeTab === tab ? "border-b-2 border-[#264796] text-[#264796]" : "text-slate-400 hover:text-slate-600"
+                      className={`px-5 py-3.5 text-sm font-semibold capitalize transition-colors flex items-center gap-1.5 ${activeTab === tab ? "border-b-2 border-brand-blue text-brand-blue" : "text-slate-400 hover:text-slate-600"
                         }`}>
                       {tab === "take" && <Play size={13} />}
                       {tab === "review" && <Eye size={13} />}
@@ -403,7 +403,7 @@ export const ExamsPage: React.FC = () => {
                           { label: "Randomized", value: selectedExam.randomize_questions ? "Yes" : "No" },
                         ].map(item => (
                           <div key={item.label} className="p-3 rounded-xl text-center"
-                            style={{ background: "rgba(38,71,150,0.05)", border: "1px solid rgba(38,71,150,0.1)" }}>
+                            style={{ background: "color-mix(in srgb, var(--color-brand-blue) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--color-brand-blue) 10%, transparent)" }}>
                             <p className="text-xl font-bold" style={{ color: "var(--color-brand-blue)" }}>{item.value}</p>
                             <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>{item.label}</p>
                           </div>

@@ -7,8 +7,8 @@ import { API_BASE_URL } from "../../shared/utils/gameAPI";
 import { requestGameFullscreen } from "./fullscreen";
 import { getCurrentStudentId } from "../../shared/utils/currentStudent";
 
-const BRAND_BLUE = "#264796";
-const BRAND_BLUE_LIGHT = "#3460c4";
+const BRAND_BLUE = "var(--color-brand-blue)";
+const BRAND_BLUE_LIGHT = "var(--color-brand-blue-light)";
 
 const AudienceJoinHub: React.FC = () => {
   const [pin, setPin] = useState("");
@@ -75,7 +75,7 @@ const AudienceJoinHub: React.FC = () => {
       <div className="relative z-10 w-full max-w-md mx-auto px-6">
         {/* Icon */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-2xl" style={{ background: `linear-gradient(135deg, ${BRAND_BLUE}, ${BRAND_BLUE_LIGHT})`, boxShadow: `0 12px 40px ${BRAND_BLUE}60` }}>
+          <div className="w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-2xl" style={{ background: `linear-gradient(135deg, ${BRAND_BLUE}, ${BRAND_BLUE_LIGHT})`, boxShadow: `0 12px 40px color-mix(in srgb, var(--color-brand-blue) 38%, transparent)` }}>
             <Radio className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-3xl font-black text-white mb-2">Join Live Session</h1>
@@ -125,7 +125,7 @@ const AudienceJoinHub: React.FC = () => {
             className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-lg text-white transition-all disabled:opacity-40"
             style={{
               background: pin.length === 6 ? `linear-gradient(135deg, ${BRAND_BLUE}, ${BRAND_BLUE_LIGHT})` : "rgba(100,116,139,0.2)",
-              boxShadow: pin.length === 6 ? `0 8px 32px ${BRAND_BLUE}40` : "none",
+              boxShadow: pin.length === 6 ? `0 8px 32px color-mix(in srgb, var(--color-brand-blue) 25%, transparent)` : "none",
             }}
           >
             {joining ? (

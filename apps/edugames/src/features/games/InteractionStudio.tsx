@@ -56,8 +56,8 @@ const INTERACTION_TYPES = [
   { value: "qna_prompt", label: "Q&A Prompt", icon: MessageSquare, color: "#059669" }, // Emerald 600
 ];
 
-const BRAND_BLUE = "#264796";
-const BRAND_BLUE_LIGHT = "#3460c4";
+const BRAND_BLUE = "var(--color-brand-blue)";
+const BRAND_BLUE_LIGHT = "var(--color-brand-blue-light)";
 
 // ─── Component ────────────────────────────────────────────────────
 const InteractionStudio: React.FC<Props> = ({
@@ -249,7 +249,7 @@ const InteractionStudio: React.FC<Props> = ({
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition text-white"
           style={{
             background: `linear-gradient(135deg, ${BRAND_BLUE}, ${BRAND_BLUE_LIGHT})`,
-            boxShadow: "0 4px 12px rgba(38, 71, 150, 0.25)",
+            boxShadow: "0 4px 12px color-mix(in srgb, var(--color-brand-blue) 25%, transparent)",
           }}
         >
           {finalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -276,7 +276,7 @@ const InteractionStudio: React.FC<Props> = ({
             <button
               onClick={() => { resetForm(); setShowForm(true); }}
               className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition"
-              style={{ background: "rgba(38,71,150,0.1)", color: "#264796" }}
+              style={{ background: "color-mix(in srgb, var(--color-brand-blue) 10%, transparent)", color: "var(--color-brand-blue)" }}
             >
               <Plus className="w-3.5 h-3.5" /> Add New
             </button>
@@ -286,7 +286,7 @@ const InteractionStudio: React.FC<Props> = ({
           {showForm && (
             <div
               className="p-5 border-b border-slate-200 space-y-4"
-              style={{ background: "rgba(38,71,150,0.03)" }}
+              style={{ background: "color-mix(in srgb, var(--color-brand-blue) 3%, transparent)" }}
             >
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-blue-900 uppercase tracking-wide">

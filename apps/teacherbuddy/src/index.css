@@ -15,6 +15,10 @@
   --color-brand-gold-bright: #e6c97a;
   --color-brand-gold-pale: #fdf6e3;
   --color-brand-gold-dark: #b8943e;
+  --color-brand-accent: #0f766e;
+  --color-brand-accent-light: #14a094;
+  --color-brand-accent-dark: #0b5a54;
+  --color-brand-accent-pale: #e7f4f3;
 
   /* Dynamic Semantic Tokens */
   --color-surface-base: var(--color-bg-base);
@@ -45,12 +49,12 @@
     --color-text-main: #0f172a;
     --color-text-sub: #475569;
     --color-text-dim: #64748b;
-    --color-border-main: rgba(38, 71, 150, 0.08);
+    --color-border-main: color-mix(in srgb, var(--color-brand-blue) 8%, transparent);
 
     --color-bg-start: #f8fafc;
     --color-bg-end: #eff3f8;
-    --color-bg-grad1: rgba(38, 71, 150, 0.03);
-    --color-bg-grad2: rgba(208, 174, 97, 0.03);
+    --color-bg-grad1: color-mix(in srgb, var(--color-brand-blue) 3%, transparent);
+    --color-bg-grad2: color-mix(in srgb, var(--color-brand-gold) 3%, transparent);
 
     --color-header-bg: rgba(255, 255, 255, 0.95);
     --color-input-bg: #f1f5f9;
@@ -107,7 +111,7 @@
   }
 
   ::selection {
-    background: rgba(38, 71, 150, 0.18);
+    background: color-mix(in srgb, var(--color-brand-blue) 18%, transparent);
     color: var(--color-brand-blue);
   }
 }
@@ -121,11 +125,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(38, 71, 150, 0.25);
+  background: color-mix(in srgb, var(--color-brand-blue) 25%, transparent);
   border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(38, 71, 150, 0.45);
+  background: color-mix(in srgb, var(--color-brand-blue) 45%, transparent);
 }
 
 /* ─── Utility Classes ─────────────────────────────────────── */
@@ -135,8 +139,8 @@
   -webkit-backdrop-filter: blur(12px) saturate(160%);
   border: 1px solid var(--color-border);
   box-shadow:
-    0 1px 3px rgba(38, 71, 150, 0.05),
-    0 10px 20px -5px rgba(38, 71, 150, 0.08);
+    0 1px 3px color-mix(in srgb, var(--color-brand-blue) 5%, transparent),
+    0 10px 20px -5px color-mix(in srgb, var(--color-brand-blue) 8%, transparent);
   border-radius: 20px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -145,13 +149,13 @@
   background: var(--color-brand-blue);
   color: white;
   border-radius: 20px;
-  box-shadow: 0 10px 25px -5px rgba(38, 71, 150, 0.3);
+  box-shadow: 0 10px 25px -5px color-mix(in srgb, var(--color-brand-blue) 30%, transparent);
 }
 
 @utility glass-sidebar {
   background: #ffffff;
   border-right: 1px solid var(--color-border);
-  box-shadow: 4px 0 20px rgba(38, 71, 150, 0.03);
+  box-shadow: 4px 0 20px color-mix(in srgb, var(--color-brand-blue) 3%, transparent);
 }
 
 @utility section-title {
@@ -192,26 +196,26 @@
 }
 
 @utility btn-primary {
-  background: linear-gradient(135deg, #264796 0%, #3460c4 100%);
+  background: linear-gradient(135deg, var(--color-brand-blue) 0%, var(--color-brand-blue-light) 100%);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(38, 71, 150, 0.25);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-brand-blue) 25%, transparent);
 }
 .btn-primary:hover {
   transform: translateY(-2px) scale(1.01);
-  box-shadow: 0 8px 25px rgba(38, 71, 150, 0.35);
+  box-shadow: 0 8px 25px color-mix(in srgb, var(--color-brand-blue) 35%, transparent);
 }
 .btn-primary:active {
   transform: scale(0.97);
 }
 
 @utility btn-gold {
-  background: linear-gradient(135deg, #d0ae61 0%, #e6c97a 100%);
+  background: linear-gradient(135deg, var(--color-brand-gold) 0%, var(--color-brand-gold-bright) 100%);
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(208, 174, 97, 0.3);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-brand-gold) 30%, transparent);
 }
 .btn-gold:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(208, 174, 97, 0.4);
+  box-shadow: 0 8px 25px color-mix(in srgb, var(--color-brand-gold) 40%, transparent);
 }
 
 @utility btn-outline {
@@ -292,11 +296,11 @@
 }
 
 @utility badge-blue {
-  background: rgba(38, 71, 150, 0.12);
+  background: color-mix(in srgb, var(--color-brand-blue) 12%, transparent);
   color: #3b82f6;
 }
 @utility badge-gold {
-  background: rgba(208, 174, 97, 0.18);
+  background: color-mix(in srgb, var(--color-brand-gold) 18%, transparent);
   color: #d97706;
 }
 @utility badge-green {
@@ -326,8 +330,8 @@
   outline: none;
 }
 .form-input:focus {
-  border-color: var(--color-brand-blue);
-  box-shadow: 0 0 0 3px rgba(38, 71, 150, 0.12);
+  border-color: var(--color-brand-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-accent) 18%, transparent);
   background: var(--color-surface-card);
 }
 .form-input::placeholder {
@@ -350,28 +354,28 @@
 @utility progress-bar {
   height: 6px;
   border-radius: 99px;
-  background: rgba(38, 71, 150, 0.1);
+  background: color-mix(in srgb, var(--color-brand-blue) 10%, transparent);
   overflow: hidden;
 }
 @utility progress-fill {
   height: 100%;
   border-radius: 99px;
-  background: linear-gradient(90deg, #264796, #3460c4);
+  background: linear-gradient(90deg, var(--color-brand-blue), var(--color-brand-blue-light));
   transition: width 0.6s ease;
 }
 
 /* ─── Gradient Backgrounds ────────────────────────────────── */
 @utility gradient-blue {
-  background: linear-gradient(135deg, #264796 0%, #3460c4 100%);
+  background: linear-gradient(135deg, var(--color-brand-blue) 0%, var(--color-brand-blue-light) 100%);
 }
 @utility gradient-gold {
-  background: linear-gradient(135deg, #d0ae61 0%, #ddb867 100%);
+  background: linear-gradient(135deg, var(--color-brand-gold) 0%, var(--color-brand-gold-light) 100%);
 }
 @utility gradient-mixed {
-  background: linear-gradient(135deg, #264796 0%, #1c3570 60%, #b8943e 100%);
+  background: linear-gradient(135deg, var(--color-brand-blue) 0%, var(--color-brand-blue-dark) 60%, var(--color-brand-gold-dark) 100%);
 }
 @utility gradient-header {
-  background: linear-gradient(135deg, #1c3570 0%, #264796 50%, #2a52a8 100%);
+  background: linear-gradient(135deg, var(--color-brand-blue-dark) 0%, var(--color-brand-blue) 50%, var(--color-brand-blue-mid) 100%);
 }
 
 /* ─── Animations ──────────────────────────────────────────── */
@@ -395,13 +399,13 @@
 }
 @keyframes pulse-ring {
   0% {
-    box-shadow: 0 0 0 0 rgba(38, 71, 150, 0.4);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand-blue) 40%, transparent);
   }
   70% {
-    box-shadow: 0 0 0 12px rgba(38, 71, 150, 0);
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--color-brand-blue) 0%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(38, 71, 150, 0);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand-blue) 0%, transparent);
   }
 }
 @keyframes breathe {
@@ -503,14 +507,14 @@
 
 /* ─── Chat Bubbles ────────────────────────────────────────── */
 @utility chat-bubble-user {
-  background: linear-gradient(135deg, #264796 0%, #3460c4 100%);
+  background: linear-gradient(135deg, var(--color-brand-blue) 0%, var(--color-brand-blue-light) 100%);
   color: #fff;
   border-radius: 18px 18px 4px 18px;
   padding: 0.75rem 1rem;
   max-width: 75%;
   font-size: 0.875rem;
   line-height: 1.5;
-  box-shadow: 0 2px 8px rgba(38, 71, 150, 0.25);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-brand-blue) 25%, transparent);
 }
 
 @utility chat-bubble-ai {
@@ -602,7 +606,7 @@
   text-underline-offset: 2px;
 }
 .ai-markdown code {
-  background: rgba(38, 71, 150, 0.08);
+  background: color-mix(in srgb, var(--color-brand-blue) 8%, transparent);
   border-radius: 4px;
   color: var(--color-brand-blue-dark);
   font-size: 0.9em;
@@ -637,7 +641,7 @@
   vertical-align: top;
 }
 .ai-markdown th {
-  background: rgba(38, 71, 150, 0.08);
+  background: color-mix(in srgb, var(--color-brand-blue) 8%, transparent);
   color: var(--color-text-primary);
   font-weight: 700;
   white-space: nowrap;

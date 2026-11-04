@@ -146,7 +146,7 @@ export const AIChatPage: React.FC = () => {
                 style={{
                   background:
                     message.role === "user"
-                      ? "rgba(38,71,150,0.1)"
+                      ? "color-mix(in srgb, var(--color-brand-blue) 10%, transparent)"
                       : "var(--color-surface-base)",
                   color: "var(--color-text-secondary)",
                 }}

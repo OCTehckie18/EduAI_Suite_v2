@@ -194,7 +194,7 @@ export const ChainAnswerGameJoinPage: React.FC<
             background:
               isLoading || !sessionId.trim() || !playerName.trim()
                 ? "#9ca3af"
-                : "linear-gradient(135deg, var(--color-brand-blue), #3460c4)",
+                : "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
           }}
         >
           {isLoading ? (

@@ -55,7 +55,7 @@ export const BoardCard: React.FC<Props> = ({ card, index, onClick }) => {
                 <span
                   className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"
                   style={{
-                    background: isOverdue ? 'rgba(220,38,38,0.12)' : 'rgba(38,71,150,0.08)',
+                    background: isOverdue ? 'rgba(220,38,38,0.12)' : 'color-mix(in srgb, var(--color-brand-blue) 8%, transparent)',
                     color: isOverdue ? '#dc2626' : 'var(--color-text-muted)',
                   }}
                 >
@@ -67,7 +67,7 @@ export const BoardCard: React.FC<Props> = ({ card, index, onClick }) => {
                 <span
                   className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"
                   style={{
-                    background: allDone ? 'rgba(22,163,74,0.12)' : 'rgba(38,71,150,0.08)',
+                    background: allDone ? 'rgba(22,163,74,0.12)' : 'color-mix(in srgb, var(--color-brand-blue) 8%, transparent)',
                     color: allDone ? '#16a34a' : 'var(--color-text-muted)',
                   }}
                 >

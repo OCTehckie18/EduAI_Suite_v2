@@ -200,7 +200,7 @@ export const CardDetailModal: React.FC<Props> = ({ card, columnTitle, onClose })
                         width: `${checklistPct}%`,
                         background: checklistPct === 100
                           ? 'var(--color-success)'
-                          : 'linear-gradient(90deg, #264796, #3460c4)',
+                          : 'linear-gradient(90deg, var(--color-brand-blue), var(--color-brand-blue-light))',
                       }}
                     />
                   </div>

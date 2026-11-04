@@ -23,14 +23,14 @@ export const FormsPage: React.FC = () => {
         </GlassCard>
 
         {/* Custom Form Block */}
-        <div className="p-1 rounded-3xl" style={{ background: "linear-gradient(135deg,rgba(208,174,97,0.4),rgba(38,71,150,0.4))" }}>
+        <div className="p-1 rounded-3xl" style={{ background: "linear-gradient(135deg,color-mix(in srgb, var(--color-brand-gold) 40%, transparent),color-mix(in srgb, var(--color-brand-blue) 40%, transparent))" }}>
           <div className="w-full h-full p-6 rounded-[22px] flex flex-col items-center justify-center text-center space-y-4" style={{ background: "var(--color-surface-base)" }}>
              <Wand2 size={40} style={{ color: "var(--color-brand-gold)" }} />
              <div>
                <h3 className="font-bold text-lg" style={{ color: "var(--color-text-primary)" }}>Upload Custom Form</h3>
                <p className="text-sm px-4 mt-1" style={{ color: "var(--color-text-secondary)" }}>Upload a blank PDF and let the AI figure out what to fill based on your context.</p>
              </div>
-             <button className="btn btn-primary px-8 shadow-[0_4px_15px_rgba(208,174,97,0.3)]">Upload PDF</button>
+             <button className="btn btn-primary px-8 shadow-[0_4px_15px_color-mix(in srgb, var(--color-brand-gold) 30%, transparent)]">Upload PDF</button>
           </div>
         </div>
       </div>
