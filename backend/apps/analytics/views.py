@@ -480,69 +480,86 @@ class DiscoverableClassroomsView(APIView):
 
 
 class StudentDashboardSummaryView(APIView):
+    """The signed-in student's own dashboard: their courses, open deadlines and live games."""
 
     def get(self, request):
-        student_name = request.query_params.get("student_name", "Student")
-        student = User.objects.filter(
-            Q(first_name__icontains=student_name) |
-            Q(last_name__icontains=student_name) |
-            Q(email__icontains=student_name),
-            role=User.Role.STUDENT,
-        ).first()
+        from apps.core.access import visible_courses
+        from apps.core.services import student_keys
+        from apps.games.models import GamePlayer
 
-        if student:
-            enrolled_classrooms = Classroom.objects.filter(
-                enrollments__student=student,
-                enrollments__is_active=True,
-            ).distinct()
-        else:
-            enrolled_classrooms = Classroom.objects.all()[:3]
+        student = request.user
+        if student.role != User.Role.STUDENT:
+            return Response({"detail": "This dashboard is for students."}, status=status.HTTP_403_FORBIDDEN)
 
+        enrolled_classrooms = visible_courses(student).select_related("teacher", "batch")
         course_ids = list(enrolled_classrooms.values_list("id", flat=True))
 
-        all_assignments = Assignment.objects.filter(course_id__in=course_ids)
-        upcoming_deadlines = []
+        # Submissions are still filed under the student's name or email.
+        own_work = Q(student_name__iexact=student.full_name) | Q(student_name__iexact=student.email)
+        submitted_ids = set(
+            Submission.objects.filter(assignment__course_id__in=course_ids).filter(own_work)
+            .values_list("assignment_id", flat=True)
+        )
+
         now = timezone.now()
-        for asgn in all_assignments[:5]:
+        open_assignments = []
+        for asgn in Assignment.objects.filter(course_id__in=course_ids).select_related("course"):
+            if asgn.id in submitted_ids:
+                continue
             due_dt = _parse_date_safe(asgn.due_date)
-            is_urgent = False
+            due_aware = None
             if due_dt:
                 due_aware = timezone.make_aware(due_dt) if timezone.is_naive(due_dt) else due_dt
-                is_urgent = (due_aware - now).days < 2
-            upcoming_deadlines.append({
+            open_assignments.append((due_aware, asgn))
+        # Soonest deadline first; assignments with no (or unreadable) due date go last.
+        open_assignments.sort(key=lambda pair: (pair[0] is None, pair[0] or now))
+
+        upcoming_deadlines = [
+            {
                 "id": asgn.id,
                 "title": asgn.title,
-                "course_code": asgn.course.subject_code if asgn.course else "UNK",
+                "course_code": asgn.course.subject_code,
                 "course_id": asgn.course_id,
                 "due_date": asgn.due_date,
-                "is_urgent": is_urgent,
-            })
+                "is_urgent": bool(due_aware and (due_aware - now).days < 2),
+            }
+            for due_aware, asgn in open_assignments[:5]
+        ]
 
-        live_games = ChainAnswerGame.objects.filter(status="active")
-        live_game_info = {
-            "title": "Interactive Learning Session",
-            "teacher": "Academic Faculty",
-            "active": False,
-        }
-        if live_games.exists():
-            game = live_games.first()
+        keys = student_keys(student)
+        live_games = ChainAnswerGame.objects.filter(status="active", players__student_id__in=keys).distinct()
+        live_game_info = {"title": "", "teacher": "", "active": False}
+        game = live_games.first()
+        if game:
+            teacher = User.objects.filter(pk=game.teacher_id).first() if game.teacher_id else None
             live_game_info = {
-                "title": game.name or "Live Quiz Session",
-                "teacher": game.teacher_name or "Faculty",
+                "title": game.name or "Live game",
+                "teacher": teacher.full_name if teacher else "",
                 "active": True,
             }
+
+        assignment_counts = {
+            row["course_id"]: row["total"]
+            for row in Assignment.objects.filter(course_id__in=course_ids).values("course_id").annotate(total=Count("id"))
+        }
+        submitted_per_course = {}
+        for assignment_id, course_id in Assignment.objects.filter(id__in=submitted_ids).values_list("id", "course_id"):
+            submitted_per_course[course_id] = submitted_per_course.get(course_id, 0) + 1
+
+        def progress(course_id):
+            total = assignment_counts.get(course_id, 0)
+            return round(100 * submitted_per_course.get(course_id, 0) / total, 1) if total else None
 
         courses_payload = [
             {
                 "id": c.id,
                 "code": c.subject_code,
                 "name": c.name,
-                "teacher_name": c.teacher.full_name if c.teacher else "Instructor",
+                "teacher_name": c.teacher.full_name if c.teacher else "",
                 "students": Enrollment.objects.filter(classroom=c, is_active=True).count(),
                 "batch": c.batch.name if c.batch else "",
-                "progress": 0.0,
+                "progress": progress(c.id),
                 "description": c.description or "",
-                "enrollment_code": c.enrollment_code,
                 "course_plan_path": c.course_plan_path or None,
                 "color": c.color or "#3b82f6",
             }
@@ -551,10 +568,10 @@ class StudentDashboardSummaryView(APIView):
 
         return Response({
             "student": {
-                "name": student_name,
-                "gpa": 3.7,
-                "level": 4,
-                "pendingAssignments": len(upcoming_deadlines),
+                "name": student.full_name,
+                "gpa": None,
+                "level": None,
+                "pendingAssignments": len(open_assignments),
                 "liveGames": live_games.count(),
             },
             "courses": courses_payload,

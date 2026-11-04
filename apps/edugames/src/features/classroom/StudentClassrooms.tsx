@@ -27,7 +27,7 @@ type Course = {
   name: string;
   batch: string;
   students: number;
-  progress: number;
+  progress: number | null;
   color: string;
   description: string;
   enrollment_code?: string | null;
@@ -402,7 +402,7 @@ export const StudentClassrooms: React.FC = () => {
         <GlassCard className="p-5">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Progress</p>
           <p className="mt-2 text-3xl font-extrabold" style={{ color: "var(--color-text-primary)" }}>
-            {selectedCourse?.progress ?? 0}%
+            {selectedCourse?.progress == null ? "—" : `${selectedCourse.progress}%`}
           </p>
         </GlassCard>
       </div>
@@ -454,10 +454,10 @@ export const StudentClassrooms: React.FC = () => {
 
                   <div className="mt-4 space-y-2">
                     <div className="flex items-center justify-between text-xs font-semibold" style={{ color: "var(--color-text-secondary)" }}>
-                      <span style={{ color: course.color }}>{course.progress}% progress</span>
+                      <span style={{ color: course.color }}>{course.progress == null ? "No assignments yet" : `${course.progress}% progress`}</span>
                     </div>
                     <div className="h-2 rounded-full bg-slate-200">
-                      <div className="h-2 rounded-full" style={{ width: `${course.progress}%`, background: course.color }} />
+                      <div className="h-2 rounded-full" style={{ width: `${course.progress ?? 0}%`, background: course.color }} />
                     </div>
                   </div>
                 </GlassCard>
@@ -534,12 +534,12 @@ export const StudentClassrooms: React.FC = () => {
                   <div className="mt-6">
                     <div className="mb-2 flex items-center justify-between text-xs font-semibold text-white/80">
                       <span>Course progress</span>
-                      <span>{selectedCourse.progress}%</span>
+                      <span>{selectedCourse.progress == null ? "No assignments yet" : `${selectedCourse.progress}%`}</span>
                     </div>
                     <div className="h-2 rounded-full bg-white/15">
                       <div
                         className="h-2 rounded-full bg-white"
-                        style={{ width: `${selectedCourse.progress}%` }}
+                        style={{ width: `${selectedCourse.progress ?? 0}%` }}
                       />
                     </div>
                   </div>
