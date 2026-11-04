@@ -59,7 +59,7 @@ class DashboardTests(RealMetricsBase):
 
     def test_dashboard_counts_only_the_teachers_own_students_and_marks(self):
         body = self.get(self.teacher).json()
-        self.assertEqual(body["total_students"], 3)
+        self.assertEqual(body["engagementSnapshot"]["studentCount"], 3)
         self.assertEqual(body["engagementSnapshot"]["studentCount"], 3)
         self.assertIsNone(body["engagementSnapshot"]["avgAttendance"])
         self.assertEqual(body["engagementSnapshot"]["avgScore"], 58.3)  # 175 of 300
@@ -68,7 +68,7 @@ class DashboardTests(RealMetricsBase):
     def test_a_teacher_with_no_classes_sees_zeroes_not_everyones_students(self):
         newcomer = User.objects.create_user(email="n@x.com", role="TEACHER")
         body = self.get(newcomer).json()
-        self.assertEqual((body["total_students"], body["total_courses"]), (0, 0))
+        self.assertEqual((body["engagementSnapshot"]["studentCount"], body["classrooms"]), (0, []))
         self.assertIsNone(body["engagementSnapshot"]["avgScore"])
         self.assertEqual(body["riskAlerts"], [])
 

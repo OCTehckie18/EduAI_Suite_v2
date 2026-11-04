@@ -59,8 +59,8 @@ class StudentSummaryTests(APITestCase):
     def test_join_codes_and_invented_stats_are_not_returned(self):
         body = self.get(self.alice).json()
         self.assertTrue(all("enrollment_code" not in c for c in body["courses"]))
-        self.assertIsNone(body["student"]["gpa"])
-        self.assertIsNone(body["student"]["level"])
+        self.assertNotIn("gpa", body["student"])  # nothing computes a GPA, so none is shown
+        self.assertIsNone(body["student"]["average"])  # nothing is graded yet
 
     def test_live_games_only_count_when_the_student_is_in_them(self):
         game = ChainAnswerGame.objects.create(session_id="g1", name="Word chain", status="active", teacher_id=self.teacher.pk)
