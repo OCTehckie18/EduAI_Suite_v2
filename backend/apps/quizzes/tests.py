@@ -9,10 +9,14 @@ from rest_framework.test import APIClient
 from datetime import timedelta
 
 from config.asgi import application
-from .models import Quiz, QuizOption, QuizQuestion, QuizSession
+from .models import Quiz, QuizOption, QuizPlayer, QuizQuestion, QuizSession
 
 
-class QuizWebSocketFlowTests(TransactionTestCase):
+class QuizSocketCase(TransactionTestCase):
+    """A quiz with one question (two options) and a game waiting in the lobby."""
+
+    pin = "123456"
+
     def setUp(self):
         teacher = get_user_model().objects.create(
             email="quiz-teacher@example.com",
@@ -24,103 +28,126 @@ class QuizWebSocketFlowTests(TransactionTestCase):
             settings.JWT_SECRET_KEY,
             algorithm="HS256",
         )
-        quiz = Quiz.objects.create(title="WebSocket smoke quiz")
-        question = self.question = QuizQuestion.objects.create(
-            quiz=quiz,
-            question_text="Which answer is correct?",
-            time_limit=20,
-            points=1000,
-        )
-        self.correct_option = QuizOption.objects.create(
-            question=question, option_text="Correct", is_correct=True)
-        QuizOption.objects.create(
-            question=question, option_text="Wrong", is_correct=False)
-        QuizSession.objects.create(quiz=quiz, pin="123456")
+        self.quiz = Quiz.objects.create(title="WebSocket smoke quiz")
+        self.question = self.add_question("Which answer is correct?")
+        self.correct_option = self.question.options.get(is_correct=True)
+        self.wrong_option = self.question.options.get(is_correct=False)
+        self.session = QuizSession.objects.create(quiz=self.quiz, pin=self.pin)
 
+    def add_question(self, text, time_limit=20):
+        question = QuizQuestion.objects.create(
+            quiz=self.quiz, question_text=text, time_limit=time_limit, points=1000,
+            order=self.quiz.questions.count(),
+        )
+        QuizOption.objects.create(question=question, option_text="Correct", is_correct=True)
+        QuizOption.objects.create(question=question, option_text="Wrong", is_correct=False)
+        return question
+
+    # ---- helpers ----
+
+    async def teacher_connects(self):
+        teacher = WebsocketCommunicator(
+            application, f"/ws/quiz/{self.pin}?user_type=teacher&access_token={self.teacher_token}")
+        connected, _ = await teacher.connect()
+        self.assertTrue(connected)
+        return teacher
+
+    async def student_connects(self, nickname, extra=""):
+        student = WebsocketCommunicator(
+            application, f"/ws/quiz/{self.pin}?user_type=student&nickname={nickname}{extra}")
+        connected, _ = await student.connect()
+        self.assertTrue(connected)
+        return student
+
+    async def until(self, comm, message_type, timeout=5):
+        for _ in range(25):
+            message = await comm.receive_json_from(timeout=timeout)
+            if message["type"] == message_type:
+                return message
+        self.fail(f"never received {message_type}")
+
+    async def answer(self, student, option=None, question=None):
+        await student.send_json_to({
+            "type": "submit_answer",
+            "question_id": (question or self.question).id,
+            "option_id": (option or self.correct_option).id,
+        })
+
+    async def refused(self, comm, code):
+        """The page is told why before the socket closes."""
+        message = await self.until(comm, "error")
+        self.assertEqual(message["code"], code)
+        return message
+
+
+class QuizWebSocketFlowTests(QuizSocketCase):
     def test_kahoot_flow(self):
         async_to_sync(self._assert_kahoot_flow)()
 
     async def _assert_kahoot_flow(self):
-        teacher = WebsocketCommunicator(
-            application,
-            f"/ws/quiz/123456?user_type=teacher&access_token={self.teacher_token}",
-        )
-        student = WebsocketCommunicator(
-            application,
-            "/ws/quiz/123456?user_type=student&nickname=Ana",
-        )
-
-        teacher_connected, _ = await teacher.connect()
-        self.assertTrue(teacher_connected)
+        teacher = await self.teacher_connects()
         self.assertEqual((await teacher.receive_json_from())["type"], "lobby_update")
 
-        student_connected, _ = await student.connect()
-        self.assertTrue(student_connected)
-        self.assertEqual((await student.receive_json_from())["type"], "lobby_update")
-        self.assertEqual((await teacher.receive_json_from())["type"], "lobby_update")
+        ana = await self.student_connects("Ana")
+        self.assertEqual((await ana.receive_json_from())["type"], "joined")
+        self.assertEqual((await ana.receive_json_from())["type"], "lobby_update")
+        ben = await self.student_connects("Ben")
+        await self.until(ben, "joined")
+        await self.until(teacher, "lobby_update")
 
         await teacher.send_json_to({"type": "start_game"})
-        self.assertEqual((await teacher.receive_json_from())["type"], "new_question")
-        self.assertEqual((await student.receive_json_from())["type"], "new_question")
+        question = await self.until(teacher, "new_question")
+        self.assertEqual(question["question"]["time_left"], 20)
+        await self.until(ana, "new_question")
 
-        await student.send_json_to({
-            "type": "submit_answer",
-            "question_id": self.question.id,
-            "option_id": self.correct_option.id,
-            "response_time": "not-a-number",
+        await ana.send_json_to({
+            "type": "submit_answer", "question_id": self.question.id, "option_id": "not-a-number",
         })
-        invalid_payload = await student.receive_json_from()
-        self.assertEqual(invalid_payload["type"], "error")
-        self.assertEqual(invalid_payload["message"], "Invalid answer payload.")
+        invalid = await self.until(ana, "error")
+        self.assertEqual(invalid["message"], "Invalid answer payload.")
 
-        await student.send_json_to({
-            "type": "submit_answer",
-            "question_id": self.question.id,
-            "option_id": self.correct_option.id,
-            "response_time": 250,
-        })
-        self.assertEqual((await student.receive_json_from())["type"], "answer_submitted")
-        self.assertEqual((await teacher.receive_json_from())["type"], "answer_count_update")
-        self.assertEqual((await student.receive_json_from())["type"], "answer_count_update")
+        await self.answer(ana)
+        submitted = await self.until(ana, "answer_submitted")
+        self.assertNotIn("is_correct", submitted)  # nothing is revealed until the question ends
+        count = await self.until(teacher, "answer_count_update")
+        self.assertEqual((count["count"], count["players_total"]), (1, 2))
 
-        await student.send_json_to({
-            "type": "submit_answer",
-            "question_id": self.question.id,
-            "option_id": self.correct_option.id,
-            "response_time": 250,
-        })
-        duplicate = await student.receive_json_from()
-        self.assertEqual(duplicate["type"], "error")
-        self.assertEqual(
-            duplicate["message"], "You have already answered this question."
-        )
+        await self.answer(ana)
+        duplicate = await self.until(ana, "error")
+        self.assertEqual(duplicate["message"], "You have already answered this question.")
 
-        await teacher.send_json_to({"type": "time_up", "question_id": self.question.id})
-        self.assertEqual((await teacher.receive_json_from())["type"], "show_results")
-        self.assertEqual((await student.receive_json_from())["type"], "show_results")
+        await self.answer(ben, self.wrong_option)
+        results = await self.until(teacher, "show_results")
+        self.assertEqual(await self.until(ana, "show_results"), results)
+        board = {row["nickname"]: row for row in results["scoreboard"]}
+        self.assertEqual((board["Ana"]["rank"], board["Ben"]["rank"]), (1, 2))
+        self.assertTrue(board["Ana"]["is_correct"])
+        self.assertGreater(board["Ana"]["gained"], 900)
+        self.assertEqual((board["Ben"]["gained"], board["Ben"]["is_correct"]), (0, False))
+        self.assertEqual(results["stats"][str(self.correct_option.id)], 1)
+        self.assertEqual(results["correct_option_ids"], [self.correct_option.id])
 
         await teacher.send_json_to({"type": "next_question"})
-        game_over = await teacher.receive_json_from()
-        self.assertEqual(game_over["type"], "game_over")
-        self.assertEqual((await student.receive_json_from())["type"], "game_over")
+        game_over = await self.until(teacher, "game_over")
+        self.assertEqual([p["nickname"] for p in game_over["leaderboard"]], ["Ana", "Ben"])
+        await self.until(ana, "game_over")
 
-        await teacher.disconnect()
-        await student.disconnect()
+        for comm in (teacher, ana, ben):
+            await comm.disconnect()
 
     def test_signed_in_student_is_saved_with_real_id_and_result_recorded(self):
         async_to_sync(self._assert_real_student_identity)()
 
-    def test_invalid_student_token_is_rejected(self):
+    def test_invalid_student_token_is_refused_with_a_reason(self):
         async def run():
             comm = WebsocketCommunicator(
-                application, "/ws/quiz/123456?user_type=student&nickname=Ana&access_token=bad")
-            connected, _ = await comm.connect()
-            self.assertFalse(connected)
+                application, f"/ws/quiz/{self.pin}?user_type=student&nickname=Ana&access_token=bad")
+            await comm.connect()
+            await self.refused(comm, 4401)
         async_to_sync(run)()
 
     async def _assert_real_student_identity(self):
         from apps.core.models import StudentActivity
-        from .models import QuizPlayer
 
         student_user = await sync_to_async(get_user_model().objects.create)(
             email="real-student@example.com", role="STUDENT", is_active=True,
@@ -128,52 +155,29 @@ class QuizWebSocketFlowTests(TransactionTestCase):
         token = jwt.encode(
             {"sub": str(student_user.pk), "type": "access"},
             settings.JWT_SECRET_KEY, algorithm="HS256")
-        url = f"/ws/quiz/123456?user_type=student&nickname=Ana&access_token={token}"
+        extra = f"&access_token={token}"
 
-        teacher = WebsocketCommunicator(
-            application,
-            f"/ws/quiz/123456?user_type=teacher&access_token={self.teacher_token}",
-        )
-        student = WebsocketCommunicator(application, url)
-        await teacher.connect()
-        await teacher.receive_json_from()
-        connected, _ = await student.connect()
-        self.assertTrue(connected)
-        await student.receive_json_from()
-        await teacher.receive_json_from()
+        teacher = await self.teacher_connects()
+        student = await self.student_connects("Ana", extra)
+        await self.until(student, "joined")
 
-        player = await sync_to_async(QuizPlayer.objects.get)(session__pin="123456")
+        player = await sync_to_async(QuizPlayer.objects.get)(session__pin=self.pin)
         # Stored under the register number, not a generated id or the typed nickname.
         self.assertEqual(player.student_id, "2547237")
 
         # Same account reconnecting keeps the same player instead of being rejected.
         await student.disconnect()
-        again = WebsocketCommunicator(application, url)
-        connected, _ = await again.connect()
-        self.assertTrue(connected)
-        await again.receive_json_from()
+        again = await self.student_connects("Ana", extra)
+        await self.until(again, "joined")
         self.assertEqual(
-            await sync_to_async(QuizPlayer.objects.filter(session__pin="123456").count)(), 1)
-
-        async def until(comm, message_type):
-            for _ in range(10):
-                message = await comm.receive_json_from()
-                if message["type"] == message_type:
-                    return message
-            self.fail(f"never received {message_type}")
+            await sync_to_async(QuizPlayer.objects.filter(session__pin=self.pin).count)(), 1)
 
         await teacher.send_json_to({"type": "start_game"})
-        await until(teacher, "new_question")
-        await until(again, "new_question")
-        await again.send_json_to({
-            "type": "submit_answer", "question_id": self.question.id,
-            "option_id": self.correct_option.id, "response_time": 250,
-        })
-        await until(again, "answer_submitted")
-        await teacher.send_json_to({"type": "time_up", "question_id": self.question.id})
-        await until(teacher, "show_results")
+        await self.until(again, "new_question")
+        await self.answer(again)
+        await self.until(teacher, "show_results")  # the only player answered
         await teacher.send_json_to({"type": "next_question"})
-        await until(teacher, "game_over")
+        await self.until(teacher, "game_over")
 
         activity = await sync_to_async(StudentActivity.objects.get)(student_id=student_user.pk)
         self.assertEqual(activity.activity_type, "game")
@@ -181,12 +185,10 @@ class QuizWebSocketFlowTests(TransactionTestCase):
         self.assertGreater(activity.score, 0)
 
         # The student's stats page sees the quiz even though the nickname was "Ana".
-        student_token = jwt.encode(
-            {"sub": str(student_user.pk), "type": "access"}, settings.JWT_SECRET_KEY, algorithm="HS256")
         profile = await sync_to_async(
             lambda: self.client.get(
                 f"/engagement/student/{student_user.pk}/",
-                HTTP_AUTHORIZATION=f"Bearer {student_token}",
+                HTTP_AUTHORIZATION=f"Bearer {token}",
             ).json())()
         self.assertEqual(profile["games"]["sessions_played"], 1)
         self.assertEqual(profile["games"]["details"][0]["game_name"], "WebSocket smoke quiz")
@@ -194,130 +196,263 @@ class QuizWebSocketFlowTests(TransactionTestCase):
         await teacher.disconnect()
         await again.disconnect()
 
-    async def _connect_teacher(self, token):
-        return await WebsocketCommunicator(
-            application,
-            f"/ws/quiz/123456?user_type=teacher&access_token={token}",
-        ).connect()
-
     def test_teacher_requires_access_token(self):
-        connected, _ = async_to_sync(self._connect_teacher)("")
-        self.assertFalse(connected)
+        async def run():
+            comm = WebsocketCommunicator(application, f"/ws/quiz/{self.pin}?user_type=teacher&access_token=")
+            connected, _ = await comm.connect()
+            self.assertFalse(connected)
+        async_to_sync(run)()
 
     def test_student_cannot_answer_non_current_question(self):
-        second_question = QuizQuestion.objects.create(
-            quiz=Quiz.objects.get(title="WebSocket smoke quiz"),
-            question_text="Which answer is not active?",
-            time_limit=20,
-            points=1000,
-        )
-        second_option = QuizOption.objects.create(
-            question=second_question,
-            option_text="Correct but not current",
-            is_correct=True,
-        )
-        async_to_sync(self._assert_rejects_non_current_answer)(
-            second_question.id,
-            second_option.id,
-        )
+        second = self.add_question("Which answer is not active?")
+        second_correct = second.options.get(is_correct=True)
 
-    def test_duplicate_student_nickname_is_rejected(self):
-        async_to_sync(self._assert_rejects_duplicate_nickname)()
+        async def run():
+            teacher = await self.teacher_connects()
+            student = await self.student_connects("Ana")
+            await self.until(student, "joined")
+            await teacher.send_json_to({"type": "start_game"})
+            await self.until(student, "new_question")
+            await self.answer(student, second_correct, second)
+            error = await self.until(student, "error")
+            self.assertEqual(error["message"], "That question is no longer accepting answers.")
+            await teacher.disconnect()
+            await student.disconnect()
+        async_to_sync(run)()
+
+    def test_duplicate_nickname_is_refused_with_a_reason(self):
+        async def run():
+            first = await self.student_connects("Ana")
+            await self.until(first, "joined")
+            second = await self.student_connects("Ana")
+            message = await self.refused(second, 4409)
+            self.assertIn("nickname", message["message"])
+            await first.disconnect()
+        async_to_sync(run)()
 
     def test_student_cannot_answer_after_question_timeout(self):
-        async_to_sync(self._assert_rejects_expired_answer)()
+        async def run():
+            teacher = await self.teacher_connects()
+            student = await self.student_connects("Ana")
+            await self.until(student, "joined")
+            await teacher.send_json_to({"type": "start_game"})
+            await self.until(student, "new_question")
+            await sync_to_async(
+                lambda: QuizSession.objects.filter(pin=self.pin).update(
+                    question_started_at=timezone.now() - timedelta(seconds=21)))()
+            await self.answer(student)
+            error = await self.until(student, "error")
+            self.assertEqual(error["message"], "This question's time has expired.")
+            await teacher.disconnect()
+            await student.disconnect()
+        async_to_sync(run)()
 
-    async def _assert_rejects_expired_answer(self):
-        teacher = WebsocketCommunicator(
-            application,
-            f"/ws/quiz/123456?user_type=teacher&access_token={self.teacher_token}",
-        )
-        student = WebsocketCommunicator(
-            application,
-            "/ws/quiz/123456?user_type=student&nickname=Ana",
-        )
 
-        await teacher.connect()
-        await teacher.receive_json_from()
-        await student.connect()
-        await student.receive_json_from()
-        await teacher.receive_json_from()
+class QuizGameplayTests(QuizSocketCase):
+    def run_async(self, coroutine):
+        async_to_sync(coroutine)()
 
+    async def start_with(self, *names):
+        teacher = await self.teacher_connects()
+        students = []
+        for name in names:
+            student = await self.student_connects(name)
+            await self.until(student, "joined")
+            students.append(student)
         await teacher.send_json_to({"type": "start_game"})
-        await teacher.receive_json_from()
-        await student.receive_json_from()
-        await sync_to_async(
-            lambda: QuizSession.objects.filter(pin="123456").update(
-                question_started_at=timezone.now() - timedelta(seconds=21)
-            )
-        )()
+        await self.until(teacher, "new_question")
+        for student in students:
+            await self.until(student, "new_question")
+        return teacher, students
 
-        await student.send_json_to({
-            "type": "submit_answer",
-            "question_id": self.question.id,
-            "option_id": self.correct_option.id,
-            "response_time": 1,
-        })
-        error = await student.receive_json_from()
-        self.assertEqual(error["type"], "error")
-        self.assertEqual(error["message"], "This question's time has expired.")
+    async def close_all(self, *comms):
+        for comm in comms:
+            await comm.disconnect()
 
-        await teacher.disconnect()
-        await student.disconnect()
+    def test_the_server_ends_the_question_when_time_runs_out(self):
+        QuizQuestion.objects.filter(pk=self.question.pk).update(time_limit=1)
 
-    async def _assert_rejects_duplicate_nickname(self):
-        first_student = WebsocketCommunicator(
-            application,
-            "/ws/quiz/123456?user_type=student&nickname=Ana",
-        )
-        second_student = WebsocketCommunicator(
-            application,
-            "/ws/quiz/123456?user_type=student&nickname=Ana",
-        )
+        async def run():
+            teacher, (ana, ben) = await self.start_with("Ana", "Ben")
+            await self.answer(ana)  # Ben never answers and the teacher does nothing
+            results = await self.until(teacher, "show_results", timeout=5)
+            self.assertEqual((results["answered"], results["players_total"]), (1, 2))
+            await self.until(ben, "show_results")
+            state = await sync_to_async(lambda: QuizSession.objects.get(pin=self.pin).status)()
+            self.assertEqual(state, "result")
+            await self.close_all(teacher, ana, ben)
+        self.run_async(run)
 
-        first_connected, _ = await first_student.connect()
-        self.assertTrue(first_connected)
-        await first_student.receive_json_from()
+    def test_the_question_ends_early_when_everyone_has_answered(self):
+        async def run():
+            teacher, (ana, ben) = await self.start_with("Ana", "Ben")
+            await self.answer(ana)
+            await self.answer(ben, self.wrong_option)
+            results = await self.until(teacher, "show_results", timeout=2)
+            self.assertEqual(results["answered"], 2)
+            await self.close_all(teacher, ana, ben)
+        self.run_async(run)
 
-        second_connected, _ = await second_student.connect()
-        self.assertFalse(second_connected)
+    def test_the_servers_clock_decides_the_speed_bonus(self):
+        async def run():
+            teacher, (ana, ben) = await self.start_with("Ana", "Ben")
+            await sync_to_async(
+                lambda: QuizSession.objects.filter(pin=self.pin).update(
+                    question_started_at=timezone.now() - timedelta(seconds=10)))()
+            # A page claiming an instant answer changes nothing.
+            await ana.send_json_to({
+                "type": "submit_answer", "question_id": self.question.id,
+                "option_id": self.correct_option.id, "response_time": 0,
+            })
+            await self.answer(ben, self.wrong_option)
+            results = await self.until(teacher, "show_results")
+            gained = {r["nickname"]: r["gained"] for r in results["scoreboard"]}["Ana"]
+            self.assertTrue(740 <= gained <= 750, gained)  # halfway through 20 s: 75% of 1000
+            await self.close_all(teacher, ana, ben)
+        self.run_async(run)
 
-        await first_student.disconnect()
+    def test_streak_bonus_grows_with_each_correct_answer_and_resets_on_a_miss(self):
+        second = self.add_question("Second")
+        third = self.add_question("Third")
+        second_correct = second.options.get(is_correct=True)
+        third_wrong = third.options.get(is_correct=False)
 
-    async def _assert_rejects_non_current_answer(self, question_id, option_id):
-        teacher = WebsocketCommunicator(
-            application,
-            f"/ws/quiz/123456?user_type=teacher&access_token={self.teacher_token}",
-        )
-        student = WebsocketCommunicator(
-            application,
-            "/ws/quiz/123456?user_type=student&nickname=Ana",
-        )
+        async def run():
+            teacher, (ana,) = await self.start_with("Ana")
+            await self.answer(ana)
+            first = await self.until(teacher, "show_results")
+            self.assertLessEqual(first["scoreboard"][0]["gained"], 1000)
+            self.assertEqual(first["scoreboard"][0]["streak"], 1)
 
-        await teacher.connect()
-        await teacher.receive_json_from()
-        await student.connect()
-        await student.receive_json_from()
-        await teacher.receive_json_from()
+            await teacher.send_json_to({"type": "next_question"})
+            await self.until(ana, "new_question")
+            await self.answer(ana, second_correct, second)
+            second_result = (await self.until(teacher, "show_results"))["scoreboard"][0]
+            self.assertEqual(second_result["streak"], 2)
+            self.assertGreaterEqual(second_result["gained"], 1000 - 30 + 100)  # speed points plus 100
 
-        await teacher.send_json_to({"type": "start_game"})
-        await teacher.receive_json_from()
-        await student.receive_json_from()
+            await teacher.send_json_to({"type": "next_question"})
+            await self.until(ana, "new_question")
+            await self.answer(ana, third_wrong, third)
+            third_result = (await self.until(teacher, "show_results"))["scoreboard"][0]
+            self.assertEqual((third_result["streak"], third_result["gained"]), (0, 0))
+            await self.close_all(teacher, ana)
+        self.run_async(run)
 
-        await student.send_json_to({
-            "type": "submit_answer",
-            "question_id": question_id,
-            "option_id": option_id,
-            "response_time": 250,
-        })
-        error = await student.receive_json_from()
-        self.assertEqual(error["type"], "error")
-        self.assertEqual(
-            error["message"], "That question is no longer accepting answers."
-        )
+    def test_a_locked_lobby_turns_new_players_away_but_lets_existing_ones_back(self):
+        async def run():
+            teacher = await self.teacher_connects()
+            ana = await self.student_connects("Ana")
+            token = (await self.until(ana, "joined"))["token"]
+            await teacher.send_json_to({"type": "lock_lobby", "locked": True})
+            update = await self.until(teacher, "lobby_update")
+            while not update["locked"]:
+                update = await self.until(teacher, "lobby_update")
 
-        await teacher.disconnect()
-        await student.disconnect()
+            late = await self.student_connects("Late")
+            await self.refused(late, 4412)
+
+            await ana.disconnect()
+            back = await self.student_connects("Ana", f"&player_token={token}")
+            self.assertEqual((await self.until(back, "joined"))["nickname"], "Ana")
+
+            await teacher.send_json_to({"type": "lock_lobby", "locked": False})
+            welcome = await self.student_connects("Late")
+            await self.until(welcome, "joined")
+            await self.close_all(teacher, back, welcome)
+        self.run_async(run)
+
+    def test_the_host_can_remove_a_player(self):
+        async def run():
+            teacher = await self.teacher_connects()
+            ana = await self.student_connects("Ana")
+            player_id = (await self.until(ana, "joined"))["player_id"]
+            ben = await self.student_connects("Ben")
+            await self.until(ben, "joined")
+            await teacher.send_json_to({"type": "kick_player", "player_id": player_id})
+            kicked = await self.until(ana, "kicked")
+            self.assertEqual(kicked["code"], 4410)
+            remaining = await sync_to_async(
+                lambda: list(QuizPlayer.objects.filter(session__pin=self.pin).values_list("nickname", flat=True)))()
+            self.assertEqual(remaining, ["Ben"])
+            await self.close_all(teacher, ben)
+        self.run_async(run)
+
+    def test_a_player_cannot_remove_another_player(self):
+        async def run():
+            ana = await self.student_connects("Ana")
+            ben = await self.student_connects("Ben")
+            ben_id = (await self.until(ben, "joined"))["player_id"]
+            await ana.send_json_to({"type": "kick_player", "player_id": ben_id})
+            await ana.send_json_to({"type": "lock_lobby", "locked": True})
+            await ana.send_json_to({"type": "nonsense"})
+            await self.until(ana, "error")  # by now the two messages above have been handled
+            count = await sync_to_async(QuizPlayer.objects.filter(session__pin=self.pin).count)()
+            locked = await sync_to_async(lambda: QuizSession.objects.get(pin=self.pin).lobby_locked)()
+            self.assertEqual((count, locked), (2, False))
+            await self.close_all(ana, ben)
+        self.run_async(run)
+
+    def test_a_refreshed_page_takes_the_same_seat_back_with_its_score(self):
+        async def run():
+            teacher, (ana,) = await self.start_with("Ana")
+            await self.answer(ana)
+            await self.until(teacher, "show_results")
+            await ana.disconnect()
+            token = (await sync_to_async(lambda: QuizPlayer.objects.get(session__pin=self.pin).token)())
+
+            back = await self.student_connects("Whatever", f"&player_token={token}")
+            joined = await self.until(back, "joined")
+            self.assertEqual(joined["nickname"], "Ana")
+            # A page that comes back mid-game is shown where the game is.
+            results = await self.until(back, "show_results")
+            self.assertGreater(results["scoreboard"][0]["score"], 0)
+            self.assertEqual(await sync_to_async(QuizPlayer.objects.filter(session__pin=self.pin).count)(), 1)
+            await self.close_all(teacher, back)
+        self.run_async(run)
+
+    def test_a_page_that_joins_mid_question_gets_the_time_that_is_left(self):
+        async def run():
+            teacher, _ = await self.start_with("Ana")
+            await sync_to_async(
+                lambda: QuizSession.objects.filter(pin=self.pin).update(
+                    question_started_at=timezone.now() - timedelta(seconds=12)))()
+            late = await self.student_connects("Ben")
+            question = await self.until(late, "new_question")
+            self.assertTrue(6 <= question["question"]["time_left"] <= 8, question["question"]["time_left"])
+            await self.close_all(teacher, late)
+        self.run_async(run)
+
+    def test_nobody_can_join_a_finished_game(self):
+        QuizSession.objects.filter(pin=self.pin).update(status="completed")
+
+        async def run():
+            late = await self.student_connects("Late")
+            await self.refused(late, 4411)
+        self.run_async(run)
+
+    def test_a_wrong_pin_says_so(self):
+        async def run():
+            comm = WebsocketCommunicator(application, "/ws/quiz/999999?user_type=student&nickname=Ana")
+            await comm.connect()
+            message = await self.refused(comm, 4404)
+            self.assertIn("PIN", message["message"])
+        self.run_async(run)
+
+    def test_only_the_host_can_start_or_end_questions(self):
+        async def run():
+            ana = await self.student_connects("Ana")
+            await self.until(ana, "joined")
+            await ana.send_json_to({"type": "start_game"})
+            await ana.send_json_to({"type": "next_question"})
+            await ana.send_json_to({"type": "time_up"})
+            await ana.send_json_to({"type": "nonsense"})
+            error = await self.until(ana, "error")
+            self.assertEqual(error["message"], "Unknown quiz action.")
+            status = await sync_to_async(lambda: QuizSession.objects.get(pin=self.pin).status)()
+            self.assertEqual(status, "lobby")
+            await ana.disconnect()
+        self.run_async(run)
 
 
 class QuizLibraryTests(TestCase):
@@ -402,3 +537,27 @@ class QuizRestJoinIdentityTests(TestCase):
         self.client.post(self.url, {"nickname": "Cat"}, format="json")
         res = self.client.post(self.url, {"nickname": "Cat"}, format="json")
         self.assertEqual(res.status_code, 409)
+
+
+class QuizSessionVisibilityTests(TestCase):
+    def test_a_teacher_only_lists_games_hosted_from_their_own_quizzes(self):
+        User = get_user_model()
+        owner = User.objects.create_user(email="o@example.com", password="x", role=User.Role.TEACHER)
+        other = User.objects.create_user(email="p@example.com", password="x", role=User.Role.TEACHER)
+        quiz = Quiz.objects.create(title="Mine", teacher_id=owner.pk)
+        QuizSession.objects.create(quiz=quiz, pin="111111", is_test_run=True)
+        QuizSession.objects.create(quiz=quiz, pin="222222")
+        client = APIClient()
+        client.force_authenticate(owner)
+        self.assertEqual(len(client.get("/quizzes/sessions").json()), 2)
+        client.force_authenticate(other)
+        self.assertEqual(client.get("/quizzes/sessions").json(), [])
+        self.assertEqual(client.get("/quizzes/sessions/111111").status_code, 404)
+
+    def test_a_finished_or_locked_game_refuses_the_rest_join(self):
+        quiz = Quiz.objects.create(title="Q", teacher_id=1)
+        session = QuizSession.objects.create(quiz=quiz, pin="333333", status="completed")
+        client = APIClient()
+        self.assertEqual(client.post("/quizzes/session/333333/join", {"nickname": "A"}, format="json").status_code, 409)
+        QuizSession.objects.filter(pk=session.pk).update(status="lobby", lobby_locked=True)
+        self.assertEqual(client.post("/quizzes/session/333333/join", {"nickname": "A"}, format="json").status_code, 409)

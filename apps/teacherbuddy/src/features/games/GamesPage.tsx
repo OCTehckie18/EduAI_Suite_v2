@@ -146,7 +146,7 @@ export const GamesPage: React.FC = () => {
     sessionId: string,
   ) => {
     if (type === "quiz") {
-      navigate(`/games/quiz/host/${sessionId}`);
+      navigate(`/games/quiz/session/${sessionId}`);
       return;
     }
     setMonitoringGame({ gameId: id, sessionId, type });

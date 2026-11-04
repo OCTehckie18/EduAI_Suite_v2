@@ -1,24 +1,19 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Users,
-  Play,
   ChevronRight,
   Trophy,
   Clock,
-  QrCode,
-  LayoutGrid,
-  BarChart3,
-  LogOut,
+  Lock,
+  Unlock,
+  X,
   Sparkles,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PlayerAvatar } from "../../shared/components/PlayerAvatar";
 import { motion, AnimatePresence } from "framer-motion";
 
-
-
 import { API_BASE_URL, authHeaders, buildWsUrl } from "../../shared/utils/apiConfig";
-const getWsUrl = buildWsUrl;
 
 interface Player {
   id: number;
@@ -26,172 +21,207 @@ interface Player {
   avatar: string;
 }
 
+interface ScoreRow {
+  id: number;
+  nickname: string;
+  avatar: string;
+  score: number;
+  rank: number;
+  streak: number;
+  answered: boolean;
+  is_correct: boolean;
+  gained: number;
+}
+
+type Phase = "lobby" | "active" | "result" | "completed";
+
+const MAX_RECONNECTS = 5;
+
 export const QuizMonitoring: React.FC = () => {
-  const { quizId } = useParams();
+  // /games/quiz/host/:quizId starts a new game; /games/quiz/session/:pin returns to one already running.
+  const { quizId, pin: pinParam } = useParams();
   const navigate = useNavigate();
   const [pin, setPin] = useState<string | null>(null);
-  const [status, setStatus] = useState<
-    "lobby" | "active" | "result" | "leaderboard" | "completed"
-  >("lobby");
+  const [status, setStatus] = useState<Phase>("lobby");
+  const [problem, setProblem] = useState("");
   const [players, setPlayers] = useState<Player[]>([]);
+  const [locked, setLocked] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [timer, setTimer] = useState(0);
+  const [scoreboard, setScoreboard] = useState<ScoreRow[]>([]);
+  const [deadline, setDeadline] = useState(0);
+  const [now, setNow] = useState(Date.now());
   const [answerCount, setAnswerCount] = useState(0);
-  const [stats, setStats] = useState<Record<number, number>>({});
+  const [playersTotal, setPlayersTotal] = useState(0);
+  const [stats, setStats] = useState<Record<string, number>>({});
   const [correctOptionIds, setCorrectOptionIds] = useState<number[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
-  const timeUpQuestionRef = useRef<number | null>(null);
+  const reconnects = useRef(0);
+  const leaving = useRef(false);
+  const sessionLookup = useRef<Promise<string | null> | null>(null);
 
-  useEffect(() => {
-    startSession();
-    return () => {
-      socketRef.current?.close();
-    };
-  }, []);
-
-  const startSession = async () => {
-    // If quizId is 6 digits, it's likely a PIN (rejoining)
-    if (quizId && quizId.length === 6 && !isNaN(Number(quizId))) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/quizzes/sessions/${quizId}`, {
-          headers: authHeaders(),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setPin(quizId);
-          setStatus(data.status);
-          setQuestionIndex(data.current_question || 0);
-          connectWebSocket(quizId);
-          return;
-        }
-      } catch (err) {
-        console.error("Failed to rejoin session", err);
-      }
-    }
-
-    // Otherwise, create a new session
-    try {
-      const res = await fetch(`${API_BASE_URL}/quizzes/${quizId}/session`, {
-        method: "POST",
-        headers: authHeaders(),
-      });
-      const data = await res.json();
-      setPin(data.pin);
-      connectWebSocket(data.pin);
-    } catch (err) {
-      console.error("Failed to create session", err);
-    }
-  };
-
-  const connectWebSocket = (pin: string) => {
-    const accessToken = localStorage.getItem("token");
+  const connectWebSocket = useCallback((gamePin: string) => {
     const query = new URLSearchParams({
       user_type: "teacher",
-      access_token: accessToken || "",
+      access_token: localStorage.getItem("token") || "",
     });
-    const ws = new WebSocket(getWsUrl(`/ws/quiz/${pin}?${query.toString()}`));
+    const ws = new WebSocket(buildWsUrl(`/ws/quiz/${gamePin}?${query.toString()}`));
     socketRef.current = ws;
+    let opened = false;
 
+    ws.onopen = () => {
+      opened = true;
+      reconnects.current = 0;
+      setProblem("");
+    };
     ws.onmessage = (event) => {
       let message: any;
       try {
         message = JSON.parse(event.data);
-      } catch (error) {
-        console.error("Invalid quiz WebSocket message", error);
+      } catch {
         return;
       }
       switch (message.type) {
         case "lobby_update":
           setPlayers(message.players);
+          setLocked(!!message.locked);
           break;
         case "new_question":
           setCurrentQuestion(message.question);
-          timeUpQuestionRef.current = null;
           setQuestionIndex(message.index);
           setTotalQuestions(message.total);
-          setTimer(message.question.time_limit || 20);
+          setDeadline(Date.now() + (message.question.time_left ?? message.question.time_limit ?? 20) * 1000);
           setAnswerCount(0);
           setStats({});
           setStatus("active");
           break;
         case "answer_count_update":
           setAnswerCount(message.count);
+          setPlayersTotal(message.players_total);
           break;
         case "show_results":
-          setStats(message.stats);
+          setStats(message.stats || {});
           setCorrectOptionIds(message.correct_option_ids || []);
+          setScoreboard(message.scoreboard || []);
+          setAnswerCount(message.answered ?? 0);
+          setPlayersTotal(message.players_total ?? 0);
           setStatus("result");
           break;
         case "game_over":
           setLeaderboard(message.leaderboard);
           setStatus("completed");
+          leaving.current = true;
+          break;
+        case "error":
+          setProblem(message.message || "Something went wrong.");
           break;
       }
     };
-    ws.onerror = (event) => {
-      console.error("Quiz WebSocket error", event);
-    };
     ws.onclose = () => {
-      if (socketRef.current === ws) {
-        socketRef.current = null;
+      if (socketRef.current === ws) socketRef.current = null;
+      if (leaving.current) return;
+      if (!opened) {
+        setProblem("Could not connect to the game. Check your connection and sign in again if this keeps happening.");
+        return;
+      }
+      if (reconnects.current < MAX_RECONNECTS) {
+        reconnects.current += 1;
+        setProblem("Connection lost. Reconnecting...");
+        window.setTimeout(() => {
+          if (!leaving.current) connectWebSocket(gamePin);
+        }, 1500);
+      } else {
+        setProblem("Connection lost. Reload this page to reconnect.");
       }
     };
-  };
+  }, []);
 
-  const sendQuizMessage = (message: object) => {
-    const socket = socketRef.current;
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      console.warn("Quiz WebSocket is not connected");
-      return false;
+  // Looks up (or creates) the game once, even though development mode runs effects twice.
+  const resolveSession = useCallback(async (): Promise<string | null> => {
+    try {
+      if (pinParam) {
+        const res = await fetch(`${API_BASE_URL}/quizzes/sessions/${encodeURIComponent(pinParam)}`, { headers: authHeaders() });
+        if (!res.ok) {
+          setProblem("That game could not be found. It may belong to another teacher or have been deleted.");
+          return null;
+        }
+        return pinParam;
+      }
+      const res = await fetch(`${API_BASE_URL}/quizzes/${quizId}/session`, { method: "POST", headers: authHeaders() });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.pin) {
+        setProblem(data.detail || "Could not start this quiz. Check that it exists and that you own it.");
+        return null;
+      }
+      // A refresh now returns to this game instead of starting another one.
+      window.history.replaceState(null, "", `/games/quiz/session/${data.pin}`);
+      return data.pin;
+    } catch {
+      setProblem("Could not reach the server. Check your connection and try again.");
+      return null;
     }
-    socket.send(JSON.stringify(message));
-    return true;
-  };
+  }, [pinParam, quizId]);
 
   useEffect(() => {
-    if (status === "active" && timer > 0) {
-      const interval = setInterval(() => {
-        setTimer((prev) => prev - 1);
-      }, 1000);
-      return () => clearInterval(interval);
-    } else if (timer === 0 && status === "active") {
-      if (
-        currentQuestion &&
-        timeUpQuestionRef.current !== currentQuestion.id &&
-        sendQuizMessage({
-          type: "time_up",
-          question_id: currentQuestion.id,
-        })
-      ) {
-        timeUpQuestionRef.current = currentQuestion.id;
-      }
+    leaving.current = false;
+    sessionLookup.current ??= resolveSession();
+    sessionLookup.current.then((gamePin) => {
+      if (!gamePin || leaving.current) return;
+      setPin(gamePin);
+      connectWebSocket(gamePin);
+    });
+    return () => {
+      leaving.current = true;
+      socketRef.current?.close();
+    };
+  }, [resolveSession, connectWebSocket]);
+
+  useEffect(() => {
+    if (status !== "active") return;
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [status]);
+
+  const send = (message: object) => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      setProblem("Not connected to the game right now.");
+      return;
     }
-  }, [status, timer, currentQuestion]);
-
-  const handleStartGame = () => {
-    sendQuizMessage({ type: "start_game" });
+    socket.send(JSON.stringify(message));
   };
 
-  const handleNext = () => {
-    sendQuizMessage({ type: "next_question" });
-  };
+  const timer = Math.max(0, Math.ceil((deadline - now) / 1000));
+
+  if (problem && !pin) {
+    return (
+      <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-8 text-white text-center gap-6">
+        <p role="alert" className="text-2xl font-black max-w-xl">{problem}</p>
+        <button onClick={() => navigate("/games/quiz")} className="px-10 py-4 bg-white text-[#46178f] rounded-2xl font-black text-xl">
+          Back to quizzes
+        </button>
+      </div>
+    );
+  }
+
+  const banner = problem ? (
+    <div role="alert" className="absolute top-0 inset-x-0 z-20 bg-red-600 text-white text-center font-bold py-2 text-sm">
+      {problem}
+    </div>
+  ) : null;
 
   if (status === "lobby") {
     return (
       <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-8 text-white overflow-hidden relative">
-        {/* Background Sparkles */}
+        {banner}
         <div className="absolute inset-0 opacity-20 pointer-events-none">
           {[...Array(20)].map((_, i) => (
             <motion.div
               key={i}
               className="absolute"
-              initial={{
-                x: Math.random() * 100 + "%",
-                y: Math.random() * 100 + "%",
-              }}
+              initial={{ x: Math.random() * 100 + "%", y: Math.random() * 100 + "%" }}
               animate={{ y: [0, -20, 0], opacity: [0.5, 1, 0.5] }}
               transition={{ duration: 3 + Math.random() * 2, repeat: Infinity }}
             >
@@ -207,27 +237,32 @@ export const QuizMonitoring: React.FC = () => {
               animate={{ y: 0, opacity: 1 }}
               className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 border-b-8 border-gray-200"
             >
-              <p className="text-[#46178f] text-2xl font-black uppercase tracking-widest">
-                Game PIN:
-              </p>
-              <h1 className="text-[#46178f] text-9xl font-black tracking-tighter">
-                {pin || "------"}
-              </h1>
+              <p className="text-[#46178f] text-2xl font-black uppercase tracking-widest">Game PIN:</p>
+              <h1 className="text-[#46178f] text-9xl font-black tracking-tighter">{pin || "------"}</h1>
             </motion.div>
 
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-6 flex-wrap justify-center">
               <div className="bg-white/10 backdrop-blur-md px-8 py-4 rounded-2xl border border-white/20 flex items-center gap-4">
                 <Users size={32} />
                 <span className="text-4xl font-black">{players.length}</span>
               </div>
               <button
-                onClick={handleStartGame}
+                onClick={() => send({ type: "lock_lobby", locked: !locked })}
+                className="px-6 py-4 bg-white/10 border border-white/30 rounded-2xl font-black flex items-center gap-2 hover:bg-white/20"
+              >
+                {locked ? <Unlock size={22} /> : <Lock size={22} />}
+                {locked ? "Unlock game" : "Lock game"}
+              </button>
+              <button
+                onClick={() => send({ type: "start_game" })}
                 disabled={players.length === 0}
                 className="px-16 py-6 bg-white text-[#46178f] rounded-2xl text-3xl font-black shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
               >
                 START
               </button>
             </div>
+            {locked && <p className="font-bold text-purple-200">The game is locked. Nobody new can join.</p>}
+            {players.length === 0 && <p className="font-bold text-purple-200">Waiting for players. Ask them to enter this PIN.</p>}
           </div>
 
           <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-6 max-h-[40vh] overflow-y-auto p-4 custom-scrollbar">
@@ -238,12 +273,18 @@ export const QuizMonitoring: React.FC = () => {
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0 }}
-                  className="bg-white/10 backdrop-blur-sm border border-white/10 p-4 rounded-2xl text-center flex flex-col items-center gap-2"
+                  className="relative bg-white/10 backdrop-blur-sm border border-white/10 p-4 rounded-2xl text-center flex flex-col items-center gap-2 group"
                 >
+                  <button
+                    onClick={() => send({ type: "kick_player", player_id: p.id })}
+                    aria-label={`Remove ${p.nickname}`}
+                    title={`Remove ${p.nickname}`}
+                    className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/40 hover:bg-red-600 flex items-center justify-center"
+                  >
+                    <X size={16} />
+                  </button>
                   <PlayerAvatar avatar={p.avatar} size={56} />
-                  <span className="font-black truncate w-full">
-                    {p.nickname}
-                  </span>
+                  <span className="font-black truncate w-full">{p.nickname}</span>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -255,111 +296,106 @@ export const QuizMonitoring: React.FC = () => {
 
   if ((status === "active" || status === "result") && currentQuestion) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col animate-fade-in">
+      <div className="min-h-screen bg-gray-50 flex flex-col animate-fade-in relative">
+        {banner}
         <div className="bg-white border-b p-6 flex justify-between items-center shadow-sm z-10">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg">
               {questionIndex + 1}
             </div>
-            <h2
-              className={`font-black text-gray-800 ${currentQuestion.image_url ? "text-3xl" : "text-5xl"}`}
-            >
-              {currentQuestion.text}
-            </h2>
+            <h2 className={`font-black text-gray-800 ${currentQuestion.image_url ? "text-3xl" : "text-5xl"}`}>{currentQuestion.text}</h2>
           </div>
           <div className="flex items-center gap-8">
             {status === "active" && (
               <div className="flex flex-col items-center">
-                <span className="text-[10px] font-black uppercase text-gray-400">
-                  Answers
-                </span>
+                <span className="text-[10px] font-black uppercase text-gray-400">Answers</span>
                 <span className="text-4xl font-black text-purple-600">
                   {answerCount}
+                  {playersTotal > 0 && <span className="text-2xl text-gray-400">/{playersTotal}</span>}
                 </span>
               </div>
             )}
             <div
               className={`w-24 h-24 rounded-full border-8 flex items-center justify-center text-4xl font-black transition-all ${
-                timer < 5 && status === "active"
-                  ? "border-red-500 text-red-500 animate-pulse"
-                  : "border-purple-600 text-purple-600"
+                timer < 5 && status === "active" ? "border-red-500 text-red-500 animate-pulse" : "border-purple-600 text-purple-600"
               }`}
             >
               {status === "active" ? timer : <Clock size={32} />}
             </div>
             <button
-              onClick={handleNext}
+              onClick={() => send({ type: "next_question" })}
               className="bg-purple-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl hover:bg-purple-700 transition-all flex items-center gap-2 text-xl"
             >
-              {status === "result" ? "Next" : "Skip"} <ChevronRight size={24} />
+              {status === "result" ? (questionIndex + 1 >= totalQuestions ? "Finish" : "Next") : "Skip"} <ChevronRight size={24} />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 p-12 flex flex-col items-center justify-center gap-12 overflow-hidden">
+        <div className="flex-1 p-12 flex flex-col items-center justify-center gap-10 overflow-hidden">
           {currentQuestion.image_url ? (
             <div className="w-full max-w-3xl aspect-video bg-white rounded-3xl shadow-2xl overflow-hidden border-8 border-white">
-              <img
-                src={currentQuestion.image_url}
-                alt="Question"
-                className="w-full h-full object-cover"
-              />
+              <img src={currentQuestion.image_url} alt="Question" className="w-full h-full object-cover" />
             </div>
           ) : (
-            <div className="h-20" /> // Spacer for text-only layout
+            <div className="h-10" />
           )}
 
-          <div
-            className={`grid grid-cols-2 gap-6 w-full max-w-7xl ${status === "result" ? "opacity-50 grayscale-[0.5]" : ""}`}
-          >
+          <div className={`grid grid-cols-2 gap-6 w-full max-w-7xl ${status === "result" ? "opacity-90" : ""}`}>
             {currentQuestion.options.map((opt: any, idx: number) => {
-              const count = stats[opt.id] || 0;
-              const percentage =
-                answerCount > 0 ? (count / answerCount) * 100 : 0;
-
+              const count = stats[String(opt.id)] || 0;
+              const isRight = correctOptionIds.includes(opt.id);
               return (
                 <div
-                  key={idx}
+                  key={opt.id}
                   className={`relative h-32 rounded-3xl shadow-xl flex items-center px-10 text-white text-3xl font-black gap-8 transition-all overflow-hidden ${
-                    status === "active" ? "hover:scale-[1.02]" : ""
+                    status === "result" && !isRight ? "opacity-40 grayscale-[0.5]" : ""
                   }`}
                   style={{ backgroundColor: opt.color || "#333" }}
                 >
                   <div className="w-12 h-12 border-4 border-white/40 rounded-xl flex items-center justify-center shrink-0">
-                    {idx === 0 && (
-                      <div className="w-6 h-6 bg-white rotate-45" />
-                    )}
-                    {idx === 1 && (
-                      <div className="w-6 h-6 bg-white rounded-full" />
-                    )}
-                    {idx === 2 && (
-                      <div className="w-6 h-6 bg-white -rotate-45" />
-                    )}
+                    {idx === 0 && <div className="w-6 h-6 bg-white rotate-45" />}
+                    {idx === 1 && <div className="w-6 h-6 bg-white rounded-full" />}
+                    {idx === 2 && <div className="w-6 h-6 bg-white -rotate-45" />}
                     {idx === 3 && <div className="w-6 h-6 bg-white" />}
                   </div>
                   <span className="flex-1 truncate">{opt.text}</span>
-
                   {status === "result" && (
-                    <div className="absolute inset-y-0 right-0 w-32 bg-black/20 flex flex-col items-center justify-center">
+                    <div className="absolute inset-y-0 right-0 w-32 bg-black/30 flex flex-col items-center justify-center">
                       <span className="text-4xl">{count}</span>
-                      {correctOptionIds.includes(opt.id) && (
-                        <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-8 bg-green-500 rounded-r-lg" />
-                      )}
+                      {isRight && <span className="text-xs font-black uppercase tracking-widest text-green-300">Correct</span>}
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
+
+          {status === "result" && scoreboard.length > 0 && (
+            <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl p-4 space-y-2">
+              <p className="text-xs font-black uppercase tracking-widest text-gray-400 text-center">Top of the board</p>
+              {scoreboard.slice(0, 5).map((row) => (
+                <div key={row.id} className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-2 font-bold text-gray-800">
+                  <span className="flex items-center gap-3">
+                    <span className="w-6 text-center font-black text-gray-400">{row.rank}</span>
+                    <PlayerAvatar avatar={row.avatar} size={28} />
+                    {row.nickname}
+                    {row.streak >= 2 && <span className="text-xs font-black text-orange-500">{row.streak} in a row</span>}
+                  </span>
+                  <span className="flex items-center gap-3">
+                    {row.gained > 0 && <span className="text-sm font-black text-green-600">+{row.gained}</span>}
+                    <span className="font-black">{row.score}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="bg-white border-t p-4 flex justify-between items-center text-gray-400 font-black text-lg">
           <span>
             Question {questionIndex + 1} of {totalQuestions}
           </span>
-          <div className="bg-[#46178f] text-white px-8 py-2 rounded-full font-black shadow-lg">
-            PIN: {pin}
-          </div>
+          <div className="bg-[#46178f] text-white px-8 py-2 rounded-full font-black shadow-lg">PIN: {pin}</div>
         </div>
       </div>
     );
