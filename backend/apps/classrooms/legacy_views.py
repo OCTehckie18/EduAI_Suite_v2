@@ -15,6 +15,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts import roster
 from apps.accounts.models import User
 from apps.institution.models import Batch, Department, Program, Section
 from apps.core.models import ActionHistory
@@ -145,56 +146,58 @@ def _as_id(value):
         return None
 
 
+def _resolve_batch(data, teacher, acting_user):
+    """Department, program, class and optional section for a course, taken from the real structure.
+
+    The class comes from ``batch_id`` (or, for older clients, a class name inside the teacher's own
+    department). Department and program are always derived from the class, never guessed.
+    """
+    is_master = _is_admin(acting_user)
+    batch = None
+    batch_id = _as_id(data.get("batch_id"))
+    if batch_id:
+        batch = Batch.objects.select_related("program__department").filter(pk=batch_id).first()
+    elif str(data.get("batch") or "").strip() and teacher.department_id:
+        batch = Batch.objects.select_related("program__department").filter(
+            program__department_id=teacher.department_id, name__iexact=str(data.get("batch")).strip()
+        ).first()
+    if batch is None:
+        raise ValueError(
+            "Choose the class this course is for. If your class is not listed, ask the master admin to add it under Institution Structure."
+        )
+    program = batch.program
+    department = program.department
+    if not is_master:
+        if not teacher.department_id:
+            raise ValueError("Complete your profile (department) before creating courses.")
+        if teacher.department_id != department.pk:
+            raise ValueError("You can only create courses for classes in your own department.")
+
+    section = None
+    section_id = _as_id(data.get("section_id"))
+    section_name = str(data.get("section") or "").strip()
+    if section_id:
+        section = Section.objects.filter(pk=section_id, batch=batch).first()
+        if section is None:
+            raise ValueError("That section does not belong to the selected class.")
+    elif section_name:
+        section = Section.objects.filter(batch=batch, name__iexact=section_name).first()
+        if section is None:
+            raise ValueError(f"Section '{section_name}' does not exist in the selected class.")
+    return department, program, batch, section
+
+
 def _resolve_classroom_context(data, current_user):
     teacher = None
-    if current_user and not getattr(current_user, "is_anonymous", True) and current_user.role == User.Role.TEACHER:
+    if _is_admin(current_user):
+        teacher = User.objects.filter(pk=_as_id(data.get("teacher")), role=User.Role.TEACHER).first()
+        if teacher is None:
+            raise ValueError("Choose the teacher who will run this course.")
+    elif getattr(current_user, "role", None) == User.Role.TEACHER:
         teacher = current_user
-
-    teacher_id = _as_id(data.get("teacher"))
-    if teacher_id:
-        teacher = User.objects.filter(pk=teacher_id, role=User.Role.TEACHER).first() or teacher
-
     if teacher is None:
-        teacher_name = str(data.get("teacher_name") or "").strip().casefold()
-        if teacher_name:
-            teacher = User.objects.filter(role=User.Role.TEACHER).filter(
-                Q(first_name__icontains=teacher_name) | Q(last_name__icontains=teacher_name) | Q(email__icontains=teacher_name)
-            ).first()
-
-    if teacher is None:
-        teacher = User.objects.filter(role=User.Role.TEACHER).first()
-    if teacher is None:
-        teacher = User.objects.filter(is_staff=True).first() or User.objects.first()
-
-    department_value = data.get("department_id") or data.get("department")
-    department = Department.objects.filter(pk=_as_id(department_value)).first()
-    if department is None and department_value:
-        department = Department.objects.filter(name__iexact=str(department_value).strip()).first()
-    department = department or (teacher.department if teacher else None) or Department.objects.first()
-
-    program_value = data.get("program_id") or data.get("program")
-    program = Program.objects.filter(pk=_as_id(program_value)).first()
-    if program is None and program_value:
-        program = Program.objects.filter(name__iexact=str(program_value).strip()).first()
-    if program is None and department:
-        program = Program.objects.filter(department=department).first()
-    program = program or Program.objects.first()
-
-    batch_value = data.get("batch_id") or data.get("batch")
-    batch = Batch.objects.filter(pk=_as_id(batch_value)).first()
-    if batch is None and batch_value:
-        batch = Batch.objects.filter(name__iexact=str(batch_value).strip()).first()
-    if batch is None and program:
-        batch = Batch.objects.filter(program=program).first()
-    batch = batch or Batch.objects.first()
-
-    section_value = data.get("section_id") or data.get("section")
-    section = Section.objects.filter(pk=_as_id(section_value)).first()
-    if section is None and section_value and batch:
-        section = Section.objects.filter(batch=batch, name__iexact=str(section_value).strip()).first()
-    if section is None and batch:
-        section = Section.objects.filter(batch=batch).first()
-
+        raise ValueError("Only teachers can create courses.")
+    department, program, batch, section = _resolve_batch(data, teacher, current_user)
     return teacher, department, program, batch, section
 
 
@@ -247,6 +250,39 @@ class LegacyCourseListCreateView(APIView):
         return Response(_course_payload(classroom), status=status.HTTP_201_CREATED)
 
 
+class LegacyCourseOptionsView(APIView):
+    """The classes a teacher can create a course for: programs > classes > sections of their department."""
+
+    def get(self, request):
+        user = request.user
+        if not (_is_admin(user) or getattr(user, "role", None) == User.Role.TEACHER):
+            return _forbidden()
+        departments = Department.objects.all() if _is_admin(user) else Department.objects.filter(pk=user.department_id)
+        programs = Program.objects.filter(department__in=departments).select_related("department").order_by("name")
+        payload = []
+        for program in programs:
+            batches = []
+            for batch in Batch.objects.filter(program=program).order_by("-start_year", "name"):
+                batches.append({
+                    "id": batch.pk,
+                    "name": batch.name,
+                    "academic_year": batch.academic_year,
+                    "sections": [
+                        {"id": section.pk, "name": section.name}
+                        for section in Section.objects.filter(batch=batch).order_by("name")
+                    ],
+                })
+            payload.append({
+                "id": program.pk, "name": program.name, "code": program.code,
+                "department": program.department.name, "batches": batches,
+            })
+        department = user.department if not _is_admin(user) and user.department_id else None
+        return Response({
+            "department": {"id": department.pk, "name": department.name} if department else None,
+            "programs": payload,
+        })
+
+
 class LegacyCourseDetailView(APIView):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
@@ -280,10 +316,11 @@ class LegacyCourseDetailView(APIView):
         if "enrollment_code" in data:
             classroom.enrollment_code = _unique_enrollment_code(data.get("enrollment_code"), classroom.enrollment_code)
         if "batch" in data or "batch_id" in data:
-            batch_value = data.get("batch_id") or data.get("batch")
-            batch = Batch.objects.filter(pk=_as_id(batch_value)).first()
-            if batch:
-                classroom.batch = batch
+            try:
+                department, program, batch, section = _resolve_batch(data, classroom.teacher, request.user)
+            except ValueError as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            classroom.department, classroom.program, classroom.batch, classroom.section = department, program, batch, section
         if request.FILES.get("file"):
             classroom.course_plan_path = _save_course_plan(request.FILES["file"])
         classroom.save()
@@ -373,23 +410,10 @@ def _enroll_student(classroom, data):
     campus = getattr(school, "campus", None) if school else None
 
     if student is None:
-        if not email:
-            email = f"student_{register_no.lower()}@university.in" if register_no else "student@university.in"
-        first_name, last_name = _split_name(data.get("name"))
-        student = User.objects.create_user(
-            email=email,
-            role=User.Role.STUDENT,
-            register_no=register_no or None,
-            first_name=first_name,
-            last_name=last_name,
-            campus=campus,
-            school=school,
-            department=dept,
-            program=prog,
-            batch=batch,
-            section=sec,
-            is_profile_complete=False,
-        )
+        entry = roster.entry_for_identifiers(email, register_no)
+        if entry is None:
+            raise ValueError("This student is not on the admitted-students list. Ask the master admin to add them first.")
+        student = roster.provision_student(entry)
     else:
         changed = []
         if register_no and not student.register_no:

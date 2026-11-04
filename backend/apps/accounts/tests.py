@@ -7,7 +7,9 @@ from django.core.cache import cache
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
-from apps.institution.models import Batch, Campus, Department, Program, School, Section
+from apps.institution.models import Campus, Department, School
+
+from .testing import admit
 
 
 class LoginHardeningTests(APITestCase):
@@ -45,6 +47,7 @@ class LoginHardeningTests(APITestCase):
 class GoogleAuthenticationTests(APITestCase):
     @patch("apps.accounts.views.id_token.verify_oauth2_token")
     def test_google_login_issues_eduai_jwt(self, verify_token):
+        admit("student@example.com", "REG-S1")
         verify_token.return_value = {
             "email": "student@example.com",
             "email_verified": True,
@@ -95,6 +98,7 @@ class GoogleAuthenticationTests(APITestCase):
 
     @patch("apps.accounts.views.id_token.verify_oauth2_token")
     def test_student_cannot_promote_themselves_via_profile_setup(self, verify_token):
+        admit("wannabe@example.com", "REG-WANNABE")
         verify_token.return_value = {"email": "wannabe@example.com", "email_verified": True, "given_name": "Wannabe"}
         google_response = self.client.post(reverse("google-login"), {"id_token": "t", "app": "edugames"}, format="json")
         self.assertEqual(google_response.data["user"]["role"], "student")
@@ -172,6 +176,7 @@ class GoogleAuthenticationTests(APITestCase):
 
     @patch("apps.accounts.views.id_token.verify_oauth2_token")
     def test_profile_setup_rejects_admin_role_escalation(self, verify_token):
+        admit("sneaky@example.com", "REG-SNEAKY")
         verify_token.return_value = {"email": "sneaky@example.com", "email_verified": True, "given_name": "Sneaky"}
         google_response = self.client.post(reverse("google-login"), {"id_token": "t", "app": "edugames"}, format="json")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {google_response.data['access']}")
@@ -191,6 +196,7 @@ class GoogleAuthenticationTests(APITestCase):
 
     @patch("apps.accounts.views.id_token.verify_oauth2_token")
     def test_student_register_number_can_login_after_profile_setup(self, verify_token):
+        admit("student2@example.com", "STU001")
         verify_token.return_value = {"email": "student2@example.com", "email_verified": True, "given_name": "Test"}
         google_response = self.client.post(
             reverse("google-login"),
@@ -199,30 +205,7 @@ class GoogleAuthenticationTests(APITestCase):
         )
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {google_response.data['access']}")
 
-        campus = Campus.objects.create(name="Central", code="CENTRAL", city="Bengaluru")
-        school = School.objects.create(name="Sciences", code="SCI", campus=campus)
-        department = Department.objects.create(name="Computer Science", code="CSE", school=school)
-        program = Program.objects.create(
-            name="BCA", code="BCA", department=department, degree_level=Program.DegreeLevel.UG, duration_years=3
-        )
-        batch = Batch.objects.create(name="2026", program=program, start_year=2026, end_year=2029, academic_year="2026-27")
-        section = Section.objects.create(name="A", batch=batch)
-
-        profile_response = self.client.post(
-            reverse("profile-setup"),
-            {
-                "role": "STUDENT",
-                "campus": campus.pk,
-                "school": school.pk,
-                "department": department.pk,
-                "program": program.pk,
-                "batch": batch.pk,
-                "section": section.pk,
-                "register_no": "STU001",
-                "password": "secure-pass",
-            },
-            format="json",
-        )
+        profile_response = self.client.post(reverse("profile-setup"), {"password": "secure-pass"}, format="json")
         self.assertEqual(profile_response.status_code, 200)
         self.assertTrue(profile_response.data["is_profile_complete"])
 

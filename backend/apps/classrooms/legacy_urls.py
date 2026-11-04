@@ -6,6 +6,7 @@ from .legacy_views import (
     LegacyCourseDetailView,
     LegacyCourseExtractDetailsView,
     LegacyCourseListCreateView,
+    LegacyCourseOptionsView,
     LegacyCourseStudentsView,
     LegacyEnrollByCodeView,
     LegacyResourceListView,
@@ -17,6 +18,8 @@ from .legacy_views import (
 
 urlpatterns = [
     path("", LegacyCourseListCreateView.as_view(), name="legacy-course-list"),
+    path("options", LegacyCourseOptionsView.as_view(), name="legacy-course-options"),
+    path("options/", LegacyCourseOptionsView.as_view(), name="legacy-course-options-slash"),
     path("extract_details", LegacyCourseExtractDetailsView.as_view(), name="legacy-course-extract-details"),
     path("extract_details/", LegacyCourseExtractDetailsView.as_view(), name="legacy-course-extract-details-slash"),
     path("<int:course_id>", LegacyCourseDetailView.as_view(), name="legacy-course-detail"),

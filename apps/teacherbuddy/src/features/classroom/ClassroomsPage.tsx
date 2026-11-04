@@ -116,12 +116,23 @@ export const ClassroomsPage: React.FC = () => {
   const [courseForm, setCourseForm] = useState({
     code: "",
     name: "",
-    batch: `${new Date().getFullYear()}-A`,
+    program_id: "",
+    batch_id: "",
+    section_id: "",
     description: "",
     enrollment_code: "",
     color: "#264796",
-    teacher_name: "",
   });
+  const [classOptions, setClassOptions] = useState<{
+    department: { id: number; name: string } | null;
+    programs: {
+      id: number;
+      name: string;
+      code: string;
+      batches: { id: number; name: string; academic_year: string; sections: { id: number; name: string }[] }[];
+    }[];
+  } | null>(null);
+  const [classOptionsError, setClassOptionsError] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [coursePlanFile, setCoursePlanFile] = useState<File | null>(null);
 
@@ -370,16 +381,15 @@ export const ClassroomsPage: React.FC = () => {
   };
 
   const resetCourseForm = () => {
-    const storedUser = localStorage.getItem("user");
-    const teacherName = storedUser ? JSON.parse(storedUser).name : "";
     setCourseForm({
       code: "",
       name: "",
-      batch: "",
+      program_id: "",
+      batch_id: "",
+      section_id: "",
       description: "",
       enrollment_code: "",
       color: "#264796",
-      teacher_name: teacherName,
     });
     setCoursePlanFile(null);
   };
@@ -387,9 +397,10 @@ export const ClassroomsPage: React.FC = () => {
   const handleCreateCourse = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData();
-    Object.entries(courseForm).forEach(([key, val]) =>
-      formData.append(key, val),
-    );
+    const { program_id: _program, ...courseFields } = courseForm;
+    Object.entries(courseFields).forEach(([key, val]) => {
+      if (val !== "") formData.append(key, val);
+    });
     if (coursePlanFile) formData.append("file", coursePlanFile);
 
     handleApiCall(
@@ -424,9 +435,6 @@ export const ClassroomsPage: React.FC = () => {
           ...prev,
           code: (data.code && data.code.trim()) || prev.code,
           name: (data.name && data.name.trim()) || prev.name,
-          teacher_name:
-            (data.teacher_name && data.teacher_name.trim()) ||
-            prev.teacher_name,
           description:
             data.description || data.programmes
               ? `${data.description || data.programmes}`
@@ -441,15 +449,19 @@ export const ClassroomsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (showCourseModal) {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        if (user.name) {
-          setCourseForm((prev) => ({ ...prev, teacher_name: user.name }));
-        }
+    if (!showCourseModal) return;
+    setClassOptionsError("");
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/courses/options/`, { headers: authHeaders() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || "Could not load the classes for your department.");
+        setClassOptions(data);
+      } catch (err) {
+        setClassOptions(null);
+        setClassOptionsError(err instanceof Error ? err.message : "Could not load the classes for your department.");
       }
-    }
+    })();
   }, [showCourseModal]);
 
   const handleDeleteCourse = (id: number) => {
@@ -1500,7 +1512,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showCourseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-8 w-full max-w-lg shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg lg:max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 Create New Class
@@ -1515,7 +1527,7 @@ export const ClassroomsPage: React.FC = () => {
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleCreateCourse} className="space-y-5">
+            <form onSubmit={handleCreateCourse} className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5">
               <div>
                 <label className={premiumLabel}>Course Code</label>
                 <input
@@ -1540,17 +1552,65 @@ export const ClassroomsPage: React.FC = () => {
                   }
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              {classOptionsError && (
+                <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600 lg:col-span-2">{classOptionsError}</p>
+              )}
+              {classOptions && classOptions.programs.every((p) => p.batches.length === 0) && (
+                <p className="rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-700 lg:col-span-2">
+                  No classes are set up{classOptions.department ? ` for ${classOptions.department.name}` : " for your department"} yet. Ask the master admin to add them under Institution Structure.
+                </p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:contents gap-4">
                 <div>
-                  <label className={premiumLabel}>Batch</label>
-                  <input
+                  <label className={premiumLabel}>Program</label>
+                  <select
+                    required
                     className={premiumInput}
-                    placeholder="2026-A"
-                    value={courseForm.batch}
+                    value={courseForm.program_id}
                     onChange={(e) =>
-                      setCourseForm({ ...courseForm, batch: e.target.value })
+                      setCourseForm({ ...courseForm, program_id: e.target.value, batch_id: "", section_id: "" })
                     }
-                  />
+                  >
+                    <option value="">Select program</option>
+                    {(classOptions?.programs ?? []).filter((p) => p.batches.length > 0).map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={premiumLabel}>Class</label>
+                  <select
+                    required
+                    className={premiumInput}
+                    disabled={!courseForm.program_id}
+                    value={courseForm.batch_id}
+                    onChange={(e) => setCourseForm({ ...courseForm, batch_id: e.target.value, section_id: "" })}
+                  >
+                    <option value="">Select class</option>
+                    {(classOptions?.programs.find((p) => String(p.id) === courseForm.program_id)?.batches ?? []).map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:contents gap-4">
+                <div>
+                  <label className={premiumLabel}>Section</label>
+                  <select
+                    className={premiumInput}
+                    disabled={!courseForm.batch_id}
+                    value={courseForm.section_id}
+                    onChange={(e) => setCourseForm({ ...courseForm, section_id: e.target.value })}
+                  >
+                    <option value="">All sections</option>
+                    {(
+                      classOptions?.programs
+                        .find((p) => String(p.id) === courseForm.program_id)
+                        ?.batches.find((b) => String(b.id) === courseForm.batch_id)?.sections ?? []
+                    ).map((sec) => (
+                      <option key={sec.id} value={sec.id}>Section {sec.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className={premiumLabel}>Join Code</label>
@@ -1562,7 +1622,7 @@ export const ClassroomsPage: React.FC = () => {
                   />
                 </div>
               </div>
-              <div>
+              <div className="lg:col-span-2">
                 <label className={premiumLabel}>Description</label>
                 <textarea
                   className={premiumInput}
@@ -1578,18 +1638,11 @@ export const ClassroomsPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className={premiumLabel}>Teacher Name</label>
+                <label className={premiumLabel}>Teacher</label>
                 <input
-                  required
-                  className={premiumInput}
-                  placeholder="e.g., Prof. Smith"
-                  value={courseForm.teacher_name}
-                  onChange={(e) =>
-                    setCourseForm({
-                      ...courseForm,
-                      teacher_name: e.target.value,
-                    })
-                  }
+                  disabled
+                  className={`${premiumInput} bg-slate-50 cursor-not-allowed`}
+                  value={(() => { try { return JSON.parse(localStorage.getItem("user") || "{}").name || ""; } catch { return ""; } })()}
                 />
               </div>
               <div className="border-2 border-dashed border-slate-300 rounded-2xl p-5 text-center mt-2 hover:bg-slate-50 transition-colors relative">
@@ -1617,7 +1670,7 @@ export const ClassroomsPage: React.FC = () => {
               </div>
               <button
                 type="submit"
-                className="w-full bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-brand-blue/30 py-4 rounded-xl font-bold text-lg transition-all hover:-translate-y-1"
+                className="w-full lg:col-span-2 bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-brand-blue/30 py-4 rounded-xl font-bold text-lg transition-all hover:-translate-y-1"
               >
                 Initialize Course
               </button>
@@ -1628,7 +1681,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showStudentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-8 w-full max-w-lg shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg lg:max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 Enroll Students
@@ -1657,7 +1710,7 @@ export const ClassroomsPage: React.FC = () => {
             </div>
 
             {studentTab === "manual" ? (
-              <form onSubmit={handleAddStudentManual} className="space-y-4">
+              <form onSubmit={handleAddStudentManual} className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4">
                 <div>
                   <label className={premiumLabel}>Full Name</label>
                   <input
@@ -1683,7 +1736,7 @@ export const ClassroomsPage: React.FC = () => {
                     }
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 lg:col-span-2">
                   <div>
                     <label className={premiumLabel}>Reg Number</label>
                     <input
@@ -1715,7 +1768,7 @@ export const ClassroomsPage: React.FC = () => {
                     />
                   </div>
                 </div>
-                <div>
+                <div className="lg:col-span-2">
                   <label className={premiumLabel}>Department</label>
                   <select
                     className={`${premiumInput} appearance-none cursor-pointer`}
@@ -1736,7 +1789,7 @@ export const ClassroomsPage: React.FC = () => {
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-brand-blue/30 py-4 mt-2 rounded-xl font-bold text-lg transition-all hover:-translate-y-1"
+                  className="w-full lg:col-span-2 bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-brand-blue/30 py-4 mt-2 rounded-xl font-bold text-lg transition-all hover:-translate-y-1"
                 >
                   Add Student
                 </button>
@@ -1770,7 +1823,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showAnnouncementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-8 w-full max-w-lg shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 Broadcast Message
@@ -1865,7 +1918,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showAssignmentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-8 w-full max-w-lg shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg lg:max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 {editingAssignmentId
@@ -1882,8 +1935,8 @@ export const ClassroomsPage: React.FC = () => {
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSaveAssignment} className="space-y-4">
-              <div>
+            <form onSubmit={handleSaveAssignment} className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4">
+              <div className="lg:col-span-2">
                 <label className={premiumLabel}>Designation Title</label>
                 <input
                   required
@@ -1898,7 +1951,7 @@ export const ClassroomsPage: React.FC = () => {
                   }
                 />
               </div>
-              <div>
+              <div className="lg:col-span-2">
                 <label className={premiumLabel}>Instructions Payload</label>
                 <textarea
                   required
@@ -1967,7 +2020,7 @@ export const ClassroomsPage: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full bg-gold text-slate-900 border-none font-bold py-4 rounded-xl hover:bg-yellow-400 shadow-xl shadow-yellow-500/20 text-lg transition-all hover:-translate-y-1 mt-2"
+                className="w-full lg:col-span-2 bg-gold text-slate-900 border-none font-bold py-4 rounded-xl hover:bg-yellow-400 shadow-xl shadow-yellow-500/20 text-lg transition-all hover:-translate-y-1 mt-2"
               >
                 {editingAssignmentId
                   ? "Save Changes & Announce"
@@ -1980,7 +2033,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {deleteConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 w-full max-w-sm shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex flex-col items-center text-center">
               <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
                 <AlertTriangle size={32} />
@@ -2013,7 +2066,7 @@ export const ClassroomsPage: React.FC = () => {
 
       {showSubmissionsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 w-full max-w-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] max-h-[85vh] overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] max-h-[calc(100dvh-2rem)] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
                 Student Submissions

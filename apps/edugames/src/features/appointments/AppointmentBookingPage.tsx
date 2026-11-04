@@ -227,7 +227,7 @@ export const AppointmentBookingPage: React.FC = () => {
         },
         body: JSON.stringify({
           student_name: CURRENT_STUDENT,
-          student_email: get_user()?.email || get_user()?.sub || "student@christuniversity.in",
+          student_email: get_user()?.email || get_user()?.sub || "",
           teacher_name: selectedTeacher.teacher_name,
           meeting_mode: mode,
           time_slot: `${preferredDate} ${preferredTime}`.trim(),

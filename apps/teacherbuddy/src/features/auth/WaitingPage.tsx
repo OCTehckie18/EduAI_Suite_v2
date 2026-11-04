@@ -4,8 +4,10 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
 import logo from "../../../../logo/eduai_logo.png";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
+import { logoSrc, useUniversity } from "../../shared/university";
 
 export const WaitingPage: React.FC = () => {
+  const uni = useUniversity();
   const { status, user, googleLogin, logout } = useAuthStore();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(false);
@@ -52,14 +54,14 @@ export const WaitingPage: React.FC = () => {
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center p-1.5 shadow-lg">
-              <img src={logo} alt="Christ University" className="w-full h-full object-contain" />
+              <img src={logoSrc(uni) ?? logo} alt={uni.name || "EduAI Suite"} className="w-full h-full object-contain" />
             </div>
             <div className="text-left">
               <p className="font-black text-sm" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-display)" }}>
                 TeacherBuddy
               </p>
               <p className="text-[10px]" style={{ color: "var(--color-text-muted)" }}>
-                Christ University
+                {uni.name || "EduAI Suite"}
               </p>
             </div>
           </div>
@@ -180,18 +182,16 @@ export const WaitingPage: React.FC = () => {
           </div>
 
           {/* Contact */}
-          <div className="mt-6 pt-5 border-t" style={{ borderColor: "var(--color-border)" }}>
-            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-              Need help? Contact{" "}
-              <a
-                href="mailto:it@christuniversity.in"
-                className="font-semibold"
-                style={{ color: "var(--color-brand-blue)" }}
-              >
-                it@christuniversity.in
-              </a>
-            </p>
-          </div>
+          {uni.contact_email && (
+            <div className="mt-6 pt-5 border-t" style={{ borderColor: "var(--color-border)" }}>
+              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                Need help? Contact{" "}
+                <a href={`mailto:${uni.contact_email}`} className="font-semibold" style={{ color: "var(--color-brand-blue)" }}>
+                  {uni.contact_email}
+                </a>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

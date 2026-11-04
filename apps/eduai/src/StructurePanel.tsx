@@ -1,7 +1,8 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ChevronRight, Plus } from "lucide-react";
 import { API_BASE_URL } from "./shared/apiConfig";
 import { requestJson } from "./shared/request";
+import { Modal, PanelCard, useConfirm, useToast } from "./ui";
 
 type Row = Record<string, any>;
 
@@ -65,11 +66,7 @@ const LEVELS: Level[] = [
   },
 ];
 
-const inputClass = "w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-white";
-
-function FormModal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"><div className="w-full max-w-lg rounded-2xl border border-stone-700 bg-stone-900 p-6 shadow-2xl"><div className="mb-5 flex items-center justify-between"><h3 className="text-lg font-semibold">{title}</h3><button onClick={onClose} className="text-stone-400 hover:text-white">✕</button></div>{children}</div></div>;
-}
+const inputClass = "w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900";
 
 function RecordForm({ level, row, parentId, onClose, onSaved }: { level: Level; row: Row | null; parentId: number | null; onClose: () => void; onSaved: () => void }) {
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -95,21 +92,23 @@ function RecordForm({ level, row, parentId, onClose, onSaved }: { level: Level; 
     }
   };
 
-  return <FormModal title={row ? `Edit ${level.single}` : `Add ${level.single}`} onClose={onClose}>
+  return <Modal title={row ? `Edit ${level.single}` : `Add ${level.single}`} onClose={onClose}>
     <form onSubmit={submit} className="space-y-4">
-      {error && <p className="text-sm text-rose-300">{error}</p>}
-      {level.fields.map((field) => <label key={field.name} className="block text-sm text-stone-300">{field.label}
+      {error && <p className="text-sm text-rose-700">{error}</p>}
+      {level.fields.map((field) => <label key={field.name} className="block text-sm text-slate-700">{field.label}
         {field.type === "select"
           ? <select value={values[field.name]} onChange={(e) => setValues({ ...values, [field.name]: e.target.value })} className={`${inputClass} mt-1`}>{field.options!.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
           : <input required type={field.type} min={field.type === "number" ? 1 : undefined} placeholder={field.placeholder} value={values[field.name]} onChange={(e) => setValues({ ...values, [field.name]: e.target.value })} className={`${inputClass} mt-1`} />}
       </label>)}
-      {!row && level.endpoint === "batches" && <p className="text-xs text-stone-400">A new class starts with Section A. Add more sections afterwards.</p>}
-      <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={onClose} className="rounded-lg border border-stone-700 px-4 py-2 text-sm text-stone-300">Cancel</button><button type="submit" disabled={saving} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save"}</button></div>
+      {!row && level.endpoint === "batches" && <p className="text-xs text-slate-500">A new class starts with Section A. Add more sections afterwards.</p>}
+      <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">Cancel</button><button type="submit" disabled={saving} className="rounded-lg bg-[#264796] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save"}</button></div>
     </form>
-  </FormModal>;
+  </Modal>;
 }
 
 export function StructurePanel({ search, onChanged }: { search: string; onChanged: () => void }) {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [path, setPath] = useState<{ id: number; name: string }[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
@@ -142,50 +141,52 @@ export function StructurePanel({ search, onChanged }: { search: string; onChange
 
   const remove = async (row: Row) => {
     const note = level.endpoint === "sections" ? "" : " Everything below it moves to the Recycle Bin too.";
-    if (!window.confirm(`Deactivate ${row.name}?${note} You can restore it from the Recycle Bin.`)) return;
+    const ok = await confirm({ title: `Deactivate ${row.name}?`, message: `${note.trim() || "It moves to the Recycle Bin."} You can restore it from the Recycle Bin.`, confirmLabel: "Deactivate", tone: "danger" });
+    if (!ok) return;
     try {
       await requestJson(`${API_BASE_URL}/institution/${level.endpoint}/${row.id}/`, { method: "DELETE" });
+      toast.success(`${row.name} deactivated.`);
       await load();
       onChanged();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : `Could not deactivate the ${level.single.toLowerCase()}.`);
+      toast.error(err instanceof Error ? err.message : `Could not deactivate the ${level.single.toLowerCase()}.`);
     }
   };
 
   const visible = rows.filter((row) => `${row.name} ${row.code ?? ""}`.toLowerCase().includes(search.toLowerCase()));
 
-  return <section className="glass-card p-6 rounded-2xl space-y-5">
-    <nav className="flex flex-wrap items-center gap-1 text-sm text-stone-400">
-      <button onClick={() => setPath([])} className={depth === 0 ? "font-semibold text-white" : "hover:text-white"}>All campuses</button>
-      {path.map((node, index) => <span key={node.id} className="flex items-center gap-1"><ChevronRight className="h-3 w-3" /><button onClick={() => setPath(path.slice(0, index + 1))} className={index === depth - 1 ? "font-semibold text-white" : "hover:text-white"}>{node.name}</button></span>)}
+  return <PanelCard className="space-y-5">
+    <nav className="flex flex-wrap items-center gap-1 text-sm text-slate-500">
+      <button onClick={() => setPath([])} className={depth === 0 ? "font-semibold text-slate-900" : "hover:text-slate-900"}>All campuses</button>
+      {path.map((node, index) => <span key={node.id} className="flex items-center gap-1"><ChevronRight className="h-3 w-3" /><button onClick={() => setPath(path.slice(0, index + 1))} className={index === depth - 1 ? "font-semibold text-slate-900" : "hover:text-slate-900"}>{node.name}</button></span>)}
     </nav>
     <div className="flex items-center justify-between">
       <div>
         <h3 className="text-base font-semibold">{level.plural}{parent ? ` in ${parent.name}` : ""}</h3>
-        <p className="mt-1 text-xs text-stone-400">{readOnly ? "Add or edit campuses under Campus Governance, then open one to build its structure." : `Open a ${level.single.toLowerCase()} to manage what is inside it.`}</p>
+        <p className="mt-1 text-xs text-slate-500">{readOnly ? "Add or edit campuses under Campus Governance, then open one to build its structure." : `Open a ${level.single.toLowerCase()} to manage what is inside it.`}</p>
       </div>
       {!readOnly && <button onClick={() => setForm({ row: null })} className="flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold hover:bg-sky-500"><Plus className="h-4 w-4" />Add {level.single}</button>}
     </div>
-    {error && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error} <button onClick={() => void load()} className="ml-2 underline">Retry</button></div>}
-    <div className="overflow-x-auto rounded-xl border border-stone-800">
+    {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error} <button onClick={() => void load()} className="ml-2 underline">Retry</button></div>}
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
       <table className="w-full text-left text-sm">
-        <thead className="bg-stone-900 text-xs uppercase text-stone-400"><tr><th className="p-4">{level.single}</th><th className="p-4">Details</th><th className="p-4">{level.childLabel}</th><th className="p-4 text-right">Actions</th></tr></thead>
-        <tbody className="divide-y divide-stone-800">
-          {visible.map((row) => <tr key={row.id} className="hover:bg-stone-900/40">
+        <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="p-4">{level.single}</th><th className="p-4">Details</th><th className="p-4">{level.childLabel}</th><th className="p-4 text-right">Actions</th></tr></thead>
+        <tbody className="divide-y divide-slate-100">
+          {visible.map((row) => <tr key={row.id} className="hover:bg-slate-50/40">
             <td className="p-4 font-semibold">{row.name}</td>
-            <td className="p-4 text-stone-300">{level.subtitle(row)}</td>
-            <td className="p-4 text-stone-300">{row.child_count ?? 0}</td>
+            <td className="p-4 text-slate-700">{level.subtitle(row)}</td>
+            <td className="p-4 text-slate-700">{row.child_count ?? 0}</td>
             <td className="p-4 text-right">
-              {depth < LEVELS.length - 1 && <button onClick={() => setPath([...path, { id: row.id, name: row.name }])} className="mr-3 text-sky-300 hover:text-sky-200">Open</button>}
-              {!readOnly && <><button onClick={() => setForm({ row })} className="mr-3 text-amber-300 hover:text-amber-200">Edit</button><button onClick={() => void remove(row)} className="text-rose-300 hover:text-rose-200">Deactivate</button></>}
+              {depth < LEVELS.length - 1 && <button onClick={() => setPath([...path, { id: row.id, name: row.name }])} className="mr-3 text-sky-700 hover:text-sky-800">Open</button>}
+              {!readOnly && <><button onClick={() => setForm({ row })} className="mr-3 text-[#264796] hover:text-[#1c3570]">Edit</button><button onClick={() => void remove(row)} className="text-rose-700 hover:text-rose-800">Deactivate</button></>}
             </td>
           </tr>)}
         </tbody>
       </table>
-      {loading && <p className="p-8 text-center text-stone-500">Loading...</p>}
-      {!loading && !visible.length && <p className="p-8 text-center text-stone-500">{rows.length ? "Nothing matches this search." : `No ${level.plural.toLowerCase()} yet.${readOnly ? "" : ` Use "Add ${level.single}" to create one.`}`}</p>}
+      {loading && <p className="p-8 text-center text-slate-500">Loading...</p>}
+      {!loading && !visible.length && <p className="p-8 text-center text-slate-500">{rows.length ? "Nothing matches this search." : `No ${level.plural.toLowerCase()} yet.${readOnly ? "" : ` Use "Add ${level.single}" to create one.`}`}</p>}
     </div>
-    {total > rows.length && <p className="text-xs text-stone-500">Showing the first {rows.length} of {total}.</p>}
+    {total > rows.length && <p className="text-xs text-slate-500">Showing the first {rows.length} of {total}.</p>}
     {form && <RecordForm level={level} row={form.row} parentId={parent?.id ?? null} onClose={() => setForm(null)} onSaved={() => { setForm(null); void load(); onChanged(); }} />}
-  </section>;
+  </PanelCard>;
 }

@@ -2,7 +2,7 @@ from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 
-from apps.core.models import SoftDeleteModel
+from apps.core.models import SoftDeleteModel, TimeStampedModel
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
 
 
@@ -85,3 +85,25 @@ class User(AbstractBaseUser, PermissionsMixin, SoftDeleteModel):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip() or self.email.split("@", 1)[0]
+
+
+class AdmittedStudent(TimeStampedModel):
+    """A student the university has admitted. Only listed emails may sign up as students."""
+
+    register_no = models.CharField(max_length=50, unique=True)
+    email = models.EmailField(unique=True)
+    name = models.CharField(max_length=150, blank=True)
+    section = models.ForeignKey(Section, on_delete=models.PROTECT, related_name="admitted_students")
+    user = models.OneToOneField(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="admission_record"
+    )
+
+    class Meta:
+        ordering = ["register_no"]
+
+    def __str__(self):
+        return f"{self.register_no} ({self.email})"
+
+    def save(self, *args, **kwargs):
+        self.email = (self.email or "").strip().lower()
+        super().save(*args, **kwargs)

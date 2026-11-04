@@ -1,5 +1,7 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from .university import PublicUniversityView, UniversityLogoView
 from .views import (
     BatchViewSet,
     CampusViewSet,
@@ -17,4 +19,7 @@ router.register("programs", ProgramViewSet, basename="program")
 router.register("batches", BatchViewSet, basename="batch")
 router.register("sections", SectionViewSet, basename="section")
 
-urlpatterns = router.urls
+urlpatterns = [
+    path("university/", PublicUniversityView.as_view(), name="university"),
+    path("university/logo/", UniversityLogoView.as_view(), name="university-logo"),
+] + router.urls

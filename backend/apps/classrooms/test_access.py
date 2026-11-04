@@ -22,8 +22,8 @@ class ClassroomAccessTests(TestCase):
             name="2025", program=self.program, start_year=2025, end_year=2028, academic_year="2025-26"
         )
 
-        self.owner = User.objects.create_user(email="owner@example.com", password="x", role="TEACHER")
-        self.other_teacher = User.objects.create_user(email="other@example.com", password="x", role="TEACHER")
+        self.owner = User.objects.create_user(email="owner@example.com", password="x", role="TEACHER", department=self.department)
+        self.other_teacher = User.objects.create_user(email="other@example.com", password="x", role="TEACHER", department=self.department)
         self.admin = User.objects.create_user(email="admin@example.com", password="x", role="MASTER_ADMIN")
         self.student = User.objects.create_user(
             email="stu@example.com", password="x", role="STUDENT", register_no="R1", first_name="Stu"

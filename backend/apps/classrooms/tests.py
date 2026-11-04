@@ -1,5 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+
+from apps.accounts.testing import admit
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -52,6 +54,8 @@ class ClassroomTests(APITestCase):
 
     def test_csv_upload_provisions_and_enrolls_students(self):
         classroom = self.create_classroom()
+        admit("student1@example.com", "STU001", section=self.section)
+        admit("student2@example.com", "STU002", section=self.section)
         csv_data = "Register No,Student Name,Student Email,Section\nSTU001,Student One,student1@example.com,A\n,Student Two,student2@example.com,A\n"
         upload = SimpleUploadedFile("students.csv", csv_data.encode(), content_type="text/csv")
         response = self.client.post(
@@ -76,7 +80,20 @@ class ClassroomTests(APITestCase):
         self.assertFalse(Enrollment.objects.filter(classroom=classroom).exists())
         self.assertFalse(Enrollment.all_objects.get(classroom=classroom).is_active)
 
+    def test_csv_upload_rejects_students_who_are_not_on_the_roster(self):
+        classroom = self.create_classroom()
+        csv_data = "Register No,Student Name,Student Email,Section\nNOPE1,Nobody,nobody@example.com,A\n"
+        upload = SimpleUploadedFile("students.csv", csv_data.encode(), content_type="text/csv")
+        response = self.client.post(reverse("classroom-enroll-upload", args=[classroom.pk]), {"file": upload}, format="multipart")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["enrolled"], 0)
+        self.assertIn("admitted-students list", response.data["errors"][0]["error"])
+        self.assertFalse(get_user_model().objects.filter(email="nobody@example.com").exists())
+
     def test_original_courses_and_students_endpoints_are_compatible(self):
+        admit("student1@example.com", "STU001")
+        admit("student2@example.com", "STU002")
+        admit("student3@example.com", "STU003")
         course_response = self.client.post(
             "/api/v1/courses/",
             {

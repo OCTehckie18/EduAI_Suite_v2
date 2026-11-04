@@ -29,6 +29,7 @@ import { API_ENDPOINTS } from "../shared/utils/apiConfig";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { tokenIsFresh } from "../shared/utils/installAuthFetch";
 import { ProfileModal } from "../shared/components/ProfileModal";
+import { UniversityBadge } from "../shared/university";
 
 // uncomment to view the modesl
 const navItems = [
@@ -594,6 +595,7 @@ export const DashboardShell: React.FC = () => {
             style={{ backgroundColor: "var(--color-border)" }}
           />
 
+          <UniversityBadge className="mr-1" labelClassName="text-[color:var(--color-text-primary)]" />
           {/* Profile */}
           <div className="relative">
             <button

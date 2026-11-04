@@ -324,6 +324,9 @@ class MigrationSmokeTestCase(TestCase):
             self.assertIn(key, data, f"Missing key '{key}' in dashboard summary response")
 
     def test_student_crud_and_engagement(self):
+        from apps.accounts.testing import admit
+        admit("karan@christuniversity.in", "REG-101", name="Karan Singhania")
+        admit("meera@christuniversity.in", "REG-103", name="Meera Sen")
         # 1. Manual Enroll
         res = self.client.post(f"/students/{self.course.id}", {
             "name": "Karan Singhania",

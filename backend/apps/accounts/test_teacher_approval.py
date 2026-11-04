@@ -6,6 +6,8 @@ from rest_framework.test import APITestCase
 
 from apps.institution.models import Campus, Department, School
 
+from .testing import admit
+
 User = get_user_model()
 
 
@@ -51,6 +53,7 @@ class TeacherApplicationFlowTests(APITestCase):
         self.assertEqual(response.data["status"], "pending")
 
     def test_student_app_signup_is_approved_and_existing_accounts_keep_their_role(self):
+        admit("kid@x.com", "REG-KID")
         response = google(self.client, "kid@x.com", "edugames")
         self.assertEqual((response.data["user"]["role"], response.data["status"]), ("student", "approved"))
         again = google(self.client, "kid@x.com", "teacherbuddy")

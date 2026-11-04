@@ -100,10 +100,20 @@ class MasterAdminGovernanceTests(APITestCase):
             email="governance-admin@example.com", password="testpass123")
         self.client.force_authenticate(self.admin)
 
+    def test_campus_requires_an_explicit_state(self):
+        response = self.client.post(
+            reverse("master-admin-campuses"),
+            {"name": "New Campus", "code": "NEW", "city": "Bengaluru"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("state", response.data["detail"])
+        self.assertFalse(Campus.objects.filter(code="NEW").exists())
+
     def test_master_admin_can_create_update_and_deactivate_campus(self):
         created = self.client.post(
             reverse("master-admin-campuses"),
-            {"name": "New Campus", "code": "NEW", "city": "Bengaluru"},
+            {"name": "New Campus", "code": "NEW", "city": "Bengaluru", "state": "Karnataka"},
             format="json",
         )
         self.assertEqual(created.status_code, 201)

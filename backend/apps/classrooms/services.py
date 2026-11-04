@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from django.db import transaction
 from openpyxl import load_workbook
 
+from apps.accounts import roster
 from apps.accounts.models import User
 from apps.institution.models import Section
 
@@ -64,21 +65,10 @@ def _student_for_row(row, classroom):
             raise ValueError("The matched account is not a student.")
         return student, False
 
-    if not email:
-        raise ValueError("A student email is required for placeholder account creation.")
-    student = User.objects.create_user(
-        email=email,
-        role=User.Role.STUDENT,
-        register_no=register_no or None,
-        first_name=str(row.get("student name") or "").strip(),
-        campus=classroom.batch.program.department.school.campus,
-        school=classroom.batch.program.department.school,
-        department=classroom.department,
-        program=classroom.program,
-        batch=classroom.batch,
-        is_profile_complete=False,
-    )
-    return student, True
+    entry = roster.entry_for_identifiers(email, register_no)
+    if entry is None:
+        raise ValueError("This student is not on the admitted-students list. Ask the master admin to add them first.")
+    return roster.provision_student(entry), True
 
 
 def _section_for_row(row, classroom):

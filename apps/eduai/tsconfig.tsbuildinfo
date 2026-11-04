@@ -1,9 +1,1 @@
-{
-  "root": [
-    "./src/app.tsx",
-    "./src/main.tsx",
-    "./src/vite-env.d.ts",
-    "./src/shared/apiconfig.ts"
-  ],
-  "version": "6.0.3"
-}
+{"root":["./src/app.tsx","./src/rosterpanel.tsx","./src/structurepanel.tsx","./src/universitypanel.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/shared/apiconfig.ts","./src/shared/request.ts","./src/shared/university.tsx"],"version":"6.0.3"}

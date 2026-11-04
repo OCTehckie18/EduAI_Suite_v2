@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import "./index.css";
+import { BrandingTitle } from "./shared/university";
 import { router } from "./router";
 import { installAuthFetch } from "./shared/utils/installAuthFetch";
 
@@ -27,6 +28,7 @@ installAuthFetch();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <BrandingTitle app="EduGames" />
       <RouterProvider router={router} />
     </GoogleOAuthProvider>
   </StrictMode>,

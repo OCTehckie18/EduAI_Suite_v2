@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "./apiConfig";
 
-const UNAUTHENTICATED_PATHS = ["/auth/google", "/auth/login", "/auth/refresh"];
+const UNAUTHENTICATED_PATHS = ["/auth/google", "/auth/login", "/auth/refresh", "/institution/university"];
 const SESSION_KEYS = ["token", "refresh_token", "user", "lastActivity", "edugames-auth-storage"];
 
 export const tokenIsFresh = (token: string, skewMs = 15000): boolean => {

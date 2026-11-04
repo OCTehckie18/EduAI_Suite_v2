@@ -82,9 +82,9 @@ interface TrelloState {
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 export const BOARD_BACKGROUNDS = [
-  { name: 'Christ Blue', value: 'linear-gradient(135deg, #264796 0%, #3460c4 100%)' },
+  { name: 'Royal Blue', value: 'linear-gradient(135deg, #264796 0%, #3460c4 100%)' },
   { name: 'Navy', value: 'linear-gradient(135deg, #1c3570 0%, #264796 100%)' },
-  { name: 'Christ Gold', value: 'linear-gradient(135deg, #d0ae61 0%, #e6c97a 100%)' },
+  { name: 'Royal Gold', value: 'linear-gradient(135deg, #d0ae61 0%, #e6c97a 100%)' },
   { name: 'Royal Mix', value: 'linear-gradient(135deg, #264796 0%, #1c3570 60%, #b8943e 100%)' },
   { name: 'Ocean', value: 'linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%)' },
   { name: 'Emerald', value: 'linear-gradient(135deg, #059669 0%, #34d399 100%)' },

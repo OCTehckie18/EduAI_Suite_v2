@@ -895,7 +895,7 @@ export const MailStudentsPage: React.FC = () => {
                 <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--color-text-muted)" }}>Sender Email</label>
                 <input
                   type="email"
-                  placeholder={authUser?.email || "teacher@christuniversity.in"}
+                  placeholder={authUser?.email || "you@university.edu"}
                   className="w-full p-3 rounded-xl border bg-transparent focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                   style={{ borderColor: "var(--color-border)", color: "var(--color-text-primary)" }}
                   value={senderEmail}

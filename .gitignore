@@ -31,3 +31,5 @@ backend dupe
 docs/*PLAN.md
 /*_PLAN.md
 MASTER_ADMIN_OPERATIONS.md
+# local database backups (contain personal data)
+backend/backups/
