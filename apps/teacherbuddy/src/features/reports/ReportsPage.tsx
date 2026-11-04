@@ -1,389 +1,322 @@
-import React, { useState, useEffect, useRef } from "react";
-import { FileSpreadsheet, Download, RefreshCw, Send, Users, X, Upload, FileText, CheckCircle, AlertTriangle } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { FileSpreadsheet, Download, RefreshCw, Send, Users, X, Upload, FileText, CheckCircle, AlertTriangle, Eye, Trash2 } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
-import { useTheme } from "../../shared/hooks/useTheme";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
 
+interface Report {
+  id: string;
+  name: string;
+  type: string;
+  date: string;
+  status: string;
+  content: string | null;
+}
+
+/** The message a failed request carries, in the app's error shape or plain DRF's. */
+const messageFrom = async (res: Response, fallback: string): Promise<string> => {
+  const body = await res.json().catch(() => ({}));
+  return body.detail || body.error?.message || fallback;
+};
+
+const asList = (data: unknown): any[] => (Array.isArray(data) ? data : []);
+
+/** A responsive, scrollable dialog: it never grows past the screen, and its content scrolls on small screens. */
+const Dialog: React.FC<{ title: string; subtitle?: string; onClose: () => void; wide?: boolean; children: React.ReactNode }> = ({ title, subtitle, onClose, wide, children }) => (
+  <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto bg-slate-900/40 p-3 sm:p-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={title}>
+    <div className={`w-full ${wide ? "max-w-3xl" : "max-w-lg"} my-auto rounded-2xl border border-slate-200 bg-white shadow-2xl max-h-[calc(100dvh-1.5rem)] overflow-y-auto`}>
+      <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-100 bg-white px-5 py-4 sm:px-7">
+        <div>
+          <h2 className="text-lg font-bold" style={{ color: "var(--color-text-primary)" }}>{title}</h2>
+          {subtitle && <p className="mt-0.5 text-xs" style={{ color: "var(--color-text-muted)" }}>{subtitle}</p>}
+        </div>
+        <button onClick={onClose} aria-label="Close" className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button>
+      </div>
+      <div className="space-y-4 px-5 py-5 sm:px-7">{children}</div>
+    </div>
+  </div>
+);
+
+const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">{children}</label>
+);
+
+const ErrorLine: React.FC<{ message: string }> = ({ message }) =>
+  message ? (
+    <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700" role="alert">
+      <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+      <span>{message}</span>
+    </div>
+  ) : null;
+
+/** Report text uses **bold**; this renders it as elements, so nothing in a report can inject HTML. */
+const RichLine: React.FC<{ text: string }> = ({ text }) => (
+  <>
+    {text.split("**").map((part, i) => (i % 2 === 1 ? <strong key={i} className="text-slate-900">{part}</strong> : <React.Fragment key={i}>{part}</React.Fragment>))}
+  </>
+);
+
+const ReportBody: React.FC<{ content: string }> = ({ content }) => (
+  <div className="space-y-1.5 text-sm leading-relaxed text-slate-700">
+    {content.split("\n").map((line, i) => {
+      if (!line.trim()) return <div key={i} className="h-2" />;
+      if (line.startsWith("# ")) return <h3 key={i} className="pt-1 text-lg font-bold text-slate-900"><RichLine text={line.slice(2)} /></h3>;
+      if (line.startsWith("## ")) return <h4 key={i} className="pt-3 text-sm font-bold uppercase tracking-wider text-slate-500"><RichLine text={line.slice(3)} /></h4>;
+      if (line.startsWith("- ")) return <p key={i} className="flex gap-2 pl-1"><span className="text-slate-400">•</span><span><RichLine text={line.slice(2)} /></span></p>;
+      return <p key={i}><RichLine text={line} /></p>;
+    })}
+  </div>
+);
+
+const selectClass = "w-full h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent";
+const primaryBtn = "btn btn-primary w-full h-11 flex items-center justify-center gap-2 disabled:opacity-50";
+
 export const ReportsPage: React.FC = () => {
-  const { isDark } = useTheme();
-  const [reports, setReports] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newReportType, setNewReportType] = useState('Student Report');
-  const [newReportTargetId, setNewReportTargetId] = useState(1);
-  const [isSendModalOpen, setIsSendModalOpen] = useState(false);
-  const [sendEmailAddress, setSendEmailAddress] = useState("");
-  const [selectedReportId, setSelectedReportId] = useState("");
-  const [availableCourses, setAvailableCourses] = useState<any[]>([]);
-  const [availableStudents, setAvailableStudents] = useState<any[]>([]);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [viewingReport, setViewingReport] = useState<any>(null);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [listLoading, setListLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
 
-  // Template upload state
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [templateFile, setTemplateFile] = useState<File | null>(null);
-  const [templateTargetId, setTemplateTargetId] = useState<number | undefined>(undefined);
-  const [templateError, setTemplateError] = useState("");
-  const [isDragging, setIsDragging] = useState(false);
-  const [manualStep, setManualStep] = useState<'upload' | 'review' | 'generated'>('upload');
-  const [detectedFields, setDetectedFields] = useState<string[]>([]);
-  const [requiredFields, setRequiredFields] = useState<string[]>([]);
-  const [fieldOverrides, setFieldOverrides] = useState<Record<string, string>>({});
-  const [meetingNotes, setMeetingNotes] = useState("");
-  const [manualResult, setManualResult] = useState<any>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [reportType, setReportType] = useState("Student Report");
+  const [targetId, setTargetId] = useState<number | "">("");
+  const [dialogError, setDialogError] = useState("");
 
-  const fetchReports = async () => {
+  const [sendFor, setSendFor] = useState<Report | null>(null);
+  const [sendEmail, setSendEmail] = useState("");
+  const [viewing, setViewing] = useState<Report | null>(null);
+
+  const [eventOpen, setEventOpen] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [eventStudent, setEventStudent] = useState<number | "">("");
+  const [eventResult, setEventResult] = useState<{ id: string; missing: string[] } | null>(null);
+
+  const fetchReports = useCallback(async () => {
+    setListLoading(true);
     try {
-      const res = await fetch(`${API_ENDPOINTS.REPORTS}`);
-      if (res.ok) {
-        const data = await res.json();
-        setReports(data);
-      }
+      const res = await fetch(API_ENDPOINTS.REPORTS);
+      if (!res.ok) throw new Error(await messageFrom(res, "Could not load your reports."));
+      setReports(asList(await res.json()));
+      setLoadError("");
     } catch (err) {
-      console.error("Failed to fetch reports:", err);
+      setLoadError(err instanceof Error ? err.message : "Could not load your reports.");
+    } finally {
+      setListLoading(false);
     }
-  };
+  }, []);
 
-  const fetchMeta = async () => {
+  const fetchMeta = useCallback(async () => {
     try {
-      const [cRes, sRes] = await Promise.all([
-        fetch(API_ENDPOINTS.COURSES),
-        fetch(API_ENDPOINTS.STUDENTS)
-      ]);
-      if (cRes.ok) setAvailableCourses(await cRes.json());
-      if (sRes.ok) setAvailableStudents(await sRes.json());
-    } catch (err) {
-      console.error("Failed to fetch metadata:", err);
+      const [c, s] = await Promise.all([fetch(API_ENDPOINTS.COURSES), fetch(API_ENDPOINTS.STUDENTS)]);
+      if (c.ok) setCourses(asList(await c.json()));
+      if (s.ok) setStudents(asList(await s.json()));
+    } catch {
+      /* the pickers show their own empty state */
     }
-  };
-
-  useEffect(() => {
-    fetchReports();
-    fetchMeta();
-    const interval = setInterval(fetchReports, 5000);
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    if (newReportType === 'Student Report' && availableStudents.length > 0) {
-      setNewReportTargetId(availableStudents[0].id);
-    } else if (newReportType === 'Class Report' && availableCourses.length > 0) {
-      setNewReportTargetId(availableCourses[0].id);
-    }
-  }, [newReportType, availableCourses.length, availableStudents.length]);
+    void fetchReports();
+    void fetchMeta();
+  }, [fetchReports, fetchMeta]);
 
-  const handleGenerate = async (type: string, target_id: number) => {
+  const targets = reportType === "Student Report" ? students : courses;
+  // Keep the selection valid for the chosen type.
+  useEffect(() => {
+    setTargetId(targets.length > 0 ? targets[0].id : "");
+  }, [reportType, courses.length, students.length]);
+
+  const openGenerate = (type: string) => {
+    setReportType(type);
+    setDialogError("");
+    setGenerateOpen(true);
+  };
+
+  const generate = async () => {
+    if (targetId === "") return;
+    setBusy(true);
+    setDialogError("");
     try {
-      setLoading(true);
-      await fetch(`${API_ENDPOINTS.REPORTS}/generate`, {
+      const res = await fetch(`${API_ENDPOINTS.REPORTS}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, target_id })
+        body: JSON.stringify({ type: reportType, target_id: targetId }),
       });
-      fetchReports();
-      setIsModalOpen(false);
+      if (!res.ok) throw new Error(await messageFrom(res, "Could not generate the report."));
+      const created: Report = await res.json();
+      setGenerateOpen(false);
+      setNotice({ kind: "ok", text: `${created.name} is ready.` });
+      await fetchReports();
+      setViewing(created);
     } catch (err) {
-      console.error("Failed to generate report:", err);
+      setDialogError(err instanceof Error ? err.message : "Could not generate the report.");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  const handleDownload = async (rep: any) => {
-    // If it's a template report with DOCX, download via the API
-    if (rep.type === 'Template Report' || rep.type === 'Manual Report' || rep.type === 'Event Report') {
-      try {
-        const res = await fetch(`${API_ENDPOINTS.REPORTS}/${rep.id}/download`);
-        if (res.ok) {
-          const blob = await res.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${rep.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.docx`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          window.URL.revokeObjectURL(url);
-        } else {
-          alert('Failed to download report.');
-        }
-      } catch (err) {
-        console.error('Download error:', err);
-        alert('Error downloading report.');
-      }
-      return;
-    }
-    // Fallback: existing txt download
-    if (!rep.content) return;
-    const blob = new Blob([rep.content], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${rep.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  };
-
-  const handleSendClick = (rep: any) => {
-    setSelectedReportId(rep.id);
-    setSendEmailAddress("");
-    setIsSendModalOpen(true);
-  };
-
-  const confirmSend = async () => {
-    if (!sendEmailAddress) {
-      alert("Please enter an email address.");
-      return;
-    }
+  const download = async (id: string) => {
     try {
-      setLoading(true);
-      const res = await fetch(`${API_ENDPOINTS.REPORTS}/${selectedReportId}/send`, {
+      const res = await fetch(`${API_ENDPOINTS.REPORTS}/${id}/download`);
+      if (!res.ok) throw new Error(await messageFrom(res, "Could not download the report."));
+      const url = URL.createObjectURL(await res.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${id}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setNotice({ kind: "error", text: err instanceof Error ? err.message : "Could not download the report." });
+    }
+  };
+
+  const remove = async (report: Report) => {
+    if (!window.confirm(`Delete "${report.name}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`${API_ENDPOINTS.REPORTS}/${report.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(await messageFrom(res, "Could not delete the report."));
+      setReports((prev) => prev.filter((r) => r.id !== report.id));
+      setNotice({ kind: "ok", text: "Report deleted." });
+    } catch (err) {
+      setNotice({ kind: "error", text: err instanceof Error ? err.message : "Could not delete the report." });
+    }
+  };
+
+  const send = async () => {
+    if (!sendFor) return;
+    if (!sendEmail.trim()) {
+      setDialogError("Enter the recipient's email address.");
+      return;
+    }
+    setBusy(true);
+    setDialogError("");
+    try {
+      const res = await fetch(`${API_ENDPOINTS.REPORTS}/${sendFor.id}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: sendEmailAddress })
+        body: JSON.stringify({ email: sendEmail.trim() }),
       });
-      if (res.ok) {
-        alert('Report sent successfully!');
-        setIsSendModalOpen(false);
-      } else {
-        const data = await res.json();
-        alert(`Failed to send: ${data.detail}`);
-      }
+      if (!res.ok) throw new Error(await messageFrom(res, "The report could not be sent."));
+      const body = await res.json();
+      setSendFor(null);
+      setNotice({ kind: "ok", text: body.message || "Report sent." });
     } catch (err) {
-      console.error(err);
-      alert('Error sending report.');
+      setDialogError(err instanceof Error ? err.message : "The report could not be sent.");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  const handleViewClick = (rep: any) => {
-    setViewingReport(rep);
-    setIsViewModalOpen(true);
-  };
-
-  const openModal = (type: string) => {
-    setNewReportType(type);
-    setIsModalOpen(true);
-  };
-
-  // --- Template upload handlers ---
-  const handleTemplateFileChange = (file: File | null) => {
-    setTemplateError("");
-    if (file && !file.name.toLowerCase().endsWith('.docx')) {
-      setTemplateError('Upload the editable DOCX template so its formatting can be preserved exactly.');
+  const generateEvent = async () => {
+    if (!notes.trim()) {
+      setDialogError("Add the meeting or event notes before generating the report.");
       return;
     }
-    setTemplateFile(file);
-    setManualStep('upload');
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleTemplateFileChange(file);
-  };
-
-  const handleTemplateScan = async () => {
-    if (!templateFile) {
-      setTemplateError('Please upload the editable DOCX template first.');
-      return;
-    }
+    setBusy(true);
+    setDialogError("");
     try {
-      setLoading(true);
-      setTemplateError("");
-      const formData = new FormData();
-      formData.append('template_file', templateFile);
-      formData.append('meeting_notes', meetingNotes);
-      if (templateTargetId) formData.append('target_id', String(templateTargetId));
-      const res = await fetch(`${API_ENDPOINTS.REPORTS}/scan-template`, {
-        method: 'POST',
-        body: formData,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDetectedFields(data.fields_detected || []);
-        setFieldOverrides(data.preview_mapping || {});
-        setRequiredFields(data.fields_requiring_teacher || []);
-        setManualStep('review');
-      } else {
-        const data = await res.json();
-        setTemplateError(data.detail || 'Failed to generate report.');
-      }
+      const form = new FormData();
+      form.append("meeting_notes", notes);
+      if (eventStudent !== "") form.append("target_id", String(eventStudent));
+      const res = await fetch(`${API_ENDPOINTS.REPORTS}/generate-event`, { method: "POST", body: form });
+      if (!res.ok) throw new Error(await messageFrom(res, "Could not generate the event report."));
+      const body = await res.json();
+      setEventResult({ id: body.report_id, missing: body.fields_requiring_teacher || [] });
+      void fetchReports();
     } catch (err) {
-      console.error(err);
-      setTemplateError('Network error. Please try again.');
+      setDialogError(err instanceof Error ? err.message : "Could not generate the event report.");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  const handleTemplateGenerate = async () => {
-    if (!templateFile) return;
-    try {
-      setLoading(true);
-      setTemplateError("");
-      const formData = new FormData();
-      formData.append('template_file', templateFile);
-      formData.append('meeting_notes', meetingNotes);
-      formData.append('field_overrides', JSON.stringify(fieldOverrides));
-      if (templateTargetId) formData.append('target_id', String(templateTargetId));
-      const res = await fetch(`${API_ENDPOINTS.REPORTS}/generate-manual`, { method: 'POST', body: formData });
-      if (!res.ok) {
-        const data = await res.json();
-        setTemplateError(data.detail || 'Failed to generate manual report.');
-        return;
-      }
-      const data = await res.json();
-      setManualResult(data);
-      setRequiredFields(data.fields_requiring_teacher || []);
-      setManualStep('generated');
-      fetchReports();
-    } catch (err) {
-      console.error(err);
-      setTemplateError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const closeEvent = () => {
+    setEventOpen(false);
+    setNotes("");
+    setEventStudent("");
+    setEventResult(null);
+    setDialogError("");
   };
 
-  const handleEventReportGenerate = async () => {
-    if (!meetingNotes.trim()) {
-      setTemplateError('Add the meeting or event notes before generating the report.');
-      return;
-    }
-    try {
-      setLoading(true);
-      setTemplateError("");
-      const formData = new FormData();
-      formData.append('meeting_notes', meetingNotes);
-      if (templateTargetId) formData.append('target_id', String(templateTargetId));
-      const res = await fetch(`${API_ENDPOINTS.REPORTS}/generate-event`, { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) {
-        setTemplateError(data.detail || 'Failed to generate event report.');
-        return;
-      }
-      setRequiredFields(data.fields_requiring_teacher || []);
-      setManualResult(data);
-      setManualStep('generated');
-      fetchReports();
-    } catch (err) {
-      console.error(err);
-      setTemplateError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resetTemplateModal = () => {
-    setIsTemplateModalOpen(false);
-    setTemplateFile(null);
-    setTemplateTargetId(undefined);
-    setDetectedFields([]);
-    setFieldOverrides({});
-    setRequiredFields([]);
-    setMeetingNotes("");
-    setManualResult(null);
-    setManualStep('upload');
-    setTemplateError("");
-  };
+  const cards = [
+    { type: "Class Report", title: "Class-Level Reports", desc: "Enrolment, class average, assignment and exam results, and who needs support.", icon: <Users size={20} />, tone: "bg-brand-blue/10 text-brand-blue" },
+    { type: "Student Report", title: "Student Reports", desc: "One student's marks per course, exam results, strengths and areas to improve.", icon: <FileSpreadsheet size={20} />, tone: "bg-brand-gold/15 text-brand-gold-dark" },
+  ];
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold font-display" style={{ color: "var(--color-text-primary)" }}>Report Generation Center</h1>
-          <p className="mt-1" style={{ color: "var(--color-text-secondary)" }}>Automated, AI-filled academic reports ready for parents and administration.</p>
+          <p className="mt-1" style={{ color: "var(--color-text-secondary)" }}>Reports built from your classes' real marks, ready to download or email.</p>
         </div>
-        <button onClick={() => openModal('Student Report')} className="btn btn-primary shadow-lg flex items-center gap-2">
+        <button onClick={() => openGenerate("Student Report")} className="btn btn-primary shadow-lg flex items-center gap-2">
           <FileSpreadsheet size={16} /> New Report
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { type: 'Class Report', title: 'Class-Level Reports', desc: 'Generate aggregated performance stats.', icon: <Users size={20} />, color: 'blue' },
-          { type: 'Student Report', title: 'Parent-Ready Auto Reports', desc: 'AI summarizes student strengths & weaknesses.', icon: <FileSpreadsheet size={20} />, color: 'green' },
-        ].map((item) => (
-          <GlassCard key={item.title} className="p-6 group hover:scale-[1.02] transition-all duration-300">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-colors duration-300 ${item.color === 'blue' ? 'bg-brand-blue/10 text-brand-blue group-hover:bg-brand-blue group-hover:text-white' :
-              'bg-brand-gold/10 text-brand-gold group-hover:bg-brand-gold group-hover:text-white'
-              }`}>
-              {item.icon}
-            </div>
-            <h3 className="text-lg font-bold mb-2 font-display" style={{ color: "var(--color-text-primary)" }}>{item.title}</h3>
-            <p className="text-sm mb-6 leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{item.desc}</p>
-            <button
-              onClick={() => openModal(item.type)}
-              className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider transition-all duration-300 ${item.color === 'blue' ? 'text-brand-blue hover:text-brand-blue-mid' :
-                'text-brand-gold hover:text-brand-gold-light'
-                }`}
-            >
-              Generate
-              <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
-            </button>
+      {notice && (
+        <div className={`flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium ${notice.kind === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700"}`} role="status">
+          <span>{notice.text}</span>
+          <button onClick={() => setNotice(null)} aria-label="Dismiss"><X size={14} /></button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        {cards.map((item) => (
+          <GlassCard key={item.type} className="p-6">
+            <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl ${item.tone}`}>{item.icon}</div>
+            <h3 className="mb-2 text-lg font-bold font-display" style={{ color: "var(--color-text-primary)" }}>{item.title}</h3>
+            <p className="mb-5 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{item.desc}</p>
+            <button onClick={() => openGenerate(item.type)} className="text-sm font-bold uppercase tracking-wider text-brand-blue hover:text-brand-blue-dark">Generate &rarr;</button>
           </GlassCard>
         ))}
-
-        {/* Template Upload Card */}
-        <GlassCard className="p-6 group hover:scale-[1.02] transition-all duration-300 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-purple-500/10 to-transparent rounded-bl-full" />
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-colors duration-300 bg-purple-500/10 text-purple-400 group-hover:bg-purple-500 group-hover:text-white">
-            <Upload size={20} />
-          </div>
-          <h3 className="text-lg font-bold mb-2 font-display" style={{ color: "var(--color-text-primary)" }}>Event Reports</h3>
-          <p className="text-sm mb-6 leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>Turn meeting or event notes into the university activity report.</p>
-          <button
-            onClick={() => { setIsTemplateModalOpen(true); setTemplateError(""); setTemplateFile(null); setManualStep('upload'); setMeetingNotes(''); setManualResult(null); }}
-            className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider transition-all duration-300 text-purple-400 hover:text-purple-300"
-          >
-            Create Event Report
-            <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
-          </button>
+        <GlassCard className="p-6">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-accent/10 text-brand-accent"><Upload size={20} /></div>
+          <h3 className="mb-2 text-lg font-bold font-display" style={{ color: "var(--color-text-primary)" }}>Event Reports</h3>
+          <p className="mb-5 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>Turn meeting or event notes into an activity report. Anything the notes don't say is left for you to complete.</p>
+          <button onClick={() => { setDialogError(""); setEventOpen(true); }} className="text-sm font-bold uppercase tracking-wider text-brand-accent hover:text-brand-accent-dark">Create Event Report &rarr;</button>
         </GlassCard>
       </div>
 
-      <GlassCard className="overflow-hidden mt-6">
-        <div className="p-5 border-b" style={{ borderColor: "var(--color-border)" }}>
-          <h2 className="font-bold text-lg" style={{ color: "var(--color-text-primary)" }}>Recent Reports</h2>
+      <GlassCard className="overflow-hidden">
+        <div className="flex items-center justify-between border-b p-5" style={{ borderColor: "var(--color-border)" }}>
+          <h2 className="text-lg font-bold" style={{ color: "var(--color-text-primary)" }}>Your Reports</h2>
+          <button onClick={() => void fetchReports()} className="flex items-center gap-1.5 text-xs font-semibold text-brand-blue hover:underline"><RefreshCw size={13} className={listLoading ? "animate-spin" : ""} /> Refresh</button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead style={{ background: "rgba(0,0,0,0.02)", color: "var(--color-text-secondary)" }}>
+          <table className="w-full whitespace-nowrap text-left text-sm">
+            <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">ID</th>
-                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Report Name</th>
-                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Type</th>
-                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Generated</th>
-                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px] text-right">Actions</th>
+                <th className="px-6 py-3 font-semibold">ID</th>
+                <th className="px-6 py-3 font-semibold">Report</th>
+                <th className="px-6 py-3 font-semibold">Type</th>
+                <th className="px-6 py-3 font-semibold">Generated</th>
+                <th className="px-6 py-3 text-right font-semibold">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
-              {reports.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">No reports generated yet.</td>
-                </tr>
-              ) : reports.map(rep => (
-                <tr key={rep.id} className="hover:bg-black/5 transition-colors">
-                  <td className="px-6 py-4 font-mono text-xs" style={{ color: "var(--color-text-muted)" }}>{rep.id}</td>
-                  <td className="px-6 py-4 font-semibold" style={{ color: "var(--color-text-primary)" }}>
-                    <div className="flex items-center gap-2">
-                      {rep.status === 'generating' && <RefreshCw size={14} className="animate-spin text-brand-blue" />}
-                      {rep.status === 'failed' && <span className="text-red-500 text-xs px-1 border border-red-500 rounded">Failed</span>}
-                      {(rep.type === 'Template Report' || rep.type === 'Manual Report' || rep.type === 'Event Report') && <span className="text-purple-400 text-[10px] px-1.5 py-0.5 border border-purple-400/40 rounded-md bg-purple-400/5 font-bold uppercase tracking-wider">Event</span>}
-                      {rep.name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4" style={{ color: "var(--color-text-secondary)" }}>{rep.type}</td>
-                  <td className="px-6 py-4" style={{ color: "var(--color-text-secondary)" }}>{rep.date}</td>
-                  <td className="px-6 py-4 text-right space-x-3">
-                    <button onClick={() => handleViewClick(rep)} disabled={rep.status !== 'ready'} className="text-gray-500 hover:text-brand-blue disabled:opacity-30" title="View Content"><FileSpreadsheet size={16} /></button>
-                    <button onClick={() => handleDownload(rep)} disabled={rep.status !== 'ready'} className="text-gray-500 hover:text-brand-blue disabled:opacity-30" title="Download"><Download size={16} /></button>
-                    <button onClick={() => handleSendClick(rep)} disabled={rep.status !== 'ready'} className="text-gray-500 hover:text-brand-gold disabled:opacity-30" title="Send"><Send size={16} /></button>
+            <tbody className="divide-y divide-slate-100">
+              {loadError ? (
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-red-600">{loadError} <button onClick={() => void fetchReports()} className="ml-2 underline">Retry</button></td></tr>
+              ) : listLoading && reports.length === 0 ? (
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">Loading your reports...</td></tr>
+              ) : reports.length === 0 ? (
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">You haven't generated any reports yet.</td></tr>
+              ) : reports.map((rep) => (
+                <tr key={rep.id} className="transition-colors hover:bg-slate-50">
+                  <td className="px-6 py-3.5 font-mono text-xs text-slate-400">{rep.id}</td>
+                  <td className="px-6 py-3.5 font-semibold" style={{ color: "var(--color-text-primary)" }}>{rep.name}</td>
+                  <td className="px-6 py-3.5 text-slate-600">{rep.type}</td>
+                  <td className="px-6 py-3.5 text-slate-600">{rep.date}</td>
+                  <td className="space-x-1 px-6 py-3.5 text-right">
+                    <button onClick={() => setViewing(rep)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-blue" title="View" aria-label={`View ${rep.name}`}><Eye size={16} /></button>
+                    <button onClick={() => void download(rep.id)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-blue" title="Download (.docx)" aria-label={`Download ${rep.name}`}><Download size={16} /></button>
+                    <button onClick={() => { setSendFor(rep); setSendEmail(""); setDialogError(""); }} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-blue" title="Email" aria-label={`Email ${rep.name}`}><Send size={16} /></button>
+                    <button onClick={() => void remove(rep)} className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600" title="Delete" aria-label={`Delete ${rep.name}`}><Trash2 size={16} /></button>
                   </td>
                 </tr>
               ))}
@@ -392,432 +325,98 @@ export const ReportsPage: React.FC = () => {
         </div>
       </GlassCard>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div
-            className="bg-[#121212] rounded-2xl max-w-md w-full overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-8 pt-8 pb-6">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h2 className="text-2xl font-bold text-white font-display mb-1">Generate Report</h2>
-                  <p className="text-gray-400 text-sm">Configure your automated report parameters.</p>
-                </div>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-gold mb-2 ml-1">Report Type</label>
-                  <div className="relative group">
-                    <select
-                      value={newReportType}
-                      onChange={(e) => setNewReportType(e.target.value)}
-                      className="w-full h-12 rounded-xl border border-white/10 bg-white/5 px-4 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-brand-blue/50 transition-all cursor-pointer hover:bg-white/10"
-                    >
-                      <option value="Student Report" className="bg-[#1a1a1a]">Student Report</option>
-                      <option value="Class Report" className="bg-[#1a1a1a]">Class Report</option>
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                      <Users size={16} />
-                    </div>
-                  </div>
-                </div>
-
-                {newReportType !== 'Analytics Export' && (
-                  <div className="animate-in slide-in-from-top-2 duration-300">
-                    <label className="block text-xs font-bold uppercase tracking-widest text-brand-gold mb-2 ml-1">
-                      {newReportType === 'Student Report' ? 'Student' : 'Course Name'}
-                    </label>
-                    <div className="relative group">
-                      <select
-                        value={newReportTargetId}
-                        onChange={(e) => setNewReportTargetId(Number(e.target.value))}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-white/5 px-4 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-brand-blue/50 transition-all cursor-pointer hover:bg-white/10"
-                      >
-                        {newReportType === 'Student Report' ? (
-                          availableStudents.length > 0 ? (
-                            availableStudents.map(s => (
-                              <option key={s.id} value={s.id} className="bg-[#1a1a1a]">
-                                {s.name} - {s.registration_number || s.id}
-                              </option>
-                            ))
-                          ) : (
-                            <option value={0} disabled className="bg-[#1a1a1a]">No students found</option>
-                          )
-                        ) : (
-                          availableCourses.length > 0 ? (
-                            availableCourses.map(c => (
-                              <option key={c.id} value={c.id} className="bg-[#1a1a1a]">
-                                {c.name}
-                              </option>
-                            ))
-                          ) : (
-                            <option value={0} disabled className="bg-[#1a1a1a]">No courses found</option>
-                          )
-                        )}
-                      </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                        <Users size={16} />
-                      </div>
-                    </div>
-                    <p className="text-[10px] mt-2 text-gray-500 italic ml-1 flex items-center gap-1">
-                      <RefreshCw size={10} className="animate-spin-slow" />
-                      Tip: Selecting a {newReportType === 'Student Report' ? 'student' : 'course'} will generate the report for that specific entity.
-                    </p>
-                  </div>
-                )}
-
-                <button
-                  onClick={() => handleGenerate(newReportType, newReportTargetId)}
-                  disabled={loading}
-                  className="w-full h-14 bg-brand-blue hover:bg-brand-blue-dark disabled:bg-brand-blue-dark disabled:text-gray-400 text-white font-bold rounded-xl flex items-center justify-center gap-3 transition-all duration-300 shadow-[0_10px_20px_-10px_color-mix(in srgb, var(--color-brand-blue) 50%, transparent)] hover:shadow-[0_15px_30px_-10px_color-mix(in srgb, var(--color-brand-blue) 60%, transparent)] group mt-4"
-                >
-                  {loading ? (
-                    <RefreshCw size={20} className="animate-spin" />
-                  ) : (
-                    <>
-                      <FileSpreadsheet size={20} className="group-hover:scale-110 transition-transform" />
-                      Start Real-Time Generation
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-            <div className="h-1 w-full bg-gradient-to-r from-brand-blue via-brand-gold to-brand-blue" />
+      {generateOpen && (
+        <Dialog title="Generate Report" subtitle="Built from the marks recorded for your classes." onClose={() => setGenerateOpen(false)}>
+          <div>
+            <FieldLabel>Report type</FieldLabel>
+            <select value={reportType} onChange={(e) => setReportType(e.target.value)} className={selectClass}>
+              <option value="Student Report">Student Report</option>
+              <option value="Class Report">Class Report</option>
+            </select>
           </div>
-        </div>
+          <div>
+            <FieldLabel>{reportType === "Student Report" ? "Student" : "Course"}</FieldLabel>
+            <select value={targetId} onChange={(e) => setTargetId(e.target.value ? Number(e.target.value) : "")} disabled={targets.length === 0} className={`${selectClass} disabled:bg-slate-50`}>
+              {targets.length === 0 && <option value="">{reportType === "Student Report" ? "No students in your classes yet" : "You have no courses yet"}</option>}
+              {targets.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {reportType === "Student Report" ? `${t.name} - ${t.registration_number || t.id}` : `${t.code ? `${t.code} - ` : ""}${t.name}`}
+                </option>
+              ))}
+            </select>
+          </div>
+          <ErrorLine message={dialogError} />
+          <button onClick={() => void generate()} disabled={busy || targetId === ""} className={primaryBtn}>
+            {busy ? <RefreshCw size={18} className="animate-spin" /> : <><FileSpreadsheet size={18} /> Generate report</>}
+          </button>
+        </Dialog>
       )}
 
-      {isSendModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div
-            className="bg-[#121212] rounded-2xl max-w-md w-full overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-8 pt-8 pb-6">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h2 className="text-2xl font-bold text-white font-display mb-1">Send Report</h2>
-                  <p className="text-gray-400 text-sm">Email this report directly to recipients.</p>
-                </div>
-                <button
-                  onClick={() => setIsSendModalOpen(false)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all"
-                >
-                  <X size={20} />
-                </button>
-              </div>
+      {sendFor && (
+        <Dialog title="Email report" subtitle={sendFor.name} onClose={() => setSendFor(null)}>
+          <div>
+            <FieldLabel>Recipient email</FieldLabel>
+            <input type="email" value={sendEmail} onChange={(e) => setSendEmail(e.target.value)} placeholder="parent@example.com" className={selectClass} autoFocus />
+          </div>
+          <ErrorLine message={dialogError} />
+          <button onClick={() => void send()} disabled={busy} className={primaryBtn}>
+            {busy ? <RefreshCw size={18} className="animate-spin" /> : <><Send size={18} /> Send report</>}
+          </button>
+        </Dialog>
+      )}
 
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-gold mb-2 ml-1">Recipient Email</label>
-                  <div className="relative group">
-                    <input
-                      type="email"
-                      value={sendEmailAddress}
-                      onChange={(e) => setSendEmailAddress(e.target.value)}
-                      placeholder="parent@school.com"
-                      className="w-full h-12 rounded-xl border border-white/10 bg-white/5 px-4 text-white focus:outline-none focus:ring-2 focus:ring-brand-blue/50 transition-all hover:bg-white/10 placeholder:text-gray-600"
-                    />
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                      <Send size={16} />
-                    </div>
-                  </div>
-                </div>
+      {viewing && (
+        <Dialog title={viewing.name} subtitle={`${viewing.type} · generated ${viewing.date}`} onClose={() => setViewing(null)} wide>
+          <ReportBody content={viewing.content || "This report is empty."} />
+          <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
+            <button onClick={() => void download(viewing.id)} className="btn btn-outline flex items-center gap-2"><Download size={16} /> Download .docx</button>
+            <button onClick={() => { const r = viewing; setViewing(null); setSendFor(r); setSendEmail(""); setDialogError(""); }} className="btn btn-primary flex items-center gap-2"><Send size={16} /> Email</button>
+          </div>
+        </Dialog>
+      )}
 
-                <button
-                  onClick={confirmSend}
-                  disabled={loading}
-                  className="w-full h-14 bg-brand-blue hover:bg-brand-blue-dark disabled:bg-brand-blue-dark disabled:text-gray-400 text-white font-bold rounded-xl flex items-center justify-center gap-3 transition-all duration-300 shadow-[0_10px_20px_-10px_color-mix(in srgb, var(--color-brand-blue) 50%, transparent)] hover:shadow-[0_15px_30px_-10px_color-mix(in srgb, var(--color-brand-blue) 60%, transparent)] group mt-4"
-                >
-                  {loading ? (
-                    <RefreshCw size={20} className="animate-spin" />
-                  ) : (
-                    <>
-                      <Send size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                      Send to Recipient
-                    </>
-                  )}
-                </button>
+      {eventOpen && (
+        <Dialog title="Event Report" subtitle="Create an activity report from meeting or event notes." onClose={closeEvent} wide>
+          {eventResult ? (
+            <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+              <div className="flex items-center gap-2 font-semibold text-emerald-800"><CheckCircle size={20} /> Event report generated</div>
+              {eventResult.missing.length > 0 ? (
+                <p className="text-sm text-amber-800">The notes didn't mention: {eventResult.missing.map((m) => m.replace(/_/g, " ")).join(", ")}. They are marked "to be completed" in the report, so fill them in after downloading.</p>
+              ) : (
+                <p className="text-sm text-slate-700">Every field was found in your notes.</p>
+              )}
+              <div className="flex flex-wrap gap-3">
+                <button onClick={() => void download(eventResult.id)} className="btn btn-primary flex items-center gap-2"><Download size={16} /> Download .docx</button>
+                <button onClick={closeEvent} className="btn btn-outline">Done</button>
               </div>
             </div>
-            <div className="h-1 w-full bg-gradient-to-r from-brand-blue via-brand-gold to-brand-blue" />
-          </div>
-        </div>
-      )}
-      {isViewModalOpen && viewingReport && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
-          <div
-            className="bg-[#0f0f0f] rounded-3xl max-w-4xl w-full h-[85vh] overflow-hidden shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-white/10 flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between bg-white/5">
+          ) : (
+            <>
               <div>
-                <h2 className="text-xl font-bold text-white font-display mb-1">{viewingReport.name}</h2>
-                <p className="text-gray-400 text-xs uppercase tracking-widest">{viewingReport.type} • Generated on {viewingReport.date}</p>
+                <FieldLabel>Notes</FieldLabel>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={10}
+                  placeholder={"Write one detail per line, for example:\nEvent: Guest lecture on AI\nDate: 12 Oct 2026\nVenue: Seminar Hall\nGuests: Dr. Rao\nHighlights: ...\nFeedback: ..."}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent"
+                />
+                <p className="mt-1 text-xs text-slate-500">Lines like "Venue: Seminar Hall" are picked up automatically: type, title, date, time, venue, guests, participants, highlights, takeaways, feedback and follow-up.</p>
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => handleDownload(viewingReport)}
-                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all border border-white/5"
-                  title="Download TXT"
-                >
-                  <Download size={18} />
-                </button>
-                <button
-                  onClick={() => setIsViewModalOpen(false)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-red-500/20 text-gray-400 hover:text-red-500 transition-all"
-                >
-                  <X size={20} />
-                </button>
+              <div>
+                <FieldLabel>Student (optional)</FieldLabel>
+                <select value={eventStudent} onChange={(e) => setEventStudent(e.target.value ? Number(e.target.value) : "")} className={selectClass}>
+                  <option value="">None</option>
+                  {students.map((s) => <option key={s.id} value={s.id}>{s.name} - {s.registration_number || s.id}</option>)}
+                </select>
               </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-8 md:p-12 text-gray-300 leading-relaxed font-serif text-lg selection:bg-blue-500/30">
-              <div className="max-w-2xl mx-auto space-y-6">
-                {viewingReport.content?.split('\n').map((line: string, i: number) => {
-                  if (!line.trim()) return <div key={i} className="h-4" />;
-
-                  // Handle bold headers/sections
-                  const formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>');
-                  return (
-                    <p key={i} dangerouslySetInnerHTML={{ __html: formattedLine }} />
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-white/5 bg-white/5 flex justify-end gap-4">
-              <button
-                onClick={() => setIsViewModalOpen(false)}
-                className="px-6 py-2.5 rounded-xl text-gray-400 hover:text-white font-bold transition-all"
-              >
-                Close
+              <ErrorLine message={dialogError} />
+              <button onClick={() => void generateEvent()} disabled={busy || !notes.trim()} className={primaryBtn}>
+                {busy ? <RefreshCw size={18} className="animate-spin" /> : <><FileText size={18} /> Generate event report</>}
               </button>
-              <button
-                onClick={() => {
-                  setIsViewModalOpen(false);
-                  handleSendClick(viewingReport);
-                }}
-                className="px-8 py-2.5 bg-brand-blue hover:bg-brand-blue-dark text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg"
-              >
-                <Send size={16} /> Send via Email
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Event Report Modal: uses the fixed docs/report template.docx on the backend */}
-      {isTemplateModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#121212] rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl border border-white/10" onClick={(e) => e.stopPropagation()}>
-            <div className="px-8 pt-8 pb-6 space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-white font-display">Event Reports</h2>
-                  <p className="text-gray-400 text-sm mt-1">Create the activity report from meeting or event notes.</p>
-                </div>
-                <button onClick={resetTemplateModal} className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 text-gray-400 hover:text-white"><X size={20} /></button>
-              </div>
-
-              {manualStep !== 'generated' && <>
-                <textarea value={meetingNotes} onChange={(e) => setMeetingNotes(e.target.value)} rows={12} placeholder="Paste the meeting/event notes here. Include the activity type, title, date, time, venue, guests, participants, highlights, takeaways, feedback, and follow-up details when available." className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50" />
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-purple-400 mb-2">Optional student/course context</label>
-                  <select value={templateTargetId ?? ''} onChange={(e) => setTemplateTargetId(e.target.value ? Number(e.target.value) : undefined)} className="w-full h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-white">
-                    <option value="" className="bg-[#1a1a1a]">None</option>
-                    {availableStudents.map(s => <option key={`event-s-${s.id}`} value={s.id} className="bg-[#1a1a1a]">{s.name} - {s.registration_number || s.id}</option>)}
-                  </select>
-                </div>
-              </>}
-
-              {manualStep === 'generated' && <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-5 space-y-3">
-                <div className="flex items-center gap-2 text-green-400 font-semibold"><CheckCircle size={20} /> Event report generated</div>
-                {requiredFields.length > 0 ? <p className="text-sm text-amber-200">These items were not available in the notes and should be completed manually in the downloaded report: {requiredFields.join(', ')}.</p> : <p className="text-sm text-gray-300">All detected report fields were populated from the notes.</p>}
-                <button onClick={() => handleDownload({ id: manualResult?.report_id, name: 'Event Report', type: 'Event Report' })} className="w-full h-11 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"><Download size={16} /> Download Activity Report</button>
-              </div>}
-
-              {templateError && <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3"><AlertTriangle size={16} />{templateError}</div>}
-              <button onClick={manualStep === 'generated' ? resetTemplateModal : handleEventReportGenerate} disabled={loading || (manualStep !== 'generated' && !meetingNotes.trim())} className="w-full h-12 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-900 disabled:text-gray-400 text-white font-bold rounded-xl flex items-center justify-center gap-2">
-                {loading ? <RefreshCw size={18} className="animate-spin" /> : manualStep === 'generated' ? 'Finish' : <><FileText size={18} /> Generate Event Report</>}
-              </button>
-            </div>
-            <div className="h-1 w-full bg-gradient-to-r from-purple-600 via-brand-gold to-purple-600" />
-          </div>
-        </div>
-      )}
-
-      {/* Legacy uploaded-template modal retained for the older endpoint but not shown in the Event Reports UI. */}
-      {false && isTemplateModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div
-            className="bg-[#121212] rounded-2xl max-w-lg w-full overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-8 pt-8 pb-6">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h2 className="text-2xl font-bold text-white font-display mb-1">
-                    {manualStep === 'upload' ? 'Upload Report Template' : manualStep === 'review' ? 'Confirm Report Fields' : 'Review Generated Report'}
-                  </h2>
-                  <p className="text-gray-400 text-sm">
-                    {manualStep === 'upload' ? 'Upload the editable DOCX, then scan its required fields.' : manualStep === 'review' ? 'Edit detected values before generating the DOCX.' : 'The report is ready for review and download.'}
-                  </p>
-                </div>
-                <button
-                  onClick={resetTemplateModal}
-                  className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {manualStep === 'upload' && <>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-purple-400 mb-2 ml-1">Report Template (DOCX)</label>
-                  <div
-                    className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${isDragging
-                      ? 'border-purple-400 bg-purple-400/10'
-                      : templateFile
-                        ? 'border-green-500/50 bg-green-500/5'
-                        : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
-                      }`}
-                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".docx"
-                      className="hidden"
-                      onChange={(e) => handleTemplateFileChange(e.target.files?.[0] || null)}
-                    />
-                    {templateFile ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <CheckCircle size={32} className="text-green-400" />
-                        <p className="text-white font-semibold text-sm">{templateFile?.name}</p>
-                        <p className="text-gray-500 text-xs">{((templateFile?.size || 0) / 1024).toFixed(1)} KB</p>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setTemplateFile(null); }}
-                          className="text-xs text-red-400 hover:text-red-300 mt-1 underline"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center">
-                          <Upload size={24} className="text-purple-400" />
-                        </div>
-                        <div>
-                          <p className="text-white font-semibold text-sm">Drop your template here or click to browse</p>
-                          <p className="text-gray-500 text-xs mt-1">Only .docx files accepted to preserve formatting</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Optional target selector */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-purple-400 mb-2 ml-1">Target Student / Course (Optional)</label>
-                  <div className="relative group">
-                    <select
-                      value={templateTargetId ?? ''}
-                      onChange={(e) => setTemplateTargetId(e.target.value ? Number(e.target.value) : undefined)}
-                      className="w-full h-12 rounded-xl border border-white/10 bg-white/5 px-4 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all cursor-pointer hover:bg-white/10"
-                    >
-                      <option value="" className="bg-[#1a1a1a]">— None (generic report) —</option>
-                      <optgroup label="Students">
-                        {availableStudents.map(s => (
-                          <option key={`s-${s.id}`} value={s.id} className="bg-[#1a1a1a]">
-                            {s.name} - {s.registration_number || s.id}
-                          </option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Courses">
-                        {availableCourses.map(c => (
-                          <option key={`c-${c.id}`} value={c.id} className="bg-[#1a1a1a]">
-                            {c.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                      <Users size={16} />
-                    </div>
-                  </div>
-                  <p className="text-[10px] mt-2 text-gray-500 italic ml-1">
-                    Select a student or course to auto-fill their data into the template.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-purple-400 mb-2 ml-1">Meeting notes (optional)</label>
-                  <textarea value={meetingNotes} onChange={(e) => setMeetingNotes(e.target.value)} rows={3} placeholder="Add notes for the report summary..." className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50" />
-                </div>
-                </>}
-
-                {manualStep === 'review' && <div className="space-y-4 max-h-[48vh] overflow-y-auto pr-1">
-                  {detectedFields.length === 0 && <p className="text-gray-400 text-sm">No standard fields were detected. You can still add meeting notes and generate the report.</p>}
-                  {detectedFields.map((field) => (
-                    <label key={field} className="block">
-                      <span className="block text-xs font-bold uppercase tracking-widest text-purple-400 mb-2">{field.replace(/_/g, ' ')}</span>
-                      <input value={fieldOverrides[field] || ''} onChange={(e) => { setFieldOverrides(prev => ({ ...prev, [field]: e.target.value })); setRequiredFields(prev => prev.filter(item => item !== field || !!e.target.value.trim())); }} className="w-full h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50" />
-                      {requiredFields.includes(field) && <span className="block mt-1 text-xs text-amber-300">Needs teacher input; it could not be inferred safely.</span>}
-                    </label>
-                  ))}
-                  <label className="block">
-                    <span className="block text-xs font-bold uppercase tracking-widest text-purple-400 mb-2">Meeting notes</span>
-                    <textarea value={meetingNotes} onChange={(e) => setMeetingNotes(e.target.value)} rows={4} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50" />
-                  </label>
-                </div>}
-
-                {manualStep === 'generated' && <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-5 space-y-3">
-                  <div className="flex items-center gap-2 text-green-400 font-semibold"><CheckCircle size={20} /> Manual report generated</div>
-                  <p className="text-sm text-gray-300">Review the report in the recent reports list, or download the DOCX now.</p>
-                  {requiredFields.length > 0 && <p className="text-xs text-amber-200">Fill these fields in the downloaded template before sharing: {requiredFields.join(', ')}.</p>}
-                  <button onClick={() => handleDownload({ id: manualResult?.report_id, name: 'Manual Report', type: 'Template Report' })} className="w-full h-11 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"><Download size={16} /> Download DOCX</button>
-                </div>}
-
-                {/* Error display */}
-                {templateError && (
-                  <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                    <AlertTriangle size={16} />
-                    {templateError}
-                  </div>
-                )}
-
-                <button
-                  onClick={manualStep === 'upload' ? handleTemplateScan : manualStep === 'review' ? handleTemplateGenerate : resetTemplateModal}
-                  disabled={loading || (manualStep !== 'generated' && !templateFile)}
-                  className="w-full h-14 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-900 disabled:text-gray-400 text-white font-bold rounded-xl flex items-center justify-center gap-3 transition-all duration-300 shadow-[0_10px_20px_-10px_rgba(147,51,234,0.5)] hover:shadow-[0_15px_30px_-10px_rgba(147,51,234,0.6)] group mt-2"
-                >
-                  {loading ? (
-                    <RefreshCw size={20} className="animate-spin" />
-                  ) : (
-                    <>
-                      <FileText size={20} className="group-hover:scale-110 transition-transform" />
-                      {manualStep === 'upload' ? 'Scan Template Fields' : manualStep === 'review' ? 'Generate Manual DOCX' : 'Finish Review'}
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-            <div className="h-1 w-full bg-gradient-to-r from-purple-600 via-brand-gold to-purple-600" />
-          </div>
-        </div>
+            </>
+          )}
+        </Dialog>
       )}
     </div>
   );

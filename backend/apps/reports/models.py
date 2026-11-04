@@ -1,8 +1,13 @@
+from django.conf import settings
 from django.db import models
 
 
 class Report(models.Model):
-    report_id = models.CharField(max_length=100, blank=True, null=True)
+    # The teacher who generated it. Reports from before ownership existed have no owner and are visible to admins only.
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="reports"
+    )
+    report_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, null=True)
     type = models.CharField(max_length=100, blank=True, null=True)
     generated_at = models.DateTimeField(auto_now_add=True, db_index=True)
