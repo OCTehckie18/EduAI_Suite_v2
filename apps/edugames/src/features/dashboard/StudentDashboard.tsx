@@ -51,7 +51,6 @@ export const StudentDashboard: React.FC = () => {
   const { user: authUser } = useAuthStore();
   const [summary, setSummary] = useState<any>(null);
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
-  const [discoverableCourses, setDiscoverableCourses] = useState<Course[]>([]);
   const [postedLessons, setPostedLessons] = useState<Lesson[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<LessonDetail | null>(
     null
@@ -65,26 +64,17 @@ export const StudentDashboard: React.FC = () => {
     const loadDashboard = async () => {
       setLoading(true);
       try {
-        const storedUser = localStorage.getItem("user");
-        const user = storedUser ? JSON.parse(storedUser) : { name: "Student" };
-        const studentName = user.name;
-        
-        const [lessonsRes, summaryRes, discoverableRes] = await Promise.all([
+        // The server works out who you are from your login, so nothing about you is sent.
+        const [lessonsRes, summaryRes] = await Promise.all([
           fetch(`${API_BASE_URL}/lessons?status=posted`),
-          fetch(`${API_BASE_URL}/api/dashboard/student-summary?student_name=${encodeURIComponent(studentName)}`),
-          fetch(`${API_BASE_URL}/api/dashboard/discoverable-classrooms`),
+          fetch(`${API_BASE_URL}/api/dashboard/student-summary`),
         ]);
 
         const lessons = await lessonsRes.json();
         const summaryData = await summaryRes.json();
-        const discoverableData = await discoverableRes.json();
 
         if (summaryData && Array.isArray(summaryData.courses)) {
           setEnrolledCourses(summaryData.courses);
-        }
-
-        if (Array.isArray(discoverableData)) {
-          setDiscoverableCourses(discoverableData);
         }
 
         if (Array.isArray(lessons)) {
@@ -107,7 +97,6 @@ export const StudentDashboard: React.FC = () => {
   }, []);
 
   const enrolledCourseIds = new Set(enrolledCourses.map((course) => course.id));
-  const availableCourses = discoverableCourses.filter((course) => !enrolledCourseIds.has(course.id));
   const visibleLessons =
     enrolledCourseIds.size > 0
       ? postedLessons.filter((lesson) => enrolledCourseIds.has(lesson.course_id))
@@ -305,53 +294,6 @@ export const StudentDashboard: React.FC = () => {
                 No posted lessons are available yet.
               </p>
             </GlassCard>
-          )}
-
-          {/* Discoverable Classrooms */}
-          {availableCourses.length > 0 && (
-            <div>
-              <div className="flex items-end justify-between gap-3 mb-3">
-                <div>
-                  <h3 className="section-title text-sm flex items-center gap-2">
-                    <Users size={16} className="text-emerald-500" />
-                    Active Classrooms You Can Join
-                  </h3>
-                  <p className="text-xs mt-1" style={{ color: "var(--color-text-secondary)" }}>
-                    Browse open classrooms and use the code to join the ones you want.
-                  </p>
-                </div>
-                <Link to="/classroom" className="text-xs font-bold text-blue-600 hover:text-blue-800 whitespace-nowrap">
-                  Open join flow <ChevronRight size={14} className="inline" />
-                </Link>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                {availableCourses.map((course) => (
-                  <GlassCard key={course.id} className="p-5 border-emerald-200/70 hover:border-emerald-400 transition-colors">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">{course.code}</p>
-                        <h4 className="font-bold mt-1" style={{ color: "var(--color-text-primary)" }}>{course.name}</h4>
-                      </div>
-                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">OPEN</span>
-                    </div>
-                    <div className="mt-3 space-y-1.5 text-xs" style={{ color: "var(--color-text-secondary)" }}>
-                      <p><User size={12} className="inline mr-1" />{course.teacher_name || "Teacher not listed"} <span className="mx-1">•</span> Batch {course.batch}</p>
-                      <p><Users size={12} className="inline mr-1" />{course.students || 0} students enrolled</p>
-                      {course.description && <p className="line-clamp-2 pt-1">{course.description}</p>}
-                    </div>
-                    <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Class code</p>
-                        <p className="text-lg font-black tracking-[0.2em] text-slate-800">{course.enrollment_code}</p>
-                      </div>
-                      <Link to="/classroom" state={{ joinCode: course.enrollment_code }} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700">
-                        Join <KeyRound size={13} />
-                      </Link>
-                    </div>
-                  </GlassCard>
-                ))}
-              </div>
-            </div>
           )}
 
           {/* Enrolled Courses */}

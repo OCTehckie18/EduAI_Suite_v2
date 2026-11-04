@@ -10,12 +10,15 @@ from apps.assignments.models import Assignment, Submission
 from apps.exams.models import Exam, ExamAttempt
 from apps.games.models import ChainAnswerGame, GamePlayer
 from apps.core.models import StudentActivity
+from apps.core.access import can_manage_course, is_master_admin, managed_courses, managed_students, visible_courses
 from apps.core.permissions import IsTeacher
 from apps.core.services import student_keys
 from apps.quizzes.models import QuizPlayer
 
 
-def _compute_engagement_level(score: float) -> str:
+def _compute_engagement_level(score) -> str:
+    if score is None:
+        return "no_data"
     if score >= 80:
         return "excellent"
     elif score >= 65:
@@ -31,6 +34,8 @@ def _generate_engagement_summary(student_name: str, data: dict) -> str:
     score = data["engagement_score"]
     att = data["attendance"]
     comp = data["assignments"]["completion_rate"]
+    if level == "no_data":
+        return f"No submissions, exam attempts or game results are recorded for {student_name} in this class yet, so there is nothing to judge."
 
     attendance_text = f"{att}% attendance" if att is not None else "attendance data is unavailable"
     if level == "excellent":
@@ -38,15 +43,15 @@ def _generate_engagement_summary(student_name: str, data: dict) -> str:
     elif level == "good":
         return f"{student_name} is performing well with an engagement score of {score}/100. {attendance_text.capitalize()} and assignment completion is at {comp}%."
     elif level == "needs_attention":
-        return f"{student_name} requires monitoring with an engagement score of {score}/100. Attendance is at {att}% and {comp}% assignments are completed."
+        return f"{student_name} requires monitoring with an engagement score of {score}/100. {attendance_text.capitalize()} and {comp}% of assignments are completed."
     else:
-        return f"CRITICAL: {student_name} is classified as at-risk with an engagement score of {score}/100. Immediate academic intervention is advised."
+        return f"{student_name} is classified as at risk with an engagement score of {score}/100 ({comp}% of assignments completed). Academic support is advised."
 
 
 def _get_student_engagement(student: User, course_id: int):
     # Assignments
-    course_assignments = Assignment.objects.filter(
-        course_id=course_id) if course_id else Assignment.objects.all()[:10]
+    # Only this one class's work is ever considered; there is no "any class" fallback.
+    course_assignments = Assignment.objects.filter(course_id=course_id)
     total_assignments = course_assignments.count()
 
     submissions = []
@@ -81,18 +86,11 @@ def _get_student_engagement(student: User, course_id: int):
             })
 
     assignment_completion = (
-        (submitted_count / total_assignments) * 100.0) if total_assignments > 0 else 0.0
+        (submitted_count / total_assignments) * 100.0) if total_assignments > 0 else None
     avg_grade = (total_grade / graded_count) if graded_count > 0 else None
 
     # Exams
-    course_exams = Exam.objects.filter(
-        course_id=course_id) if course_id else Exam.objects.all()[:5]
-    exam_attempts = ExamAttempt.objects.filter(
-        exam__in=course_exams,
-        student_id=student.id
-    )
-    if not exam_attempts.exists():
-        exam_attempts = ExamAttempt.objects.filter(student_id=student.id)
+    exam_attempts = ExamAttempt.objects.filter(exam__course_id=course_id, student_id=student.id).select_related("exam")
 
     exams_data = []
     total_exam_score = 0.0
@@ -153,8 +151,10 @@ def _get_student_engagement(student: User, course_id: int):
     # Attendance is unavailable until attendance records are stored by the backend.
     attendance_pct = None
 
-    assignment_score_pct = assignment_completion
-    score_components = [(assignment_score_pct, 0.35)]
+    # A student with nothing recorded has no score at all (not a score of 0 that reads as "critical").
+    score_components = []
+    if assignment_completion is not None:
+        score_components.append((assignment_completion, 0.35))
     if avg_exam_score is not None:
         score_components.append((avg_exam_score, 0.25))
     if games_data:
@@ -163,7 +163,7 @@ def _get_student_engagement(student: User, course_id: int):
     engagement_score = round(
         sum(value * weight for value, weight in score_components) / total_weight,
         1,
-    ) if total_weight else 0.0
+    ) if total_weight else None
     engagement_level = _compute_engagement_level(engagement_score)
 
     # Compact persisted events used by the classroom student profile.
@@ -234,7 +234,7 @@ def _get_student_engagement(student: User, course_id: int):
         "assignments": {
             "total": total_assignments,
             "submitted": submitted_count,
-            "completion_rate": round(assignment_completion, 1),
+            "completion_rate": round(assignment_completion, 1) if assignment_completion is not None else None,
             "avg_grade": round(avg_grade, 1) if avg_grade is not None else None,
             "details": submissions,
         },
@@ -264,6 +264,8 @@ class CourseEngagementSummaryView(APIView):
         classroom = Classroom.objects.filter(pk=course_id).first()
         if not classroom:
             return Response({"detail": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not can_manage_course(request.user, classroom):
+            return Response({"detail": "You can only view engagement for your own courses."}, status=status.HTTP_403_FORBIDDEN)
 
         students = list(User.objects.filter(
             enrollments__classroom=classroom,
@@ -271,35 +273,20 @@ class CourseEngagementSummaryView(APIView):
             role=User.Role.STUDENT
         ).distinct())
 
-        if not students:
-            all_students = list(User.objects.filter(
-                role=User.Role.STUDENT)[:5])
-            if all_students:
-                students = all_students
-
-        all_engagement = []
-        for s in students:
-            eng = _get_student_engagement(s, course_id)
-            all_engagement.append(eng)
+        all_engagement = [_get_student_engagement(s, course_id) for s in students]
 
         total = len(all_engagement)
-        avg_engagement = round(sum(
-            e["engagement_score"] for e in all_engagement) / total, 1) if total > 0 else 0.0
-        attendance_values = [
-            e["attendance"] for e in all_engagement
-            if e["attendance"] is not None
-        ]
-        avg_attendance = round(
-            sum(attendance_values) / len(attendance_values), 1
-        ) if attendance_values else None
-        avg_assignment = round(sum(e["assignments"]["completion_rate"]
-                               for e in all_engagement) / total, 1) if total > 0 else 0.0
-        at_risk = sum(
-            1 for e in all_engagement if e["engagement_level"] == "at_risk")
-        needs_attention = sum(
-            1 for e in all_engagement if e["engagement_level"] == "needs_attention")
+        scored = [e for e in all_engagement if e["engagement_score"] is not None]
+        avg_engagement = round(sum(e["engagement_score"] for e in scored) / len(scored), 1) if scored else None
+        attendance_values = [e["attendance"] for e in all_engagement if e["attendance"] is not None]
+        avg_attendance = round(sum(attendance_values) / len(attendance_values), 1) if attendance_values else None
+        completions = [e["assignments"]["completion_rate"] for e in all_engagement if e["assignments"]["completion_rate"] is not None]
+        avg_assignment = round(sum(completions) / len(completions), 1) if completions else None
+        at_risk = sum(1 for e in all_engagement if e["engagement_level"] == "at_risk")
+        needs_attention = sum(1 for e in all_engagement if e["engagement_level"] == "needs_attention")
 
-        all_engagement.sort(key=lambda x: x["engagement_score"], reverse=True)
+        # Students with no data go last, the rest highest score first.
+        all_engagement.sort(key=lambda x: (x["engagement_score"] is None, -(x["engagement_score"] or 0)))
 
         return Response({
             "course_id": course_id,
@@ -315,16 +302,27 @@ class CourseEngagementSummaryView(APIView):
 
 
 class StudentEngagementProfileView(APIView):
+    """One student's profile. A student sees only their own; a teacher only students in their own classes."""
 
     def get(self, request, student_id):
-        if request.user.role == User.Role.STUDENT and request.user.pk != student_id:
-            return Response({"detail": "You can only view your own engagement profile."}, status=status.HTTP_403_FORBIDDEN)
+        user = request.user
+        if user.role == User.Role.STUDENT:
+            if user.pk != student_id:
+                return Response({"detail": "You can only view your own engagement profile."}, status=status.HTTP_403_FORBIDDEN)
+            courses = visible_courses(user)
+        elif user.role == User.Role.TEACHER or is_master_admin(user):
+            if not managed_students(user).filter(pk=student_id).exists():
+                return Response({"detail": "That student is not in one of your classes."}, status=status.HTTP_403_FORBIDDEN)
+            courses = managed_courses(user)
+        else:
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         student = User.objects.filter(pk=student_id).first()
         if not student:
             return Response({"detail": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        enrollment = Enrollment.objects.filter(
-            student=student, is_active=True).first()
-        course_id = enrollment.classroom_id if enrollment else 0
-
-        return Response(_get_student_engagement(student, course_id))
+        # The class to look at: the one asked for (if it is theirs and the student is in it), else the first shared one.
+        shared = courses.filter(enrollments__student=student, enrollments__is_active=True).distinct()
+        wanted = request.query_params.get("course_id")
+        course = shared.filter(pk=wanted).first() if str(wanted or "").isdigit() else None
+        course = course or shared.first()
+        return Response(_get_student_engagement(student, course.pk if course else None))

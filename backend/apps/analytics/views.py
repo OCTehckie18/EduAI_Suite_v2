@@ -20,6 +20,7 @@ from apps.omr.models import OMRSubmission
 from apps.lessons.models import Lesson
 from apps.calendar_app.models import CalendarEvent
 from apps.reports.models import Report
+from apps.core.access import is_master_admin
 from apps.mail.models import MailHistory
 from apps.games.models import ChainAnswerGame
 
@@ -71,6 +72,93 @@ def format_relative_time(dt):
     if minutes > 0:
         return f"{minutes}m ago"
     return "Just now"
+
+
+def _recent_activity(user, classrooms_qs, color_map):
+    """What happened in this teacher's own classes lately (newest first), not everyone's audit log."""
+    entries = []
+    for sub in Submission.objects.filter(assignment__course__in=classrooms_qs).select_related("assignment", "student").order_by("-created_at")[:4]:
+        who = sub.student.full_name if sub.student_id else (sub.student_name or "A student")
+        entries.append((sub.created_at, f"{who} submitted {sub.assignment.title or 'an assignment'}", "CheckCircle2", color_map["appointment"]))
+    for enrol in Enrollment.objects.filter(classroom__in=classrooms_qs, is_active=True).select_related("student", "classroom").order_by("-enrolled_at")[:4]:
+        entries.append((enrol.enrolled_at, f"{enrol.student.full_name} joined {enrol.classroom.name}", "Users", color_map["course"]))
+    for exam in Exam.objects.filter(course__in=classrooms_qs).order_by("-created_at")[:4]:
+        entries.append((exam.created_at, f"Exam created: {exam.title or 'Untitled'}", "BrainCircuit", color_map["omr"]))
+    mail = MailHistory.objects.all() if is_master_admin(user) else MailHistory.objects.filter(owner=user)
+    for item in mail.order_by("-sent_at")[:4]:
+        entries.append((item.sent_at, f"Mail sent: {item.subject or 'No subject'} ({item.recipient_count})", "BookOpen", color_map["mail"]))
+    reports = Report.objects.all() if is_master_admin(user) else Report.objects.filter(owner=user)
+    for item in reports.order_by("-generated_at")[:4]:
+        entries.append((item.generated_at, f"Report generated: {item.name or item.type or 'Report'}", "Activity", color_map["default"]))
+    entries.sort(key=lambda e: e[0], reverse=True)
+    return [
+        {"text": text, "time": format_relative_time(when), "icon": icon, "color": color}
+        for when, text, icon, color in entries[:4]
+    ]
+
+
+def _pending_appointments(user):
+    """Pending meeting requests addressed to this teacher (exact name match, as the appointment screen uses)."""
+    from apps.appointments.views import _normalize_name
+
+    pending = Appointment.objects.filter(status="pending").order_by("-id")
+    if not is_master_admin(user):
+        wanted = _normalize_name(user.full_name)
+        pending = [a for a in pending if _normalize_name(a.teacher_name) == wanted]
+    return [
+        {
+            "id": a.id,
+            "studentName": a.student_name or "Student",
+            "agenda": a.agenda or "Appointment request",
+            "timeSlot": a.time_slot or "Time pending",
+            "status": a.status,
+        }
+        for a in list(pending)[:5]
+    ]
+
+
+SCHEDULE_CODES = {"custom": "EVENT", "appointment": "APT", "assignment": "DUE"}
+
+
+def _schedule_and_counts(user):
+    """Today's dated items and this week's meeting/event count, from the user's own calendar feed.
+
+    Only items that really have a date and time appear (events, meetings, assignment deadlines). Times are
+    in the campus time zone. Exams and lessons are not listed because nothing records when they happen.
+    """
+    from apps.calendar_app.feed import build_feed
+
+    now = timezone.localtime()
+    today = now.date()
+    week_end = today + timedelta(days=7)
+    todays, week_count = [], 0
+    for event in build_feed(user):
+        if event["source"] not in SCHEDULE_CODES:
+            continue
+        start = datetime.fromisoformat(event["start"])
+        if timezone.is_naive(start):
+            start = timezone.make_aware(start)
+        start = timezone.localtime(start)
+        if today <= start.date() < week_end and event["source"] in ("custom", "appointment"):
+            week_count += 1
+        if start.date() == today:
+            end = datetime.fromisoformat(event["end"]) if event.get("end") else start
+            if timezone.is_naive(end):
+                end = timezone.make_aware(end)
+            todays.append((start, end, event))
+    todays.sort(key=lambda item: item[0])
+    schedule = [
+        {
+            "name": event["title"],
+            "code": SCHEDULE_CODES[event["source"]],
+            "course_id": event.get("course_id"),
+            "time": "All day" if event.get("is_all_day") else start.strftime("%I:%M %p"),
+            "room": event.get("location") or "",
+            "status": "live" if start <= now <= max(end, start + timedelta(minutes=30)) and event["source"] != "assignment" else "upcoming",
+        }
+        for start, end, event in todays[:5]
+    ]
+    return schedule, len(todays), week_count
 
 
 class DashboardSummaryView(APIView):
@@ -197,119 +285,14 @@ class DashboardSummaryView(APIView):
             "course": "BookOpen",
             "default": "Activity",
         }
-        history_records = ActionHistory.objects.order_by("-timestamp")[:4]
-        recent_activity = []
-        for h in history_records:
-            feat = (h.feature or "default").lower()
-            recent_activity.append({
-                "text": f"{feat.capitalize()}: {(h.action or '').replace('_', ' ')}",
-                "time": format_relative_time(h.timestamp),
-                "icon": icon_map.get(feat, icon_map["default"]),
-                "color": color_map.get(feat, color_map["default"]),
-            })
+        # Everything below is limited to the signed-in teacher's own classes, appointments, mail and
+        # reports (a master admin sees the whole university). Nothing is matched by a typed name.
+        recent_activity = _recent_activity(user, classrooms_qs, color_map)
 
-        # Schedule
-        now = timezone.now()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = today_start + timedelta(days=1)
-        week_end = today_start + timedelta(days=7)
+        schedule, calendar_today, calendar_week = _schedule_and_counts(user)
 
-        schedule_items = []
+        pending_appointments = _pending_appointments(user)
 
-        appt_qs = Appointment.objects.exclude(status="rejected")
-        if teacher_name:
-            appt_qs = appt_qs.filter(teacher_name__icontains=teacher_name)
-        for appt in appt_qs:
-            dt = _parse_date_safe(appt.time_slot) or _parse_date_safe(appt.requested_at)
-            if dt:
-                dt_aware = timezone.make_aware(dt) if timezone.is_naive(dt) else dt
-                if today_start <= dt_aware < today_end:
-                    schedule_items.append({
-                        "name": appt.agenda or "Meeting",
-                        "code": "APT",
-                        "course_id": None,
-                        "time": dt_aware,
-                        "room": appt.meeting_mode or "Office",
-                        "status": "upcoming",
-                    })
-
-        for lesson in Lesson.objects.filter(course__in=classrooms_qs):
-            if lesson.posted_at and today_start <= lesson.posted_at < today_end:
-                schedule_items.append({
-                    "name": lesson.title or lesson.topic or "Lecture Session",
-                    "code": lesson.course.subject_code if lesson.course else "CLASS",
-                    "course_id": lesson.course_id,
-                    "time": lesson.posted_at,
-                    "room": "Lecture Hall",
-                    "status": "live" if 0 <= (now - lesson.posted_at).total_seconds() < 3600 else "upcoming",
-                })
-
-        ce_qs = CalendarEvent.objects.filter(start_time__gte=today_start, start_time__lt=today_end)
-        if teacher_name:
-            ce_qs = ce_qs.filter(teacher_name__icontains=teacher_name)
-        for ev in ce_qs:
-            schedule_items.append({
-                "name": ev.title,
-                "code": "EVENT",
-                "course_id": ev.course_id,
-                "time": ev.start_time,
-                "room": ev.location or "Campus",
-                "status": "live" if ev.start_time <= now <= (ev.end_time or ev.start_time + timedelta(hours=1)) else "upcoming",
-            })
-
-        for asgn in Assignment.objects.filter(course__in=classrooms_qs):
-            dt = _parse_date_safe(asgn.due_date)
-            if dt:
-                dt_aware = timezone.make_aware(dt) if timezone.is_naive(dt) else dt
-                if today_start <= dt_aware < today_end:
-                    schedule_items.append({
-                        "name": f"Due: {asgn.title}",
-                        "code": asgn.course.subject_code if asgn.course else "DUE",
-                        "course_id": asgn.course_id,
-                        "time": dt_aware,
-                        "room": "Submission",
-                        "status": "upcoming",
-                    })
-
-        for exam in Exam.objects.filter(course__in=classrooms_qs):
-            if exam.created_at and today_start <= exam.created_at < today_end:
-                schedule_items.append({
-                    "name": f"Exam: {exam.title}",
-                    "code": exam.course.subject_code if exam.course else "EXAM",
-                    "course_id": exam.course_id,
-                    "time": exam.created_at,
-                    "room": "Online",
-                    "status": "upcoming",
-                })
-
-        schedule_items.sort(key=lambda x: x["time"])
-        schedule = []
-        for item in schedule_items[:5]:
-            schedule.append({
-                "name": item["name"],
-                "code": item["code"],
-                "course_id": item.get("course_id"),
-                "time": item["time"].strftime("%I:%M %p"),
-                "room": item["room"],
-                "status": item["status"],
-            })
-
-        # Pending Appointments
-        all_appts = Appointment.objects.all().order_by("-id")
-        if teacher_name:
-            all_appts = all_appts.filter(teacher_name__icontains=teacher_name)
-        pending_appointments = [
-            {
-                "id": a.id,
-                "studentName": a.student_name or "Student",
-                "agenda": a.agenda or "Appointment request",
-                "timeSlot": a.time_slot or "Time pending",
-                "status": a.status,
-            }
-            for a in all_appts.filter(status="pending")[:5]
-        ]
-
-        # Recent Reports
         recent_reports = [
             {
                 "id": r.report_id or str(r.id),
@@ -320,19 +303,17 @@ class DashboardSummaryView(APIView):
             for r in (Report.objects.all() if is_master_admin(user) else Report.objects.filter(owner=user)).order_by("-generated_at")[:3]
         ]
 
-        # Mail Stats
-        mail_week_start = now - timedelta(days=7)
-        mails_this_week = MailHistory.objects.filter(sent_at__gte=mail_week_start).count()
-        last_mail = MailHistory.objects.order_by("-sent_at").first()
+        # Mail stats: only mail this teacher sent.
+        now = timezone.now()
+        mine = MailHistory.objects.all() if is_master_admin(user) else MailHistory.objects.filter(owner=user)
+        last_mail = mine.order_by("-sent_at").first()
         mail_stats = {
-            "sentThisWeek": mails_this_week,
+            "sentThisWeek": mine.filter(sent_at__gte=now - timedelta(days=7)).count(),
             "lastSentAt": last_mail.sent_at.isoformat() if last_mail and last_mail.sent_at else None,
         }
 
-        # Upcoming Exams
-        exams_qs = Exam.objects.all().order_by("-created_at")
-        if classrooms_qs.exists():
-            exams_qs = exams_qs.filter(course__in=classrooms_qs)
+        # Exams of this teacher's classes (a teacher with no classes has none: never everyone's).
+        exams_qs = Exam.objects.filter(course__in=classrooms_qs).order_by("-created_at")
         upcoming_exams = [
             {
                 "id": e.id,
@@ -355,19 +336,7 @@ class DashboardSummaryView(APIView):
             "studentCount": total_students,
         }
 
-        # Calendar events this week
-        calendar_events_count = CalendarEvent.objects.filter(
-            start_time__gte=today_start, start_time__lt=week_end
-        ).count()
-        appointment_events_this_week = 0
-        for appt in all_appts:
-            dt = _parse_date_safe(appt.time_slot)
-            if dt:
-                dt_aware = timezone.make_aware(dt) if timezone.is_naive(dt) else dt
-                if today_start <= dt_aware < week_end:
-                    appointment_events_this_week += 1
-
-        calendar_events_this_week = calendar_events_count + appointment_events_this_week
+        calendar_events_this_week = calendar_week
 
         return Response({
             "stats": stats,
@@ -380,7 +349,7 @@ class DashboardSummaryView(APIView):
             "mailStats": mail_stats,
             "upcomingExams": upcoming_exams,
             "engagementSnapshot": engagement_snapshot,
-            "calendarEventsToday": len(schedule),
+            "calendarEventsToday": calendar_today,
             "calendarEventsThisWeek": calendar_events_this_week,
             # Legacy fields for backward compatibility
             "total_courses": classrooms_qs.count(),
@@ -394,35 +363,11 @@ class DashboardSummaryView(APIView):
         })
 
 
-class DiscoverableClassroomsView(APIView):
-
-    def get(self, request):
-        courses = Classroom.objects.exclude(enrollment_code="")
-        classrooms = []
-        for c in courses:
-            student_count = Enrollment.objects.filter(classroom=c, is_active=True).count()
-            classrooms.append({
-                "id": c.id,
-                "code": c.subject_code,
-                "name": c.name,
-                "batch": c.batch.name if c.batch else "",
-                "students": student_count,
-                "progress": None,
-                "color": c.color or "#264796",
-                "description": c.description or "",
-                "enrollment_code": c.enrollment_code,
-                "teacher_name": c.teacher.full_name if c.teacher else "Instructor",
-                "course_plan_path": c.course_plan_path or None,
-            })
-        return Response(classrooms)
-
-
 class StudentDashboardSummaryView(APIView):
     """The signed-in student's own dashboard: their courses, open deadlines and live games."""
 
     def get(self, request):
         from apps.core.access import visible_courses
-        from apps.core.services import student_keys
         from apps.games.models import GamePlayer
 
         student = request.user
@@ -462,7 +407,6 @@ class StudentDashboardSummaryView(APIView):
             for due_aware, asgn in open_assignments[:5]
         ]
 
-        keys = student_keys(student)
         live_games = ChainAnswerGame.objects.filter(status="active", players__student=student).distinct()
         live_game_info = {"title": "", "teacher": "", "active": False}
         game = live_games.first()
