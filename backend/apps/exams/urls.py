@@ -8,10 +8,14 @@ from .views import (
     ExamAttemptDetailView,
     ExamAttemptListView,
 )
+from .import_views import ExamExtractView, ExamImportExcelView, ExamTemplateView
 
 urlpatterns = [
     path("", ExamListCreateView.as_view(), name="exam-list-create"),
     path("stats", ExamStatsView.as_view(), name="exam-stats"),
+    path("extract", ExamExtractView.as_view(), name="exam-extract"),
+    path("template", ExamTemplateView.as_view(), name="exam-template"),
+    path("import-excel", ExamImportExcelView.as_view(), name="exam-import-excel"),
     path("<int:exam_id>", ExamDetailView.as_view(), name="exam-detail"),
     path("<int:exam_id>/attempts", ExamAttemptListView.as_view(), name="exam-attempts-list"),
     path("<int:exam_id>/attempts/start", ExamAttemptStartView.as_view(), name="exam-attempt-start"),

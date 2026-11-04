@@ -18,6 +18,7 @@ const statusStyle: Record<string, { color: string; bg: string; label: string }> 
   upcoming: { color: "var(--color-brand-blue)", bg: "color-mix(in srgb, var(--color-brand-blue) 10%, transparent)", label: "Upcoming" },
   ongoing: { color: "#d97706", bg: "rgba(217,119,6,0.1)", label: "Ongoing" },
   completed: { color: "#16a34a", bg: "rgba(22,163,74,0.1)", label: "Completed" },
+  closed: { color: "#b45309", bg: "rgba(180,83,9,0.1)", label: "Closed" },
   published: { color: "var(--color-brand-blue)", bg: "color-mix(in srgb, var(--color-brand-blue) 10%, transparent)", label: "Live" },
   draft: { color: "#64748b", bg: "rgba(100,116,139,0.1)", label: "Draft" },
 };
@@ -27,7 +28,8 @@ export const ExamsPage: React.FC = () => {
   const { user: authUser, logout } = useAuthStore();
   const [examsList, setExamsList] = useState<any[]>([]);
   const [selectedExam, setSelectedExam] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "take" | "review">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "review">("overview");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showCreator, setShowCreator] = useState(false);
@@ -36,7 +38,7 @@ export const ExamsPage: React.FC = () => {
   const [loadingAttempts, setLoadingAttempts] = useState(false);
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [stats, setStats] = useState<any>({ total_exams: 0, submissions_today: 0, avg_completion: "0%", pending_ai_review: 0 });
+  const [stats, setStats] = useState<any>({ total_exams: 0, submissions_today: 0, avg_completion_rate: null });
 
   useEffect(() => {
     fetchExams();
@@ -73,9 +75,7 @@ export const ExamsPage: React.FC = () => {
       if (!response.ok) throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
       const data = await response.json();
       setExamsList(data);
-      if (data.length > 0 && !selectedExam) {
-        setSelectedExam(data[0]);
-      }
+      setSelectedExam((current: any) => (current ? data.find((e: any) => e.id === current.id) ?? data[0] ?? null : data[0] ?? null));
     } catch (err: any) {
       console.error("Error fetching exams:", err);
       setError(err.message === "Session expired. Please log out and log back in." ? err.message : (err.name === 'TimeoutError' ? "Request timed out. Is the backend running?" : "Failed to load exams. Please refresh."));
@@ -100,9 +100,13 @@ export const ExamsPage: React.FC = () => {
         body: JSON.stringify(examData),
       });
       if (response.ok) {
+        const saved = await response.json().catch(() => null);
         setShowCreator(false);
         setEditingExam(null);
-        fetchExams();
+        await fetchExams();
+        if (saved?.id) setSelectedExam(saved);
+        setActiveTab("overview");
+        void fetchStats();
         return true;
       }
       // Pass the server's reason back so the creator can show it (for example "questions are locked").
@@ -126,62 +130,93 @@ export const ExamsPage: React.FC = () => {
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(body.detail || "Could not change the exam status.");
+        setNotice(body.detail || "Could not change the exam status.");
         return;
       }
-      setError("");
+      setNotice("");
       setExamsList(prev => prev.map(e => e.id === body.id ? body : e));
       setSelectedExam(body);
+      void fetchStats();
     } catch (err) {
       console.error("Status change failed", err);
-      setError("Could not change the exam status. Check your connection.");
+      setNotice("Could not change the exam status. Check your connection.");
     }
   };
 
   const handleDeleteExam = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this exam? This action cannot be undone.")) return;
+    const exam = examsList.find((e) => e.id === id);
+    const hasAttempts = !!exam?.attempts?.length;
+    const warning = hasAttempts
+      ? "Students have already attempted this exam. Deleting it also deletes their attempts and scores. This cannot be undone. Delete anyway?"
+      : "Are you sure you want to delete this exam? This action cannot be undone.";
+    if (!window.confirm(warning)) return;
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(`${API_ENDPOINTS.EXAMS}/${id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (response.ok) {
-        setExamsList(prev => prev.filter(e => e.id !== id));
-        if (selectedExam?.id === id) setSelectedExam(null);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setNotice(body.detail || "Could not delete the exam.");
+        return;
       }
+      setNotice("");
+      setExamsList(prev => prev.filter(e => e.id !== id));
+      if (selectedExam?.id === id) setSelectedExam(null);
+      void fetchStats();
     } catch (err) {
       console.error("Delete failed", err);
+      setNotice("Could not delete the exam. Check your connection.");
     }
   };
 
-  const handleExportStats = () => {
+  const handleExportStats = async () => {
     if (!selectedExam) return;
+    let rowsSource: any[] = attempts;
+    try {
+      // Always load fresh attempts, so the export works without visiting the Review tab first.
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_ENDPOINTS.EXAMS}/${selectedExam.id}/attempts`, { headers: { "Authorization": `Bearer ${token}` } });
+      if (!response.ok) throw new Error("Could not load the attempts.");
+      rowsSource = await response.json();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Could not export the results.");
+      return;
+    }
+    if (rowsSource.length === 0) {
+      setNotice("No one has attempted this exam yet, so there is nothing to export.");
+      return;
+    }
+    setNotice("");
 
-    // Prepare CSV content
-    const headers = ["Student Name", "Email", "Score", "Finished Date", "Status"];
-    const rows = attempts.map(a => [
+    // Quote every cell, and defuse anything a spreadsheet would run as a formula.
+    const cell = (value: unknown) => {
+      let text = value == null ? "" : String(value);
+      if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+    const headers = ["Student Name", "Email", "Score (%)", "Points", "Finished", "Status"];
+    const rows = rowsSource.map((a: any) => [
       a.student_name,
       a.student_email,
-      a.score,
-      a.end_time ? new Date(a.end_time).toLocaleDateString() : "N/A",
-      a.status
+      a.status === "submitted" ? a.score : "",
+      a.status === "submitted" && a.total_points != null ? `${a.earned_points} / ${a.total_points}` : "",
+      a.end_time ? new Date(a.end_time).toLocaleString() : "",
+      a.status,
     ]);
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(r => r.join(","))
-    ].join("\n");
+    const csvContent = [headers, ...rows].map((r) => r.map(cell).join(",")).join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `${selectedExam.title}_stats.csv`);
+    link.setAttribute("download", `${selectedExam.title}_results.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handlePublishExam = () => changeStatus("published");
@@ -200,11 +235,13 @@ export const ExamsPage: React.FC = () => {
       const response = await fetch(`${API_ENDPOINTS.EXAMS}/${examId}/attempts`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (!response.ok) throw new Error("Failed to fetch attempts");
+      if (!response.ok) throw new Error("Could not load the submissions.");
       const data = await response.json();
       setAttempts(data);
     } catch (err) {
       console.error("Error fetching attempts:", err);
+      setAttempts([]);
+      setNotice(err instanceof Error ? err.message : "Could not load the submissions.");
     } finally {
       setLoadingAttempts(false);
     }
@@ -217,11 +254,12 @@ export const ExamsPage: React.FC = () => {
       const response = await fetch(`${API_ENDPOINTS.EXAMS}/${examId}/attempts/${attemptId}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (!response.ok) throw new Error("Failed to fetch attempt details");
+      if (!response.ok) throw new Error("Could not open that answer sheet.");
       const data = await response.json();
       setSelectedAttempt(data);
     } catch (err) {
       console.error("Error fetching attempt details:", err);
+      setNotice(err instanceof Error ? err.message : "Could not open that answer sheet.");
     } finally {
       setLoadingDetail(false);
     }
@@ -262,7 +300,7 @@ export const ExamsPage: React.FC = () => {
         {[
           { label: "Total Exams", value: String(stats.total_exams), icon: ClipboardList, color: "var(--color-brand-blue)" },
           { label: "Submissions Today", value: String(stats.submissions_today), icon: CheckCircle2, color: "#16a34a" },
-          { label: "Avg Completion", value: stats.avg_completion, icon: Users, color: "#7c3aed" },
+          { label: "Completion Rate", value: stats.avg_completion_rate == null ? "—" : `${stats.avg_completion_rate}%`, icon: Users, color: "#7c3aed" },
         ].map(s => (
           <GlassCard key={s.label} padding="sm" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -299,14 +337,14 @@ export const ExamsPage: React.FC = () => {
               return (
                 <div
                   key={exam.id}
-                  onClick={() => setSelectedExam(exam)}
+                  onClick={() => { setSelectedExam(exam); setAttempts([]); setNotice(""); }}
                   className={`glass-card p-4 cursor-pointer transition-all hover:shadow-md border-l-4 ${selectedExam?.id === exam.id ? "border-l-brand-blue shadow-lg" : "border-l-transparent"
                     }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-sm leading-snug" style={{ color: "var(--color-text-primary)" }}>{exam.title}</p>
-                      <p className="text-[11px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>Course {exam.course_id}</p>
+                      <p className="text-[11px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>{exam.course_code ? `${exam.course_code} · ${exam.course_name}` : `Course ${exam.course_id}`}</p>
                     </div>
                     <span className="badge shrink-0 text-[9px] px-2 py-0.5" style={{ color: s.color, background: s.bg }}>
                       {s.label}
@@ -337,7 +375,7 @@ export const ExamsPage: React.FC = () => {
                           MCQ
                         </span>
                         <span className="badge text-[9px] px-2" style={{ background: "rgba(255,255,255,0.2)", color: "white" }}>
-                          Course {selectedExam.course_id}
+                          {selectedExam.course_code ? `${selectedExam.course_code} · ${selectedExam.course_name}` : `Course ${selectedExam.course_id}`}
                         </span>
                       </div>
                       <h2 className="text-lg font-bold">{selectedExam.title}</h2>
@@ -367,16 +405,22 @@ export const ExamsPage: React.FC = () => {
 
                 {/* Tabs */}
                 <div className="flex border-b" style={{ borderColor: "color-mix(in srgb, var(--color-brand-blue) 10%, transparent)" }}>
-                  {(["overview", "take", "review"] as const).map(tab => (
+                  {(["overview", "review"] as const).map(tab => (
                     <button key={tab} onClick={() => setActiveTab(tab)}
                       className={`px-5 py-3.5 text-sm font-semibold capitalize transition-colors flex items-center gap-1.5 ${activeTab === tab ? "border-b-2 border-brand-blue text-brand-blue" : "text-slate-400 hover:text-slate-600"
                         }`}>
-                      {tab === "take" && <Play size={13} />}
                       {tab === "review" && <Eye size={13} />}
                       {tab}
                     </button>
                   ))}
                 </div>
+
+                {notice && (
+                  <div className="mx-5 mt-4 p-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs font-semibold flex items-start justify-between gap-3">
+                    <span>{notice}</span>
+                    <button onClick={() => setNotice("")} aria-label="Dismiss" className="text-red-400 hover:text-red-600"><X size={12} /></button>
+                  </div>
+                )}
 
                 <div className="p-5">
                   {/* Overview */}
@@ -396,36 +440,33 @@ export const ExamsPage: React.FC = () => {
                           </div>
                         ))}
                       </div>
-                      <div className="flex gap-3">
-                        {selectedExam.status === "draft" ? (
+                      <div className="flex flex-wrap gap-3">
+                        {selectedExam.status === "published" ? (
                           <>
-                            <button onClick={handlePublishExam} className="btn btn-primary flex-1 text-sm bg-green-600 hover:bg-green-700 border-green-600">
-                              <CheckCircle2 size={14} /> Publish Now
+                            <button onClick={() => changeStatus("closed")} className="btn btn-primary flex-1 text-sm bg-amber-600 hover:bg-amber-700 border-amber-600">
+                              <X size={14} /> Close Exam
                             </button>
-                            <button onClick={() => openEditCreator(selectedExam)} className="btn btn-outline flex-1 text-sm">
-                              <Settings size={14} /> Edit Exam
+                            <button onClick={handleUnpublishExam} className="btn btn-outline flex-1 text-sm">
+                              Unpublish
                             </button>
                           </>
                         ) : (
-                          <>
-                            <button onClick={handleUnpublishExam} className="btn btn-primary flex-1 text-sm bg-orange-600 hover:bg-orange-700 border-orange-600">
-                              <X size={14} /> Unpublish
-                            </button>
-                            <button onClick={handleExportStats} className="btn btn-outline text-sm flex-1">
-                              <FileText size={14} /> Export Stats
-                            </button>
-                          </>
+                          <button onClick={handlePublishExam} className="btn btn-primary flex-1 text-sm bg-green-600 hover:bg-green-700 border-green-600">
+                            <CheckCircle2 size={14} /> {selectedExam.status === "closed" ? "Reopen Exam" : "Publish Now"}
+                          </button>
                         )}
+                        <button onClick={() => openEditCreator(selectedExam)} className="btn btn-outline flex-1 text-sm">
+                          <Settings size={14} /> Edit Exam
+                        </button>
+                        <button onClick={() => void handleExportStats()} className="btn btn-outline text-sm flex-1">
+                          <FileText size={14} /> Export Results
+                        </button>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Take Exam (Student View) */}
-                  {activeTab === "take" && (
-                    <div className="space-y-5">
-                      <div className="p-10 text-center text-slate-400">
-                        Take exam preview not yet implemented for teacher view.
-                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        {selectedExam.status === "draft" && "Students cannot see this exam until you publish it."}
+                        {selectedExam.status === "published" && "Students in this class can take the exam now."}
+                        {selectedExam.status === "closed" && "Closed: students can no longer start it, and their results are kept."}
+                      </p>
                     </div>
                   )}
 
@@ -476,14 +517,14 @@ export const ExamsPage: React.FC = () => {
                                 <div className="text-right">
                                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-0.5" style={{ fontSize: '9px' }}>Score</p>
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-lg font-black text-blue-600">{attempt.status === "expired" ? "Timed out" : `${attempt.score ?? 0}%`}</span>
+                                    <span className="text-lg font-black text-blue-600">{attempt.status === "expired" ? "Timed out" : attempt.status === "in_progress" ? "In progress" : `${attempt.score ?? 0}%`}</span>
                                   </div>
                                 </div>
                                 <button
                                   onClick={() => fetchAttemptDetail(selectedExam.id, attempt.id)}
                                   className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors"
                                 >
-                                  {loadingDetail && selectedAttempt?.id === attempt.id ? "..." : "View Sheet"}
+                                  {loadingDetail ? "..." : "View Sheet"}
                                 </button>
                               </div>
                             </div>

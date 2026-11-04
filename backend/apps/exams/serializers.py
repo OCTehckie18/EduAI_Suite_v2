@@ -96,6 +96,8 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
 
 class ExamSerializer(serializers.ModelSerializer):
     course_id = serializers.IntegerField(source="course.id", read_only=True)
+    course_code = serializers.CharField(source="course.subject_code", read_only=True)
+    course_name = serializers.CharField(source="course.name", read_only=True)
     questions = ExamQuestionSerializer(many=True, required=False)
     attempts = serializers.SerializerMethodField()
 
@@ -111,6 +113,8 @@ class ExamSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "course_id",
+            "course_code",
+            "course_name",
             "title",
             "description",
             "time_limit",

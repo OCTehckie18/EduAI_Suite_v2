@@ -63,6 +63,14 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
   const doneRef = useRef(false);
   const submittingRef = useRef(false);
   answersRef.current = answers;
+  useEffect(() => {
+    if (!attemptId || doneRef.current) return;
+    try {
+      localStorage.setItem(`exam-draft-${attemptId}`, JSON.stringify(answers));
+    } catch {
+      /* storage unavailable: answers stay in memory only */
+    }
+  }, [answers, attemptId]);
 
   useEffect(() => {
     void startAttempt();
@@ -107,6 +115,12 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
       const data = await response.json();
       attemptIdRef.current = data.id;
       setAttemptId(data.id);
+      try {
+        const saved = localStorage.getItem(`exam-draft-${data.id}`);
+        if (saved) setAnswers(JSON.parse(saved));
+      } catch {
+        /* a missing or unreadable draft just means starting blank */
+      }
       // The server owns the clock: resuming after a refresh continues from the time that is really left.
       startClock(data.remaining_seconds ?? exam.time_limit * 60);
     } catch (err: any) {
@@ -161,6 +175,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
       const data = await response.json();
       
       doneRef.current = true;
+      try { localStorage.removeItem(`exam-draft-${attemptIdRef.current}`); } catch { /* ignore */ }
       setIsSubmitted(true);
       if (timerRef.current) clearInterval(timerRef.current);
 
@@ -256,7 +271,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
              <button onClick={fetchFullReview} disabled={isLoadingReview} className="btn bg-white border-blue-200 text-blue-600 flex-1 py-3 font-bold hover:bg-blue-50">
                 {isLoadingReview ? "Loading..." : "Review Answers"}
              </button>
-             <button onClick={onClose} className="btn btn-primary flex-1 py-3 flex items-center justify-center gap-2">
+             <button onClick={() => onComplete(results)} className="btn btn-primary flex-1 py-3 flex items-center justify-center gap-2">
                <Home size={18} /> Exit
              </button>
           </div>
@@ -299,7 +314,14 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
       {/* Top Bar */}
       <div className="h-16 border-b px-6 flex items-center justify-between bg-white sticky top-0 z-10">
         <div className="flex items-center gap-4">
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button
+            onClick={() => {
+              if (confirm("Leave the exam? Your timer keeps running and you can resume it from My Exams until time is up.")) onClose();
+            }}
+            className="text-slate-400 hover:text-slate-600"
+            title="Leave the exam (the timer keeps running)"
+            aria-label="Leave the exam"
+          >
              <Home size={20} />
           </button>
           <div className="h-6 w-px bg-slate-200"></div>
