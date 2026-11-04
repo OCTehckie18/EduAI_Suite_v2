@@ -1,0 +1,203 @@
+"""Admitted-student roster: the list of students the university has admitted.
+
+A student can only create an account if their email is on this list, and the
+campus / school / department / program / class / section on the account always
+come from the roster, never from what the student types.
+"""
+
+import csv
+import io
+from dataclasses import dataclass, field
+
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.db import IntegrityError, transaction
+from openpyxl import Workbook, load_workbook
+
+from apps.institution.models import Batch, Campus, Department, Program, School, Section
+
+from .models import AdmittedStudent
+
+TEMPLATE_COLUMNS = (
+    "Register No", "Student Name", "Student Email",
+    "Campus Code", "School Code", "Department Code", "Program Code", "Class", "Section",
+)
+NOT_LISTED_MESSAGE = (
+    "Your email is not on the admitted-students list. Please contact your department office."
+)
+
+
+def normalise_email(value):
+    return str(value or "").strip().lower()
+
+
+def entry_for_email(email):
+    email = normalise_email(email)
+    return AdmittedStudent.objects.select_related(
+        "section__batch__program__department__school__campus", "user"
+    ).filter(email__iexact=email).first() if email else None
+
+
+def hierarchy_for(section):
+    batch = section.batch
+    program = batch.program
+    department = program.department
+    school = department.school
+    return {
+        "campus": school.campus, "school": school, "department": department,
+        "program": program, "batch": batch, "section": section,
+    }
+
+
+def apply_entry_to_user(user, entry):
+    """Copy identity and placement from the roster onto the account and link them."""
+    for attribute, value in hierarchy_for(entry.section).items():
+        setattr(user, attribute, value)
+    user.register_no = entry.register_no
+    if entry.name and not (user.first_name or user.last_name):
+        first, _, last = entry.name.strip().partition(" ")
+        user.first_name, user.last_name = first, last.strip()
+    user.role = user.Role.STUDENT
+    if entry.user_id != user.pk:
+        entry.user = user
+        entry.save(update_fields=["user", "updated_at"])
+
+
+def provision_student(entry):
+    """Create (or return) the account for a roster entry; the student finishes sign-up later."""
+    if entry.user_id:
+        return entry.user
+    User = get_user_model()
+    user = User.objects.create_user(email=entry.email, role=User.Role.STUDENT, is_profile_complete=False)
+    apply_entry_to_user(user, entry)
+    user.save()
+    return user
+
+
+def entry_for_identifiers(email, register_no):
+    """Roster entry that matches an email and/or register number; raises on a contradiction."""
+    by_email = entry_for_email(email)
+    by_register = (
+        AdmittedStudent.objects.select_related("section__batch__program__department__school__campus", "user")
+        .filter(register_no__iexact=str(register_no).strip()).first()
+        if str(register_no or "").strip() else None
+    )
+    if by_email and by_register and by_email.pk != by_register.pk:
+        raise ValueError("The email and register number belong to different students on the admitted list.")
+    return by_email or by_register
+
+
+# ---- import --------------------------------------------------------------
+
+@dataclass
+class RosterImportResult:
+    created: int = 0
+    updated: int = 0
+    unchanged: int = 0
+    errors: list = field(default_factory=list)
+
+    def as_dict(self):
+        return {"created": self.created, "updated": self.updated, "unchanged": self.unchanged, "errors": self.errors}
+
+
+def _normalise_header(value):
+    return " ".join(str(value or "").strip().lower().split())
+
+
+def rows_from_file(uploaded_file):
+    name = uploaded_file.name.lower()
+    if name.endswith(".csv"):
+        text = uploaded_file.read().decode("utf-8-sig")
+        reader = csv.reader(io.StringIO(text))
+        headers = [_normalise_header(h) for h in next(reader, ())]
+        raw = list(reader)
+    elif name.endswith(".xlsx"):
+        sheet = load_workbook(uploaded_file, read_only=True, data_only=True).active
+        rows = sheet.iter_rows(values_only=True)
+        headers = [_normalise_header(h) for h in next(rows, ())]
+        raw = list(rows)
+    else:
+        raise ValueError("Only .csv and .xlsx files are supported.")
+    missing = [col for col in TEMPLATE_COLUMNS if col.lower() not in headers]
+    if missing:
+        raise ValueError("Missing column(s): " + ", ".join(missing) + ". Download the template to see the expected layout.")
+    return [
+        {headers[i]: (values[i] if i < len(values) and values[i] is not None else "") for i in range(len(headers))}
+        for values in raw
+        if any(str(v or "").strip() for v in values)
+    ]
+
+
+def _text(row, column):
+    return str(row.get(column.lower(), "")).strip()
+
+
+def _lookup(model, label, **filters):
+    try:
+        return model.objects.get(**filters)
+    except model.DoesNotExist:
+        raise ValueError(f"{label} not found.")
+
+
+def section_for_row(row):
+    campus = _lookup(Campus, f"Campus code '{_text(row, 'Campus Code')}'", code__iexact=_text(row, "Campus Code"))
+    school = _lookup(School, f"School code '{_text(row, 'School Code')}' in {campus.code}", campus=campus, code__iexact=_text(row, "School Code"))
+    department = _lookup(Department, f"Department code '{_text(row, 'Department Code')}' in {school.code}", school=school, code__iexact=_text(row, "Department Code"))
+    program = _lookup(Program, f"Program code '{_text(row, 'Program Code')}' in {department.code}", department=department, code__iexact=_text(row, "Program Code"))
+    batch = _lookup(Batch, f"Class '{_text(row, 'Class')}' in {program.code}", program=program, name__iexact=_text(row, "Class"))
+    return _lookup(Section, f"Section '{_text(row, 'Section')}' in {batch.name}", batch=batch, name__iexact=_text(row, "Section"))
+
+
+def import_roster(uploaded_file):
+    result = RosterImportResult()
+    rows = rows_from_file(uploaded_file)
+    for number, row in enumerate(rows, start=2):
+        try:
+            with transaction.atomic():
+                _import_row(row, result)
+        except ValueError as exc:
+            result.errors.append({"row": number, "error": str(exc)})
+        except IntegrityError:
+            result.errors.append({"row": number, "error": "This register number or email is already used by another roster entry."})
+    return result
+
+
+def _import_row(row, result):
+    register_no = _text(row, "Register No")
+    email = normalise_email(_text(row, "Student Email"))
+    name = _text(row, "Student Name")
+    if not register_no or not email:
+        raise ValueError("Register No and Student Email are required.")
+    try:
+        validate_email(email)
+    except ValidationError:
+        raise ValueError(f"'{email}' is not a valid email address.")
+    section = section_for_row(row)
+
+    entry = entry_for_identifiers(email, register_no)
+    if entry is None:
+        AdmittedStudent.objects.create(register_no=register_no, email=email, name=name, section=section)
+        result.created += 1
+        return
+    if entry.user_id:
+        same = (entry.register_no.lower(), entry.email, entry.section_id) == (register_no.lower(), email, section.pk)
+        if not same:
+            raise ValueError("This student has already signed up, so their details cannot be changed from the roster.")
+        result.unchanged += 1
+        return
+    if (entry.register_no, entry.email, entry.name, entry.section_id) == (register_no, email, name, section.pk):
+        result.unchanged += 1
+        return
+    entry.register_no, entry.email, entry.name, entry.section = register_no, email, name, section
+    entry.save()
+    result.updated += 1
+
+
+def template_workbook():
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Admitted students"
+    sheet.append(list(TEMPLATE_COLUMNS))
+    sheet.append(["2641001", "Asha Rao", "asha.rao@example.com", "CEN", "SOS", "CSE", "BCA", "2026-29", "A"])
+    return workbook

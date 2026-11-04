@@ -15,6 +15,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts import roster
 from apps.accounts.models import User
 from apps.institution.models import Batch, Department, Program, Section
 from apps.core.models import ActionHistory
@@ -373,23 +374,10 @@ def _enroll_student(classroom, data):
     campus = getattr(school, "campus", None) if school else None
 
     if student is None:
-        if not email:
-            email = f"student_{register_no.lower()}@university.in" if register_no else "student@university.in"
-        first_name, last_name = _split_name(data.get("name"))
-        student = User.objects.create_user(
-            email=email,
-            role=User.Role.STUDENT,
-            register_no=register_no or None,
-            first_name=first_name,
-            last_name=last_name,
-            campus=campus,
-            school=school,
-            department=dept,
-            program=prog,
-            batch=batch,
-            section=sec,
-            is_profile_complete=False,
-        )
+        entry = roster.entry_for_identifiers(email, register_no)
+        if entry is None:
+            raise ValueError("This student is not on the admitted-students list. Ask the master admin to add them first.")
+        student = roster.provision_student(entry)
     else:
         changed = []
         if register_no and not student.register_no:

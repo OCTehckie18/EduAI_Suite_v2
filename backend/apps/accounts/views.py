@@ -18,6 +18,8 @@ from rest_framework.views import APIView
 
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
 
+from . import roster
+
 logger = logging.getLogger(__name__)
 
 # Docker Desktop hosts drift from real time; Google tokens are checked against the server clock.
@@ -131,14 +133,23 @@ class GoogleLoginView(APIView):
             # that stays unusable until the master admin approves it. Existing accounts never
             # change role here.
             applying = request.data.get("app") == "teacherbuddy"
-            user = User.objects.create_user(
-                email=email,
-                role=User.Role.TEACHER if applying else User.Role.STUDENT,
-                approval_status=User.ApprovalStatus.PENDING if applying else User.ApprovalStatus.APPROVED,
-                first_name=claims.get("given_name", ""),
-                last_name=claims.get("family_name", ""),
-                avatar_url=claims.get("picture", ""),
-            )
+            if applying:
+                user = User.objects.create_user(
+                    email=email,
+                    role=User.Role.TEACHER,
+                    approval_status=User.ApprovalStatus.PENDING,
+                    first_name=claims.get("given_name", ""),
+                    last_name=claims.get("family_name", ""),
+                    avatar_url=claims.get("picture", ""),
+                )
+            else:
+                # Students can only join if the university has admitted them.
+                entry = roster.entry_for_email(email)
+                if entry is None:
+                    return Response({"detail": roster.NOT_LISTED_MESSAGE}, status=status.HTTP_403_FORBIDDEN)
+                user = roster.provision_student(entry)
+                user.avatar_url = claims.get("picture", "")
+                user.save(update_fields=["avatar_url"])
         elif not user.is_active:
             return Response({"detail": "This account has been deactivated."}, status=status.HTTP_403_FORBIDDEN)
         else:
@@ -190,6 +201,23 @@ class RefreshTokenView(APIView):
 class ProfileSetupView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        """What the profile page should show: for students, their admission record."""
+        user = request.user
+        if user.role != user.Role.STUDENT:
+            return Response({"role": user.role, "matched": None})
+        entry = roster.entry_for_email(user.email)
+        if entry is None:
+            return Response({"role": user.role, "matched": bool(user.register_no and user.section_id), "message": roster.NOT_LISTED_MESSAGE})
+        placement = roster.hierarchy_for(entry.section)
+        return Response({
+            "role": user.role,
+            "matched": True,
+            "register_no": entry.register_no,
+            "name": entry.name,
+            "placement": {key: str(value) for key, value in placement.items()},
+        })
+
     @transaction.atomic
     def post(self, request):
         user = request.user
@@ -199,12 +227,23 @@ class ProfileSetupView(APIView):
         requested_role = data.get("role", user.role)
         if requested_role != user.role:
             return Response({"detail": "Roles are assigned by an administrator."}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            campus = Campus.objects.get(pk=data.get("campus"))
-            school = School.objects.get(pk=data.get("school"), campus=campus)
-            department = Department.objects.get(pk=data.get("department"), school=school)
-        except (Campus.DoesNotExist, School.DoesNotExist, Department.DoesNotExist, TypeError, ValueError):
-            return Response({"detail": "Invalid campus, school, or department hierarchy."}, status=status.HTTP_400_BAD_REQUEST)
+        entry = roster.entry_for_email(user.email) if user.role == user.Role.STUDENT else None
+        if user.role == user.Role.STUDENT:
+            # A student's identity and placement come from the admission roster, never from the form.
+            if entry is None and not (user.register_no and user.section_id):
+                return Response({"detail": roster.NOT_LISTED_MESSAGE}, status=status.HTTP_403_FORBIDDEN)
+            if entry is not None:
+                taken = get_user_model().all_objects.filter(register_no__iexact=entry.register_no).exclude(pk=user.pk)
+                if taken.exists():
+                    return Response({"detail": "This register number is already linked to another account."}, status=status.HTTP_409_CONFLICT)
+            campus, school, department = user.campus, user.school, user.department
+        else:
+            try:
+                campus = Campus.objects.get(pk=data.get("campus"))
+                school = School.objects.get(pk=data.get("school"), campus=campus)
+                department = Department.objects.get(pk=data.get("department"), school=school)
+            except (Campus.DoesNotExist, School.DoesNotExist, Department.DoesNotExist, TypeError, ValueError):
+                return Response({"detail": "Invalid campus, school, or department hierarchy."}, status=status.HTTP_400_BAD_REQUEST)
 
         password = data.get("password", "")
         if not password:
@@ -217,19 +256,13 @@ class ProfileSetupView(APIView):
         for field in ("first_name", "last_name", "phone_number"):
             if field in data:
                 setattr(user, field, str(data[field] or "").strip())
-        for field in ("register_no", "emp_no"):
-            if field in data:
-                setattr(user, field, _clean_identifier(data[field]))
+        if user.role == user.Role.TEACHER and "emp_no" in data:
+            user.emp_no = _clean_identifier(data["emp_no"])
         user.set_password(password)
 
         if user.role == user.Role.STUDENT:
-            try:
-                program = Program.objects.get(pk=data.get("program"), department=department)
-                batch = Batch.objects.get(pk=data.get("batch"), program=program)
-                section = Section.objects.get(pk=data.get("section"), batch=batch)
-            except (Program.DoesNotExist, Batch.DoesNotExist, Section.DoesNotExist, TypeError, ValueError):
-                return Response({"detail": "Invalid student program, batch, or section hierarchy."}, status=status.HTTP_400_BAD_REQUEST)
-            user.program, user.batch, user.section = program, batch, section
+            if entry is not None:
+                roster.apply_entry_to_user(user, entry)
         elif user.role == user.Role.TEACHER:
             user.program = user.batch = user.section = None
         user.is_profile_complete = True
