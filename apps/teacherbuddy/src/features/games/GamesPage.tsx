@@ -171,7 +171,6 @@ export const GamesPage: React.FC = () => {
     // Default to Chain Answer monitoring
     return (
       <GameMonitoringPage
-        gameId={monitoringGame.gameId as number}
         sessionId={monitoringGame.sessionId}
         onBack={() => {
           setMonitoringGame(null);

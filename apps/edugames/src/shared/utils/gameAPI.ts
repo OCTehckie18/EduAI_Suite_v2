@@ -1,381 +1,99 @@
-// API service for Chain Answer Game backend integration
+// Student-side API for the Chain Answer game. Games are always addressed by their session id (for
+// example "game_a1b2c3d4"); the server decides who the player is from the login, so no name or
+// student id is ever sent.
 import { API_BASE_URL } from "./apiConfig";
 export { API_BASE_URL } from "./apiConfig";
 
-export interface GamePlayer {
-  student_id: string | number;
-  name?: string;
-}
-
-export interface ChainAnswerGameConfig {
+export interface ChainPlayer {
+  id: number;
+  student_id: number | null;
   name: string;
-  chain_variation: string;
-  category?: string;
-  difficulty_level: string;
-  language: string;
-  subject?: string;
-  starting_word: string;
-  time_per_turn: number;
-  max_words?: number;
-  penalty_on_invalid: boolean;
-  penalty_type?: string;
-  players: GamePlayer[];
-  questions?: { question_text: string }[];
+  join_order: number;
+  score: number;
+  words_submitted: number;
+  words_valid: number;
+  status: string;
 }
 
+export interface ChainWord {
+  id: number;
+  word: string;
+  submitted_by: string | null;
+  submitted_at: string;
+  is_valid: boolean;
+  position: number | null;
+  validation_reason: string | null;
+}
+
+export type GameStatus = "setup" | "active" | "paused" | "completed";
+
+/** The game exactly as the server sends it. Turn, timer and chain are worked out there. */
 export interface GameResponse {
   id: number;
   session_id: string;
   name: string;
-  chain_variation: string;
-  difficulty_level: string;
-  subject?: string;
-  ai_suggestions?: string;
-  word_suggestions?: string;
-  status: string;
+  chain_variation: "standard" | "compound" | "ladder" | "category";
+  category?: string | null;
+  subject?: string | null;
+  status: GameStatus;
   starting_word: string;
-  players: any[];
-  words: any[];
-  chain?: any[];
-  currentPlayerIndex?: number;
-  timer?: number;
-  errorMessage?: string;
-  questions?: { id: number; question_text: string; order: number }[];
-  current_question_index?: number;
+  time_per_turn: number;
+  max_words?: number | null;
+  penalty_on_invalid: boolean;
+  players: ChainPlayer[];
+  words: ChainWord[];
+  chain: ChainWord[];
+  current_player_id: number | null;
+  current_player_index: number | null;
+  /** Seconds left on the current turn when the snapshot was made (null when nothing is running). */
+  time_left: number | null;
+  server_time: string;
 }
 
-// OllamaStatus removed — GROQ is the sole LLM provider now
-
-export interface WordEngineStatus {
-  groq_available: boolean; // kept for backward compat — always true now
-  service: string;
-  message: string;
+/** A failed request, carrying the server's message so it can be shown to the student. */
+export class GameRequestError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
 }
 
-export interface Student {
-  id: number;
-  name: string;
-  email: string;
-  registration_number: string;
-  student_class: string;
-  department: string;
-  course_id: number;
-  attendance: number;
-  avg_score: number;
-}
+const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  const response = await fetch(`${API_BASE_URL}/games${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new GameRequestError(body.detail || body.error?.message || "The request failed.", response.status);
+  }
+  return body as T;
+};
 
 class ChainAnswerGameAPI {
-  private baseUrl: string;
-  private studentUrl: string;
-
-  constructor() {
-    this.baseUrl = `${API_BASE_URL}/games`;
-    this.studentUrl = `${API_BASE_URL}/students`;
+  /** The games this student has joined. */
+  listMyGames(): Promise<GameResponse[]> {
+    return request<GameResponse[]>("/chain-answer");
   }
 
-  /**
-   * Get active students for a course
-   */
-  async getActiveStudents(courseId: number): Promise<Student[]> {
-    try {
-      const response = await fetch(`${this.studentUrl}/${courseId}/active`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch students: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching active students:", error);
-      throw error;
-    }
+  getGame(sessionId: string): Promise<GameResponse> {
+    return request<GameResponse>(`/chain-answer/${encodeURIComponent(sessionId)}`);
   }
 
-  /**
-   * Create a new Chain Answer game
-   */
-  async createGame(config: ChainAnswerGameConfig): Promise<GameResponse> {
-    try {
-      const response = await fetch(`${this.baseUrl}/chain-answer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(config),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to create game: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error creating game:", error);
-      throw error;
-    }
+  joinGame(sessionId: string): Promise<ChainPlayer> {
+    return request<ChainPlayer>(`/chain-answer/${encodeURIComponent(sessionId)}/join`, { method: "POST", body: "{}" });
   }
 
-  /**
-   * Get all Chain Answer games
-   */
-  async getAllGames(
-    status?: string,
-    skip: number = 0,
-    limit: number = 100,
-  ): Promise<GameResponse[]> {
-    try {
-      const params = new URLSearchParams({
-        skip: String(skip),
-        limit: String(limit),
-      });
-
-      if (status) {
-        params.append("status_filter", status);
-      }
-
-      const response = await fetch(
-        `${this.baseUrl}/chain-answer?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch games: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching games:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get a specific game by ID
-   */
-  async getGameById(gameId: number): Promise<GameResponse> {
-    try {
-      const response = await fetch(`${this.baseUrl}/chain-answer/${gameId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch game: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching game:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get a specific game by session ID
-   */
-  async getGameBySessionId(sessionId: string): Promise<GameResponse> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/chain-answer/session/${sessionId}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch game: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching game:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Start a game
-   */
-  async startGame(gameId: number): Promise<GameResponse> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/chain-answer/${gameId}/start`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to start game: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error starting game:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Submit a word to the game
-   */
-  async submitWord(
+  /** Used only when the live connection is down. The word is checked and scored on the server. */
+  submitWord(
     sessionId: string,
     word: string,
-    submittedBy: string,
-    isValid: boolean = true,
-    validationReason?: string,
-  ): Promise<any> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/chain-answer/${sessionId}/words`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            word,
-            submitted_by: submittedBy,
-            is_valid: isValid,
-            validation_reason: validationReason,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to submit word: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error submitting word:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * End a game
-   */
-  async endGame(sessionId: string): Promise<GameResponse> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/chain-answer/${sessionId}/end`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to end game: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error ending game:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Pause a game
-   */
-  async pauseGame(gameId: number): Promise<GameResponse> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/chain-answer/${gameId}/pause`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to pause game: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error pausing game:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Resume a game
-   */
-  async resumeGame(gameId: number): Promise<GameResponse> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/chain-answer/${gameId}/resume`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to resume game: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error resuming game:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Advance to the next question
-   */
-  async nextQuestion(sessionId: string): Promise<GameResponse> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/chain-answer/${sessionId}/next-question`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to advance to next question: ${response.statusText}`,
-        );
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error advancing next question:", error);
-      throw error;
-    }
+  ): Promise<{ word: ChainWord; validation: { is_valid: boolean; message: string }; game: GameResponse }> {
+    return request(`/chain-answer/${encodeURIComponent(sessionId)}/words`, {
+      method: "POST",
+      body: JSON.stringify({ word }),
+    });
   }
 }
 

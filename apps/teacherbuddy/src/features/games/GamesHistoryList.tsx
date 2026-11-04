@@ -25,6 +25,7 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
   const [sessions, setSessions] = useState<GameSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
 
   const fetchSessions = async () => {
     setLoading(true);
@@ -59,7 +60,7 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
           const caData = await caRes.json();
           caData.forEach((game: any) => {
             results.push({
-              id: game.id,
+              id: game.session_id, // chain games are opened and deleted by their session id
               type: "chain-answer",
               title: game.name || "Chain Answer Game",
               status: game.status,
@@ -138,13 +139,15 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
 
       const res = await fetch(endpoint, { method: "DELETE", headers: authHeaders() });
       if (res.ok) {
+        setNotice("");
         setSessions((prev) => prev.filter((s) => s.id !== id || s.type !== type));
       } else {
-        alert("Failed to delete.");
+        const body = await res.json().catch(() => ({}));
+        setNotice(body.detail || "Could not delete that item.");
       }
     } catch (err) {
       console.error(err);
-      alert("Error deleting.");
+      setNotice("Could not delete that item. Check your connection.");
     }
   };
 
@@ -186,6 +189,7 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
 
   return (
     <div className="space-y-4">
+      {notice && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">{notice}</p>}
       {sessions.map((session, idx) => (
         <motion.div
           initial={{ opacity: 0, y: 10 }}

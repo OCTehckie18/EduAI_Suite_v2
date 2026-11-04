@@ -1,233 +1,102 @@
-import React, { useState } from "react";
-import { GlassCard } from "../../shared/components/GlassCard";
-import { ChainGameBoard } from "./ChainGameBoard";
-import { gameAPI } from "../../shared/utils/gameAPI";
-import {
-  createChainAnswerPlayerId,
-  saveChainAnswerPlayerSession,
-} from "./chainAnswerPlayerSession";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Play, Users, Lock, Loader, Copy, CheckCircle } from "lucide-react";
+import { Loader, Play, Users } from "lucide-react";
+import { GlassCard } from "../../shared/components/GlassCard";
+import { gameAPI } from "../../shared/utils/gameAPI";
+import type { GameResponse } from "../../shared/utils/gameAPI";
 import { requestGameFullscreen } from "./fullscreen";
-import { getCurrentStudentId, getCurrentStudentKey } from "../../shared/utils/currentStudent";
 
-interface ChainAnswerGameJoinPageProps {
+interface Props {
   initialSessionId?: string;
-  onJoined?: (session: {
-    gameId: number;
-    sessionId: string;
-    playerId: string;
-    playerName: string;
-  }) => void;
+  /** Called once the server has added this student to the game. */
+  onJoined: (sessionId: string) => void;
 }
 
-export const ChainAnswerGameJoinPage: React.FC<
-  ChainAnswerGameJoinPageProps
-> = ({ initialSessionId = "", onJoined }) => {
+export const ChainAnswerGameJoinPage: React.FC<Props> = ({ initialSessionId = "", onJoined }) => {
   const [sessionId, setSessionId] = useState(initialSessionId);
-  const [playerName, setPlayerName] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [joined, setJoined] = useState(false);
-  const [gameId, setGameId] = useState<number | null>(null);
-  const [playerId, setPlayerId] = useState<string>("");
-  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [myGames, setMyGames] = useState<GameResponse[] | null>(null);
 
-  const handleJoinGame = async () => {
-    if (!sessionId.trim() || !playerName.trim()) {
-      setError("Please enter session ID and your name");
+  useEffect(() => {
+    gameAPI.listMyGames().then((games) => setMyGames(games.filter((g) => g.status !== "completed"))).catch(() => setMyGames([]));
+  }, []);
+
+  const join = async (code: string) => {
+    const wanted = code.trim();
+    if (!wanted) {
+      setError("Enter the game code from your teacher.");
       return;
     }
-
     requestGameFullscreen();
-    setIsLoading(true);
-    setError(null);
-
+    setBusy(true);
+    setError("");
     try {
-      // Fetch game by session ID
-      const game = await gameAPI.getGameBySessionId(sessionId);
-
-      // Prefer the signed-in account, then fall back to the typed name (case-insensitive)
-      const accountId = getCurrentStudentId();
-      const studentKey = getCurrentStudentKey();
-      const registeredPlayer =
-        (studentKey !== null
-          ? game.players?.find(
-              (p: any) =>
-                String(p.student_id) === studentKey ||
-                String(p.student_id) === String(accountId),
-            )
-          : undefined) ??
-        game.players?.find(
-          (p: any) =>
-            p.name.trim().toLowerCase() === playerName.trim().toLowerCase(),
-        );
-
-      setGameId(game.id);
-
-      // Registered player's id, else the signed-in account's id; a random id is only
-      // used for guests, so results are never filed under an id that matches no one.
-      const effectivePlayerId = registeredPlayer
-        ? registeredPlayer.student_id
-        : studentKey !== null
-          ? studentKey
-          : createChainAnswerPlayerId();
-
-      setPlayerId(effectivePlayerId);
-      saveChainAnswerPlayerSession(
-        game.id,
-        sessionId,
-        playerName,
-        effectivePlayerId,
-      );
-
-      onJoined?.({
-        gameId: game.id,
-        sessionId,
-        playerId: effectivePlayerId,
-        playerName,
-      });
-
-      setJoined(true);
+      // The server adds you as yourself (your name comes from your account) and tells you if you may not play.
+      await gameAPI.joinGame(wanted);
+      onJoined(wanted);
     } catch (err) {
-      setError("Game session not found. Please check the session ID.");
-      console.error("Error joining game:", err);
+      setError(err instanceof Error ? err.message : "Could not join that game.");
     } finally {
-      setIsLoading(false);
+      setBusy(false);
     }
   };
 
-  if (joined && gameId) {
-    return (
-      <ChainGameBoard
-        gameId={gameId}
-        sessionId={sessionId}
-        playerId={playerId}
-        playerName={playerName}
-        userType="student"
-        onExit={() => setJoined(false)}
-        onGameEnded={() => setJoined(false)}
-      />
-    );
-  }
-
   return (
-    <div className="space-y-8 max-w-2xl mx-auto">
+    <div className="mx-auto max-w-2xl space-y-8">
       <div>
-        <h1
-          className="text-4xl font-bold font-display"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          Chain Answer Game
-        </h1>
-        <p style={{ color: "var(--color-text-secondary)" }} className="mt-2">
-          Join a game and test your word chain skills
-        </p>
+        <h1 className="text-4xl font-bold font-display" style={{ color: "var(--color-text-primary)" }}>Chain Answer Game</h1>
+        <p className="mt-2" style={{ color: "var(--color-text-secondary)" }}>Join a game and test your word chain skills.</p>
       </div>
 
-      <GlassCard className="p-8 space-y-6">
+      {myGames && myGames.length > 0 && (
+        <GlassCard className="space-y-3 p-6">
+          <h2 className="font-bold" style={{ color: "var(--color-text-primary)" }}>Games your teacher added you to</h2>
+          {myGames.map((game) => (
+            <div key={game.session_id} className="flex items-center justify-between gap-3 rounded-lg p-3" style={{ background: "var(--color-bg-tertiary)" }}>
+              <div>
+                <p className="font-semibold" style={{ color: "var(--color-text-primary)" }}>{game.name}</p>
+                <p className="text-xs text-slate-500">{game.status === "active" ? "In progress" : game.status === "paused" ? "Paused" : "Waiting to start"} · {game.players.length} players</p>
+              </div>
+              <button onClick={() => void join(game.session_id)} disabled={busy} className="btn btn-primary text-sm disabled:opacity-50">Join</button>
+            </div>
+          ))}
+        </GlassCard>
+      )}
+
+      <GlassCard className="space-y-5 p-8">
         <div>
-          <label
-            className="block text-sm font-semibold mb-2"
-            style={{ color: "var(--color-text-primary)" }}
-          >
-            Game Session ID
-          </label>
+          <label className="mb-2 block text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>Game code</label>
           <input
             type="text"
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value)}
-            readOnly={Boolean(initialSessionId)}
-            className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white text-gray-900 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            placeholder="e.g., game_a1b2c3d4"
+            onKeyDown={(e) => e.key === "Enter" && void join(sessionId)}
+            className="form-input w-full"
+            placeholder="e.g. game_a1b2c3d4"
+            autoComplete="off"
           />
-          <p
-            style={{ color: "var(--color-text-secondary)" }}
-            className="text-xs mt-2"
-          >
-            {initialSessionId
-              ? "Using the session linked to this game entry."
-              : "Ask your teacher for the session ID"}
-          </p>
-        </div>
-
-        <div>
-          <label
-            className="block text-sm font-semibold mb-2"
-            style={{ color: "var(--color-text-primary)" }}
-          >
-            Your Name
-          </label>
-          <input
-            type="text"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleJoinGame()}
-            className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white text-gray-900 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            placeholder="Enter your name"
-          />
+          <p className="mt-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>Your teacher shows this code on their screen. You play as yourself, so there is no name to type.</p>
         </div>
 
         {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-4 bg-red-500/20 border border-red-500 rounded-lg"
-          >
-            <p
-              style={{ color: "var(--color-error)" }}
-              className="font-semibold"
-            >
-              {error}
-            </p>
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-red-200 bg-red-50 p-4" role="alert">
+            <p className="font-semibold text-red-700">{error}</p>
           </motion.div>
         )}
 
-        <motion.button
-          whileHover={!isLoading ? { scale: 1.02 } : {}}
-          whileTap={!isLoading ? { scale: 0.98 } : {}}
-          onClick={handleJoinGame}
-          disabled={isLoading || !sessionId.trim() || !playerName.trim()}
-          className="w-full px-6 py-4 rounded-xl text-white font-bold text-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-          style={{
-            background:
-              isLoading || !sessionId.trim() || !playerName.trim()
-                ? "#9ca3af"
-                : "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
-          }}
-        >
-          {isLoading ? (
-            <>
-              <Loader size={20} className="animate-spin" />
-              Joining Game...
-            </>
-          ) : (
-            <>
-              <Play size={20} />
-              Join Game
-            </>
-          )}
-        </motion.button>
+        <button onClick={() => void join(sessionId)} disabled={busy || !sessionId.trim()} className="btn btn-primary flex w-full items-center justify-center gap-2 py-3 text-lg disabled:opacity-50">
+          {busy ? <><Loader size={20} className="animate-spin" /> Joining...</> : <><Play size={20} /> Join game</>}
+        </button>
       </GlassCard>
 
-      <GlassCard className="p-6 bg-blue-500/10 border-blue-200 dark:border-blue-700">
-        <h3
-          className="font-bold mb-3 flex items-center gap-2"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          <Users size={18} />
-          How to Play
-        </h3>
-        <ul
-          className="space-y-2 text-sm"
-          style={{ color: "var(--color-text-secondary)" }}
-        >
-          <li> Get the session ID from your teacher</li>
-          <li> Enter your name and join the game</li>
-          <li> When the game starts, take turns submitting words</li>
-          <li> Each word must follow the game's chain rule</li>
-          <li> Earn points for valid words and speed</li>
+      <GlassCard className="space-y-2 p-6">
+        <h3 className="flex items-center gap-2 font-bold" style={{ color: "var(--color-text-primary)" }}><Users size={18} /> How to play</h3>
+        <ul className="space-y-1.5 text-sm" style={{ color: "var(--color-text-secondary)" }}>
+          <li>• Join with the code, then wait for the teacher to start.</li>
+          <li>• Players take turns. When it is your turn, type a word that follows the game's rule.</li>
+          <li>• A valid word scores 10 points. A rejected word does not change the chain and you can try again until your time runs out.</li>
+          <li>• Leaving full screen or the game screen does not remove you; you can come back with the same code.</li>
         </ul>
       </GlassCard>
     </div>
