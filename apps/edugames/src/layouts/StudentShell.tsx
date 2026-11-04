@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, Gamepad2, LayoutDashboard, Clock, LogOut, ChevronRight, Menu, Calendar } from "lucide-react";
+import { BookOpen, Gamepad2, LayoutDashboard, ClipboardList, CalendarClock, LogOut, ChevronRight, Menu, Calendar } from "lucide-react";
 import logo from "../../../logo/eduai_logo.png";
 import { useAuthStore } from "../store/useAuthStore";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
@@ -11,10 +11,10 @@ import { UniversityBadge } from "../shared/university";
 const studentNavItems = [
   { icon: LayoutDashboard, label: "My Dashboard", href: "/", end: true },
   { icon: BookOpen, label: "My Classrooms", href: "/classroom" },
-  { icon: Clock, label: "Upcoming Exams", href: "/exams" },
+  { icon: ClipboardList, label: "Exams", href: "/exams" },
   { icon: Gamepad2, label: "EduGames", href: "/games" },
   { icon: Calendar, label: "My Calendar", href: "/calendar" },
-  { icon: Clock, label: "Appointments", href: "/appointments" }, // Clock or Calendar? It uses Calendar but we used it for My Calendar
+  { icon: CalendarClock, label: "Appointments", href: "/appointments" },
 ];
 
 export const StudentShell: React.FC = () => {
@@ -65,7 +65,7 @@ export const StudentShell: React.FC = () => {
           : `w-64 max-w-[85vw] ${sidebarOpen ? "translate-x-0" : "-translate-x-full shadow-none pointer-events-none"}`
       }`} style={!isDesktop && !sidebarOpen ? { boxShadow: "none" } : undefined}>
         <div className="flex items-center gap-3 px-4 py-5 border-b border-white/8">
-          <div className="shrink-0 w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-lg" onClick={() => setSidebarOpen(s => !s)}>
+          <div className="shrink-0 w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-lg cursor-pointer" role="button" tabIndex={0} aria-label={sidebarOpen ? "Collapse the menu" : "Expand the menu"} onClick={() => setSidebarOpen(s => !s)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSidebarOpen(s => !s); } }}>
             <img src={logo} alt="EduAI Suite" className="w-full h-full object-contain p-0.5" />
           </div>
           {sidebarOpen && (
@@ -78,7 +78,7 @@ export const StudentShell: React.FC = () => {
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {studentNavItems.map((item) => (
-            <NavLink key={item.href} to={item.href} end={item.end} className={({ isActive }: { isActive: boolean }) => `nav-item ${isActive ? "nav-item-active" : ""}`}>
+            <NavLink key={item.href} to={item.href} end={item.end} aria-label={item.label} title={sidebarOpen ? undefined : item.label} className={({ isActive }: { isActive: boolean }) => `nav-item ${isActive ? "nav-item-active" : ""}`}>
               {({ isActive }: { isActive: boolean }) => (
                 <>
                   <span className={`shrink-0 transition-all ${isActive ? "text-white" : "text-white/55"}`}>
@@ -105,7 +105,7 @@ export const StudentShell: React.FC = () => {
       <main className={`flex-1 min-w-0 transition-all duration-300 ${isDesktop ? (sidebarOpen ? "ml-64" : "ml-[72px]") : "ml-0"}`}>
         <header className="sticky top-0 z-30 h-[70px] flex items-center justify-between px-4 sm:px-6 gap-4" style={{ background: "var(--color-header-bg)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--color-border)" }}>
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(s => !s)} className="p-2 rounded-lg transition-colors text-slate-400 hover:text-blue-700 hover:bg-blue-50">
+            <button onClick={() => setSidebarOpen(s => !s)} aria-label={sidebarOpen ? "Close the menu" : "Open the menu"} aria-expanded={sidebarOpen} className="p-2 rounded-lg transition-colors text-slate-400 hover:text-blue-700 hover:bg-blue-50">
               <Menu size={20} />
             </button>
           </div>

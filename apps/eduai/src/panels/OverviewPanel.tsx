@@ -32,7 +32,7 @@ const describeTarget = (target?: string) => {
   return id ? `${name} #${id}` : name;
 };
 
-export function OverviewPanel({ overview, onNavigate, refreshKey }: { overview: Overview | null; onNavigate: (tab: TabKey) => void; refreshKey: number }) {
+export function OverviewPanel({ overview, loadFailed, onRetry, onNavigate, refreshKey }: { overview: Overview | null; loadFailed: boolean; onRetry: () => void; onNavigate: (tab: TabKey) => void; refreshKey: number }) {
   const [campuses, setCampuses] = useState<Campus[] | null>(null);
   const [universityName, setUniversityName] = useState<string | null>(null);
   const [rosterTotal, setRosterTotal] = useState<number | null>(null);
@@ -59,15 +59,17 @@ export function OverviewPanel({ overview, onNavigate, refreshKey }: { overview: 
 
   useEffect(() => { void load(); }, [load, refreshKey]);
 
+  // A failed load must say so, with a way to try again; a skeleton that never ends looks like a slow server.
+  if (!overview && loadFailed) return <ErrorState message="The overview could not be loaded. Check that the server is running, then try again." onRetry={onRetry} />;
   if (!overview) return <PanelCard><SkeletonRows rows={6} cols={5} /></PanelCard>;
 
   const pending = overview.users.pending_teacher_approvals ?? 0;
-  const kpis: { label: string; value: number; hint: string; Icon: typeof Users; tab: TabKey; tone?: string }[] = [
+  const kpis: { label: string; value: number; hint: string; Icon: typeof Users; tab?: TabKey; tone?: string }[] = [
     { label: "Campuses", value: overview.institution.campuses, hint: "Manage campuses", Icon: Building2, tab: "campuses" },
-    { label: "Students", value: overview.users.students, hint: "Open the roster", Icon: GraduationCap, tab: "roster" },
+    { label: "Student accounts", value: overview.users.students, hint: "Signed up so far; see the roster", Icon: GraduationCap, tab: "roster" },
     { label: "Teachers", value: overview.users.teachers, hint: "View users", Icon: Users, tab: "users" },
     { label: "Awaiting approval", value: pending, hint: pending ? "Review applications" : "Nothing waiting", Icon: UserCheck, tab: "approvals", tone: pending ? "border-violet-200 bg-violet-50" : "" },
-    { label: "Classrooms", value: overview.classrooms, hint: "Created by teachers", Icon: School, tab: "users" },
+    { label: "Classrooms", value: overview.classrooms, hint: "Created by teachers", Icon: School },
   ];
 
   const steps: { done: boolean; title: string; hint: string; tab: TabKey; Icon: typeof Users }[] = [
@@ -84,13 +86,19 @@ export function OverviewPanel({ overview, onNavigate, refreshKey }: { overview: 
       {error && <ErrorState message={error} onRetry={() => void load()} />}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-        {kpis.map(({ label, value, hint, Icon, tab, tone }) => (
-          <button key={label} onClick={() => onNavigate(tab)} className={`group rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-400 sm:p-5 ${tone ?? ""}`}>
-            <div className="mb-3 flex items-center justify-between text-slate-500"><span className="text-xs font-semibold uppercase tracking-wide">{label}</span><Icon className="h-4 w-4 text-brand-blue" /></div>
-            <div className="text-3xl font-bold text-slate-900">{value}</div>
-            <div className="mt-1 flex items-center gap-1 text-xs text-slate-500 group-hover:text-slate-700">{hint}<ChevronRight className="h-3 w-3" /></div>
-          </button>
-        ))}
+        {kpis.map(({ label, value, hint, Icon, tab, tone }) => {
+          const body = (
+            <>
+              <div className="mb-3 flex items-center justify-between text-slate-500"><span className="text-xs font-semibold uppercase tracking-wide">{label}</span><Icon className="h-4 w-4 text-brand-blue" /></div>
+              <div className="text-3xl font-bold text-slate-900">{value}</div>
+              <div className="mt-1 flex items-center gap-1 text-xs text-slate-500 group-hover:text-slate-700">{hint}{tab && <ChevronRight className="h-3 w-3" />}</div>
+            </>
+          );
+          // A card only becomes a button when it leads somewhere; there is no classroom screen in this portal.
+          return tab
+            ? <button key={label} onClick={() => onNavigate(tab)} className={`group rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-400 sm:p-5 ${tone ?? ""}`}>{body}</button>
+            : <div key={label} className={`group rounded-2xl border border-slate-200 bg-white p-4 text-left sm:p-5 ${tone ?? ""}`}>{body}</div>;
+        })}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -136,7 +144,7 @@ export function OverviewPanel({ overview, onNavigate, refreshKey }: { overview: 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {campuses.map((campus) => (
               <div key={campus.id} className="rounded-xl border border-slate-200 p-4">
-                <div className="flex items-start justify-between gap-2"><div><p className="font-semibold text-slate-900">{campus.name}</p><p className="text-xs text-slate-500">{campus.code} · {campus.city}</p></div><Badge tone="green">Active</Badge></div>
+                <div className="flex items-start justify-between gap-2"><div><p className="font-semibold text-slate-900">{campus.name}</p><p className="text-xs text-slate-500">{campus.code} · {campus.city}</p></div><Badge tone={campus.is_active ? "green" : "stone"}>{campus.is_active ? "Active" : "Inactive"}</Badge></div>
                 <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
                   {[["Schools", campus.schools], ["Depts", campus.departments], ["Students", campus.students]].map(([label, value]) => (
                     <div key={label as string} className="rounded-lg bg-slate-100 py-2"><dt className="text-slate-500">{label}</dt><dd className="text-base font-bold text-slate-900">{value}</dd></div>

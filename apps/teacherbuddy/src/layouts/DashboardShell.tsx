@@ -314,6 +314,8 @@ export const DashboardShell: React.FC = () => {
         <div className="flex items-center gap-4">
           <button
             onClick={() => setSidebarOpen((s) => !s)}
+            aria-label={sidebarOpen ? "Close the menu" : "Open the menu"}
+            aria-expanded={sidebarOpen}
             className="p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
             style={{
               color: "var(--color-text-secondary)",
@@ -331,7 +333,11 @@ export const DashboardShell: React.FC = () => {
 
           <div
             className="flex items-center gap-3 cursor-pointer select-none"
+            role="link"
+            tabIndex={0}
+            aria-label="Go to the dashboard"
             onClick={() => navigate("/")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/"); } }}
           >
             <div className="w-8 h-8 rounded shrink-0 bg-white shadow-sm flex items-center justify-center p-0.5">
               <img
@@ -369,15 +375,13 @@ export const DashboardShell: React.FC = () => {
               ref={searchRef}
               className="w-full pl-10 pr-16 py-2.5 text-sm transition-all focus:outline-none rounded-xl"
               placeholder="Ask anything (Ctrl+K)..."
+              aria-label="Ask the assistant a question"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setSearchFocused(true);
               }}
-              onFocus={() => {
-                setSearchFocused(true);
-                if (location.pathname !== "/chat") navigate("/chat");
-              }}
+              onFocus={() => setSearchFocused(true)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleAskAnything();
                 if (e.key === "Escape") {
@@ -460,6 +464,9 @@ export const DashboardShell: React.FC = () => {
           <div className="relative">
             <button
               onClick={handleNotifToggle}
+              aria-label="Notifications"
+              aria-haspopup="true"
+              aria-expanded={notifOpen}
               className="p-2 rounded-full transition-colors relative"
               style={{
                 color: notifOpen
