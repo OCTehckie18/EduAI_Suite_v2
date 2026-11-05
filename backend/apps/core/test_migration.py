@@ -289,7 +289,6 @@ class MigrationSmokeTestCase(TestCase):
     def test_trello(self):
         res = self.client.post("/trello/board", {
             "name": "Sprint 1 Board",
-            "creator_email": self.teacher.email,
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         board_id = res.json()["id"]

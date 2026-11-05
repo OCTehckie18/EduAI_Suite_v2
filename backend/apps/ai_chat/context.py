@@ -13,7 +13,7 @@ from apps.games.models import ChainAnswerGame
 from apps.lessons.models import Lesson
 from apps.reports.models import Report
 from apps.slido.models import PresentationAssignment, SlidoPoll, SlidoSession
-from apps.trello_app.models import TrelloBoard, TrelloCard
+from apps.trello_app.models import Board, BoardCard, BoardMember
 from apps.quizzes.models import Quiz
 
 
@@ -273,24 +273,21 @@ def _build_platform_context(user):
         for game in games
     ] or ["- No games found."])
 
-    board_candidates = list(TrelloBoard.objects.all()[:MAX_ITEMS])
-    if not _is_admin(user):
-        board_candidates = [
-            board for board in board_candidates
-            if board.creator_email.casefold() == user.email.casefold()
-            or any(str(member).casefold() in {user.email.casefold(), user.full_name.casefold()} for member in (board.members or []))
-        ]
-    board_ids = [board.id for board in board_candidates]
-    cards = TrelloCard.objects.filter(board_id__in=board_ids)[:MAX_ITEMS]
+    boards = Board.objects.all() if _is_admin(user) else Board.objects.filter(
+        memberships__user=user, memberships__status=BoardMember.Status.ACTIVE
+    ).distinct()
+    board_candidates = list(boards.prefetch_related("memberships")[:MAX_ITEMS])
+    board_ids = [board.pk for board in board_candidates]
+    cards = BoardCard.objects.filter(column__board_id__in=board_ids).select_related("column")[:MAX_ITEMS]
     context.append("\nTRELLO WORKSPACES")
     context.extend([
         "- "
-        f"board {board.name or board.id}; starred {board.starred}; members {len(board.members or [])}"
+        f"board {board.name}; members {sum(1 for m in board.memberships.all() if m.status == 'ACTIVE')}"
         for board in board_candidates
     ] or ["- No Trello boards found."])
     context.extend([
         "- Card: "
-        f"{card.title or 'Untitled'}; board {card.board_id}; due {card.due_date or 'not set'}; "
+        f"{card.title or 'Untitled'}; board {card.column.board_id}; due {card.due_date or 'not set'}; "
         f"description {_clip(card.description) or 'none'}"
         for card in cards
     ])

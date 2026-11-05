@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { useTrelloStore, BOARD_BACKGROUNDS } from '../../../store/useTrelloStore';
-import { useAuthStore } from '../../../store/useAuthStore';
 
 interface Props {
   onClose: () => void;
@@ -10,14 +9,19 @@ interface Props {
 
 export const CreateBoardModal: React.FC<Props> = ({ onClose, onCreated }) => {
   const { addBoard } = useTrelloStore();
-  const user = useAuthStore((s) => s.user);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [name, setName] = useState('');
   const [bg, setBg] = useState(BOARD_BACKGROUNDS[0].value);
 
-  const handleCreate = () => {
-    if (!name.trim()) return;
-    const id = addBoard(name.trim(), bg, user?.email || 'guest@eduai.com');
-    onCreated(id);
+  const handleCreate = async () => {
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    setError('');
+    const id = await addBoard(name.trim(), bg);
+    setSaving(false);
+    if (id) onCreated(id);
+    else setError('The board could not be created. Try again.');
   };
 
   return (
@@ -85,13 +89,14 @@ export const CreateBoardModal: React.FC<Props> = ({ onClose, onCreated }) => {
             </div>
           </div>
 
+          {error && <p role="alert" className="text-xs text-red-500 mb-3 font-medium">{error}</p>}
           <button
             onClick={handleCreate}
-            disabled={!name.trim()}
+            disabled={!name.trim() || saving}
             className="btn btn-primary w-full"
-            style={{ opacity: name.trim() ? 1 : 0.5 }}
+            style={{ opacity: name.trim() && !saving ? 1 : 0.5 }}
           >
-            Create Board
+            {saving ? 'Creating...' : 'Create Board'}
           </button>
         </div>
       </div>

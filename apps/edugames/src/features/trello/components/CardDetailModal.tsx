@@ -12,7 +12,7 @@ interface Props {
 }
 
 export const CardDetailModal: React.FC<Props> = ({ card, columnTitle, onClose }) => {
-  const { updateCard, deleteCard, addChecklistItem, toggleChecklistItem, deleteChecklistItem, columns } =
+  const { updateCard, deleteCard, addChecklistItem, toggleChecklistItem, deleteChecklistItem, columns, cards, moveCard } =
     useTrelloStore();
 
   const [title, setTitle] = useState(card.title);
@@ -72,7 +72,11 @@ export const CardDetailModal: React.FC<Props> = ({ card, columnTitle, onClose })
   };
 
   const handleMoveCard = (toColumnId: string) => {
-    updateCard(card.id, { columnId: toColumnId });
+    if (toColumnId !== card.columnId) {
+      const here = cards.filter((c) => c.columnId === card.columnId).sort((a, b) => a.sequence - b.sequence);
+      const there = cards.filter((c) => c.columnId === toColumnId).length;
+      moveCard(card.id, card.columnId, toColumnId, here.findIndex((c) => c.id === card.id), there);
+    }
     setShowMoveMenu(false);
   };
 

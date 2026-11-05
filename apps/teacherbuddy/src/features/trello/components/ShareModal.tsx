@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Users, Copy, CheckCircle2, UserPlus, UserMinus, ShieldAlert } from 'lucide-react';
 import { useTrelloStore, type TrelloBoard } from '../../../store/useTrelloStore';
-import { useAuthStore } from '../../../store/useAuthStore';
-
+import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from "../../../shared/utils/apiConfig";
 interface Props {
   board: TrelloBoard;
@@ -10,50 +9,57 @@ interface Props {
 }
 
 export const ShareModal: React.FC<Props> = ({ board, onClose }) => {
-  const { removeMember, addMemberDirectly, syncWithBackend } = useTrelloStore();
-  const user = useAuthStore((s) => s.user);
+  const { removeMember, addMemberDirectly, leaveBoard } = useTrelloStore();
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [error, setError] = useState('');
+  const [suggestions, setSuggestions] = useState<{ email: string; name: string; role: string }[]>([]);
+  const isCreator = board.isOwner;
 
-  const userEmail = user?.email || 'guest@eduai.com';
-  const isCreator = userEmail === board.creatorEmail;
-
-  const handleCopyId = () => {
-    navigator.clipboard.writeText(board.id);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(board.joinCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('Could not copy. Select the code and copy it by hand.');
+    }
   };
 
   const handleInvite = async (email?: string) => {
     const targetEmail = email || inviteEmail.trim().toLowerCase();
     if (!targetEmail || !targetEmail.includes('@')) return;
-    await addMemberDirectly(board.id, targetEmail);
-    setInviteEmail('');
+    setError('');
+    const result = await addMemberDirectly(board.id, targetEmail);
+    if (result.ok) setInviteEmail('');
+    else setError(result.error || 'Could not add that person.');
   };
 
+  const handleRemove = async (email: string) => {
+    setError('');
+    const result = await removeMember(board.id, email);
+    if (!result.ok) setError(result.error || 'Could not remove that person.');
+  };
+
+  const handleLeave = async () => {
+    if (!window.confirm('Leave this board? You will need the owner to approve you again to come back.')) return;
+    if (await leaveBoard(board.id)) {
+      onClose();
+      navigate('/games/trello');
+    }
+  };
+
+  // People from your own classrooms: the only ones an owner can add directly.
   useEffect(() => {
-    syncWithBackend(userEmail);
-    
-    // Fetch suggested members
-    const fetchSuggestions = async () => {
-      setLoadingSuggestions(true);
-      try {
-        const role = 'teacher'; // TeacherBuddy is always teacher role
-        const res = await fetch(`${API_BASE_URL}/trello/suggested-members?email=${userEmail}&role=${role}`);
-        if (res.ok) {
-          const data = await res.json();
-          setSuggestions(data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch suggestions:', err);
-      } finally {
-        setLoadingSuggestions(false);
-      }
-    };
-    fetchSuggestions();
-  }, [board.id, userEmail]);
+    if (!isCreator) return;
+    let cancelled = false;
+    fetch(`${API_BASE_URL}/trello/suggested-members`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => { if (!cancelled) setSuggestions(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setSuggestions([]); });
+    return () => { cancelled = true; };
+  }, [board.id, isCreator]);
 
   return (
     <div className="trello-modal-overlay" onClick={onClose}>
@@ -74,14 +80,14 @@ export const ShareModal: React.FC<Props> = ({ board, onClose }) => {
               Shareable Board Code
             </h3>
             <p className="text-[11px] mb-3" style={{ color: 'var(--color-text-muted, #94a3b8)' }}>
-              Share this code with others so they can join this board
+              Anyone with this code can ask to join. You decide who gets in.
             </p>
             <div className="flex items-center gap-2">
               <div className="flex-1 bg-white rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm font-bold tracking-wider select-all" style={{ color: 'var(--color-text-primary)' }}>
-                {board.id}
+                {board.joinCode}
               </div>
               <button
-                onClick={handleCopyId}
+                onClick={handleCopyCode}
                 className="btn btn-primary py-2 px-4 whitespace-nowrap flex items-center gap-1.5"
               >
                 {copied ? <CheckCircle2 size={15} /> : <Copy size={15} />}
@@ -116,13 +122,15 @@ export const ShareModal: React.FC<Props> = ({ board, onClose }) => {
                 </button>
               </div>
 
+              {error && <p role="alert" className="mt-2 text-xs font-medium text-red-600">{error}</p>}
+
               {/* Suggestions list */}
               {suggestions.length > 0 && (
                 <div className="mt-4">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Suggested Connections</p>
                   <div className="flex flex-wrap gap-2">
                     {suggestions
-                      .filter(s => s.email !== userEmail && !board.members?.includes(s.email))
+                      .filter(s => s.email !== board.creatorEmail && !board.members.includes(s.email))
                       .slice(0, 5)
                       .map(s => (
                         <button
@@ -144,7 +152,7 @@ export const ShareModal: React.FC<Props> = ({ board, onClose }) => {
           <div>
             <h3 className="text-sm font-bold flex items-center gap-2 mb-3" style={{ color: 'var(--color-text-primary)' }}>
               <Users size={16} className="text-blue-500" />
-              Members ({1 + (board.members?.length || 0)})
+              Members ({1 + board.members.length})
             </h3>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               <div className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-100 rounded-lg">
@@ -172,7 +180,7 @@ export const ShareModal: React.FC<Props> = ({ board, onClose }) => {
                   </div>
                   {isCreator && (
                     <button
-                      onClick={() => removeMember(board.id, email)}
+                      onClick={() => handleRemove(email)}
                       className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
                       title="Remove Member"
                     >
@@ -184,6 +192,12 @@ export const ShareModal: React.FC<Props> = ({ board, onClose }) => {
             </div>
           </div>
 
+          {!isCreator && (
+            <div className="mt-6 flex justify-end">
+              {error && <p role="alert" className="mr-auto text-xs font-medium text-red-600">{error}</p>}
+              <button onClick={handleLeave} className="btn bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 text-sm">Leave board</button>
+            </div>
+          )}
         </div>
       </div>
     </div>

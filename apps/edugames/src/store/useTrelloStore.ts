@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { useAuthStore } from './useAuthStore';
-
 import { API_BASE_URL } from "../shared/utils/apiConfig";
-// ─── Types ───────────────────────────────────────────────────
+
+// The server is the source of truth. This store only holds what the last
+// response said, plus optimistic moves that are undone by reloading on failure.
+
 export interface TrelloLabel {
   id: string;
   text: string;
@@ -43,379 +43,323 @@ export interface TrelloBoard {
   createdAt: string;
   starred: boolean;
   creatorEmail: string;
+  creatorName: string;
+  isOwner: boolean;
+  joinCode: string;
   members: string[];
+  memberDetails: { email: string; name: string }[];
   joinRequests: string[];
+}
+
+export interface Result {
+  ok: boolean;
+  error?: string;
 }
 
 interface TrelloState {
   boards: TrelloBoard[];
   columns: TrelloColumn[];
   cards: TrelloCard[];
+  loaded: boolean;
+  error: string | null;
 
-  addBoard: (name: string, background: string, creatorEmail: string) => string;
-  updateBoard: (id: string, updates: Partial<TrelloBoard>) => void;
+  load: (background?: boolean) => Promise<void>;
+  clear: () => void;
+  dismissError: () => void;
+
+  addBoard: (name: string, background: string) => Promise<string | null>;
+  updateBoard: (id: string, updates: Partial<Pick<TrelloBoard, 'name' | 'background'>>) => Promise<void>;
   deleteBoard: (id: string) => Promise<boolean>;
-  toggleStar: (id: string) => void;
-  requestJoinBoard: (boardId: string, email: string) => void;
-  approveJoinRequest: (boardId: string, email: string) => void;
-  rejectJoinRequest: (boardId: string, email: string) => void;
-  removeMember: (boardId: string, email: string) => void;
-  addMemberDirectly: (boardId: string, email: string) => void;
+  toggleStar: (id: string) => Promise<void>;
+  requestJoinBoard: (code: string) => Promise<Result>;
+  approveJoinRequest: (boardId: string, email: string) => Promise<Result>;
+  rejectJoinRequest: (boardId: string, email: string) => Promise<Result>;
+  removeMember: (boardId: string, email: string) => Promise<Result>;
+  addMemberDirectly: (boardId: string, email: string) => Promise<Result>;
+  leaveBoard: (boardId: string) => Promise<boolean>;
 
-  addColumn: (boardId: string, title: string) => void;
-  updateColumn: (id: string, title: string) => void;
-  deleteColumn: (id: string) => void;
-  reorderColumns: (boardId: string, sourceIdx: number, destIdx: number) => void;
+  addColumn: (boardId: string, title: string) => Promise<void>;
+  updateColumn: (id: string, title: string) => Promise<void>;
+  deleteColumn: (id: string) => Promise<void>;
+  reorderColumns: (boardId: string, sourceIdx: number, destIdx: number) => Promise<void>;
 
-  addCard: (columnId: string, boardId: string, title: string) => void;
-  updateCard: (id: string, updates: Partial<TrelloCard>) => void;
-  deleteCard: (id: string) => void;
-  moveCard: (cardId: string, srcColId: string, destColId: string, srcIdx: number, destIdx: number) => void;
+  addCard: (columnId: string, boardId: string, title: string) => Promise<void>;
+  updateCard: (id: string, updates: Partial<Pick<TrelloCard, 'title' | 'description' | 'labels' | 'dueDate' | 'checklist'>>) => Promise<void>;
+  deleteCard: (id: string) => Promise<void>;
+  moveCard: (cardId: string, srcColId: string, destColId: string, srcIdx: number, destIdx: number) => Promise<void>;
 
-  addChecklistItem: (cardId: string, text: string) => void;
-  toggleChecklistItem: (cardId: string, itemId: string) => void;
-  deleteChecklistItem: (cardId: string, itemId: string) => void;
-  syncWithBackend: (email: string) => Promise<void>;
-  pullFromBackend: (email: string) => Promise<void>;
+  addChecklistItem: (cardId: string, text: string) => Promise<void>;
+  toggleChecklistItem: (cardId: string, itemId: string) => Promise<void>;
+  deleteChecklistItem: (cardId: string, itemId: string) => Promise<void>;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
+// ── server shape → store shape ────────────────────────────────
+const toBoard = (b: any): TrelloBoard => ({
+  id: b.id,
+  name: b.name,
+  background: b.background,
+  createdAt: b.created_at,
+  starred: !!b.starred,
+  creatorEmail: b.owner_email,
+  creatorName: b.owner_name,
+  isOwner: !!b.is_owner,
+  joinCode: b.join_code,
+  members: b.members || [],
+  memberDetails: b.member_details || [],
+  joinRequests: b.join_requests || [],
+});
+const toColumn = (c: any): TrelloColumn => ({ id: c.id, boardId: c.board_id, title: c.title, sequence: c.sequence });
+const toCard = (c: any): TrelloCard => ({
+  id: c.id,
+  columnId: c.column_id,
+  boardId: c.board_id,
+  title: c.title,
+  description: c.description || '',
+  labels: c.labels || [],
+  dueDate: c.due_date,
+  checklist: c.checklist || [],
+  sequence: c.sequence,
+  createdAt: c.created_at,
+});
+
+const NETWORK_MESSAGE = 'Could not reach the server. Check your connection and try again.';
+
+let inflight = 0;
+
+/** One request. Never throws: a failure comes back as a message the page can show. */
+async function request(method: string, path: string, body?: unknown): Promise<{ ok: boolean; data: any; error?: string }> {
+  inflight += 1;
+  try {
+    const res = await fetch(`${API_BASE_URL}/trello/${path}`, {
+      method,
+      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const data = res.status === 204 ? null : await res.json().catch(() => null);
+    if (!res.ok) {
+      return { ok: false, data, error: data?.detail || data?.error?.message || `Something went wrong (${res.status}).` };
+    }
+    return { ok: true, data };
+  } catch {
+    return { ok: false, data: null, error: NETWORK_MESSAGE };
+  } finally {
+    inflight -= 1;
+  }
+}
+
+const bySequence = <T extends { sequence: number }>(a: T, b: T) => a.sequence - b.sequence;
+
 export const BOARD_BACKGROUNDS = [
-  { name: 'Royal Blue',   value: 'linear-gradient(135deg, #264796 0%, #3460c4 100%)' },
-  { name: 'Navy',          value: 'linear-gradient(135deg, #1c3570 0%, #264796 100%)' },
-  { name: 'Royal Gold',   value: 'linear-gradient(135deg, #d0ae61 0%, #e6c97a 100%)' },
-  { name: 'Royal Mix',     value: 'linear-gradient(135deg, #264796 0%, #1c3570 60%, #b8943e 100%)' },
-  { name: 'Ocean',         value: 'linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%)' },
-  { name: 'Emerald',       value: 'linear-gradient(135deg, #059669 0%, #34d399 100%)' },
-  { name: 'Violet',        value: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' },
-  { name: 'Sunset',        value: 'linear-gradient(135deg, #dc2626 0%, #f97316 100%)' },
-  { name: 'Slate',         value: 'linear-gradient(135deg, #334155 0%, #475569 100%)' },
+  { name: 'Royal Blue', value: 'linear-gradient(135deg, #264796 0%, #3460c4 100%)' },
+  { name: 'Navy', value: 'linear-gradient(135deg, #1c3570 0%, #264796 100%)' },
+  { name: 'Royal Gold', value: 'linear-gradient(135deg, #d0ae61 0%, #e6c97a 100%)' },
+  { name: 'Royal Mix', value: 'linear-gradient(135deg, #264796 0%, #1c3570 60%, #b8943e 100%)' },
+  { name: 'Ocean', value: 'linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%)' },
+  { name: 'Emerald', value: 'linear-gradient(135deg, #059669 0%, #34d399 100%)' },
+  { name: 'Violet', value: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' },
+  { name: 'Sunset', value: 'linear-gradient(135deg, #dc2626 0%, #f97316 100%)' },
+  { name: 'Slate', value: 'linear-gradient(135deg, #334155 0%, #475569 100%)' },
 ];
 
 export const CARD_LABEL_PRESETS = [
-  { id: 'l1', text: 'Urgent',      color: '#ef4444' },
-  { id: 'l2', text: 'Feature',     color: '#22c55e' },
-  { id: 'l3', text: 'Bug',         color: '#f97316' },
-  { id: 'l4', text: 'Research',    color: '#3b82f6' },
-  { id: 'l5', text: 'Design',      color: '#a855f7' },
-  { id: 'l6', text: 'Review',      color: '#eab308' },
+  { id: 'l1', text: 'Urgent', color: '#ef4444' },
+  { id: 'l2', text: 'Feature', color: '#22c55e' },
+  { id: 'l3', text: 'Bug', color: '#f97316' },
+  { id: 'l4', text: 'Research', color: '#3b82f6' },
+  { id: 'l5', text: 'Design', color: '#a855f7' },
+  { id: 'l6', text: 'Review', color: '#eab308' },
 ];
 
-export const useTrelloStore = create<TrelloState>()(
-  persist(
-    (set, get) => ({
-      boards: [],
-      columns: [],
-      cards: [],
+// Boards used to be cached here for good; nothing is kept on this device any more.
+try { localStorage.removeItem('edugames-trello-storage'); } catch { /* storage unavailable */ }
 
-      // ── Board actions ──────────────────────────────────────
-      addBoard: (name, background, creatorEmail) => {
-        const id = uid();
-        set((s) => ({
-          boards: [
-            ...s.boards,
-            { id, name, background, createdAt: new Date().toISOString(), starred: false, creatorEmail, members: [], joinRequests: [] },
-          ],
-        }));
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-        return id;
-      },
-      updateBoard: (id, updates) => {
-        set((s) => ({ boards: s.boards.map((b) => (b.id === id ? { ...b, ...updates } : b)) }));
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
-      deleteBoard: async (id) => {
-        if (!window.confirm("Are you sure you want to delete this board? This action cannot be undone.")) return false;
-        const currentUser = useAuthStore.getState().user?.email || 'student@eduai.com';
-        
-        set((s) => ({
-          boards: s.boards.filter((b) => b.id !== id),
-          columns: s.columns.filter((c) => c.boardId !== id),
-          cards: s.cards.filter((c) => c.boardId !== id),
-        }));
+export const useTrelloStore = create<TrelloState>()((set, get) => {
+  /** Show a failure, and reload so the screen matches the server again. */
+  const fail = async (error: string | undefined) => {
+    set({ error: error || NETWORK_MESSAGE });
+    await get().load();
+  };
+  const patchCard = (id: string, fn: (c: TrelloCard) => TrelloCard) =>
+    set((s) => ({ cards: s.cards.map((c) => (c.id === id ? fn(c) : c)) }));
 
-        try {
-          const resp = await fetch(`${API_BASE_URL}/trello/board/${id}`, { method: 'DELETE' });
-          if (resp.ok) {
-            get().syncWithBackend(currentUser);
-          }
-          return true;
-        } catch (err) {
-          console.error("Failed to delete board from server", err);
-          return true;
-        }
-      },
-      toggleStar: (id) =>
-        set((s) => ({ boards: s.boards.map((b) => (b.id === id ? { ...b, starred: !b.starred } : b)) })),
+  return {
+    boards: [],
+    columns: [],
+    cards: [],
+    loaded: false,
+    error: null,
 
-      requestJoinBoard: async (boardId, email) => {
-        try {
-          const resp = await fetch(`${API_BASE_URL}/trello/board/${boardId}/join`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
-          });
-          if (resp.ok) {
-            get().syncWithBackend(email);
-          }
-        } catch (err) {
-          console.error('Failed to request join board:', err);
-        }
-      },
-
-      approveJoinRequest: async (boardId, email) => {
-        const currentUser = useAuthStore.getState().user?.email || 'student@eduai.com';
-        try {
-          const resp = await fetch(`${API_BASE_URL}/trello/board/${boardId}/approve`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
-          });
-          if (resp.ok) {
-            get().syncWithBackend(currentUser);
-          }
-        } catch (err) {
-          console.error('Failed to approve join request:', err);
-        }
-      },
-
-      rejectJoinRequest: async (boardId, email) => {
-        const currentUser = useAuthStore.getState().user?.email || 'student@eduai.com';
-        try {
-          const resp = await fetch(`${API_BASE_URL}/trello/board/${boardId}/reject`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
-          });
-          if (resp.ok) {
-            get().syncWithBackend(currentUser);
-          }
-        } catch (err) {
-          console.error('Failed to reject join request:', err);
-        }
-      },
-
-      removeMember: async (boardId, email) => {
-        const currentUser = useAuthStore.getState().user?.email || 'student@eduai.com';
-        
-        // Optimistically update local state first
-        set((s) => ({
-          boards: s.boards.map((b) => {
-            if (b.id !== boardId) return b;
-            return { ...b, members: (b.members || []).filter((e) => e !== email) };
-          }),
-        }));
-
-        try {
-          const resp = await fetch(`${API_BASE_URL}/trello/board/${boardId}/remove-member`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
-          });
-          if (resp.ok) {
-            get().syncWithBackend(currentUser);
-          }
-        } catch (err) {
-          console.error('Failed to remove member:', err);
-        }
-      },
-
-      addMemberDirectly: async (boardId, email) => {
-        const currentUser = useAuthStore.getState().user?.email || 'student@eduai.com';
-        
-        // Optimistically update local state first
-        set((s) => ({
-          boards: s.boards.map((b) => {
-            if (b.id !== boardId) return b;
-            if (b.members?.includes(email) || b.creatorEmail === email) return b;
-            return {
-              ...b,
-              members: [...(b.members || []), email],
-              joinRequests: (b.joinRequests || []).filter((e) => e !== email),
-            };
-          }),
-        }));
-
-        try {
-          const resp = await fetch(`${API_BASE_URL}/trello/board/${boardId}/add-member`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
-          });
-          if (resp.ok) {
-            get().syncWithBackend(currentUser);
-          }
-        } catch (err) {
-          console.error('Failed to add member directly:', err);
-        }
-      },
-
-      // ── Column actions ─────────────────────────────────────
-      addColumn: (boardId, title) => {
-        const cols = get().columns.filter((c) => c.boardId === boardId);
-        const maxSeq = cols.length > 0 ? Math.max(...cols.map((c) => c.sequence)) : -1;
-        set((s) => ({
-          columns: [...s.columns, { id: uid(), boardId, title, sequence: maxSeq + 1 }],
-        }));
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
-      updateColumn: (id, title) => {
-        set((s) => ({ columns: s.columns.map((c) => (c.id === id ? { ...c, title } : c)) }));
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
-      deleteColumn: (id) => {
-        set((s) => ({
-          columns: s.columns.filter((c) => c.id !== id),
-          cards: s.cards.filter((c) => c.columnId !== id),
-        }));
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
-      reorderColumns: (boardId, sourceIdx, destIdx) => {
-        set((s) => {
-          const boardCols = s.columns
-            .filter((c) => c.boardId === boardId)
-            .sort((a, b) => a.sequence - b.sequence);
-          const [moved] = boardCols.splice(sourceIdx, 1);
-          boardCols.splice(destIdx, 0, moved);
-          const reseq = boardCols.map((c, i) => ({ ...c, sequence: i }));
-          return { columns: [...s.columns.filter((c) => c.boardId !== boardId), ...reseq] };
+    load: async (background = false) => {
+      // A timed refresh must not wipe a change that is still on its way to the server.
+      if (background && inflight > 0) return;
+      const res = await request('GET', 'state');
+      if (res.ok) {
+        set({
+          boards: res.data.boards.map(toBoard),
+          columns: res.data.columns.map(toColumn),
+          cards: res.data.cards.map(toCard),
+          loaded: true,
         });
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
+      } else {
+        set({ error: res.error || NETWORK_MESSAGE, loaded: true });
+      }
+    },
+    clear: () => set({ boards: [], columns: [], cards: [], loaded: false, error: null }),
+    dismissError: () => set({ error: null }),
 
-      // ── Card actions ───────────────────────────────────────
-      addCard: (columnId, boardId, title) => {
-        const colCards = get().cards.filter((c) => c.columnId === columnId);
-        const maxSeq = colCards.length > 0 ? Math.max(...colCards.map((c) => c.sequence)) : -1;
-        set((s) => ({
-          cards: [
-            ...s.cards,
-            {
-              id: uid(),
-              columnId,
-              boardId,
-              title,
-              description: '',
-              labels: [],
-              dueDate: null,
-              checklist: [],
-              sequence: maxSeq + 1,
-              createdAt: new Date().toISOString(),
-            },
-          ],
-        }));
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
-      updateCard: (id, updates) => {
-        set((s) => ({ cards: s.cards.map((c) => (c.id === id ? { ...c, ...updates } : c)) }));
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
-      deleteCard: (id) => {
-        set((s) => ({ cards: s.cards.filter((c) => c.id !== id) }));
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
+    // ── Boards ──────────────────────────────────────────────
+    addBoard: async (name, background) => {
+      const res = await request('POST', 'board', { name, background });
+      if (!res.ok) {
+        set({ error: res.error || NETWORK_MESSAGE });
+        return null;
+      }
+      await get().load();
+      return res.data.id as string;
+    },
+    updateBoard: async (id, updates) => {
+      set((s) => ({ boards: s.boards.map((b) => (b.id === id ? { ...b, ...updates } : b)) }));
+      const res = await request('PATCH', `board/${id}`, updates);
+      if (!res.ok) await fail(res.error);
+    },
+    deleteBoard: async (id) => {
+      if (!window.confirm('Delete this board and everything on it? This cannot be undone.')) return false;
+      const res = await request('DELETE', `board/${id}`);
+      if (!res.ok) {
+        set({ error: res.error || NETWORK_MESSAGE });
+        return false;
+      }
+      set((s) => ({
+        boards: s.boards.filter((b) => b.id !== id),
+        columns: s.columns.filter((c) => c.boardId !== id),
+        cards: s.cards.filter((c) => c.boardId !== id),
+      }));
+      return true;
+    },
+    toggleStar: async (id) => {
+      set((s) => ({ boards: s.boards.map((b) => (b.id === id ? { ...b, starred: !b.starred } : b)) }));
+      const res = await request('POST', `board/${id}/star`);
+      if (!res.ok) await fail(res.error);
+    },
 
-      moveCard: (cardId, srcColId, destColId, srcIdx, destIdx) => {
-        set((s) => {
-          const allCards = [...s.cards];
-          const srcCards = allCards
-            .filter((c) => c.columnId === srcColId)
-            .sort((a, b) => a.sequence - b.sequence);
-          const [moved] = srcCards.splice(srcIdx, 1);
-          if (!moved) return s;
+    requestJoinBoard: async (code) => {
+      const res = await request('POST', 'board/join', { code });
+      return res.ok ? { ok: true } : { ok: false, error: res.error };
+    },
+    approveJoinRequest: async (boardId, email) => {
+      const res = await request('POST', `board/${boardId}/approve`, { email });
+      await get().load();
+      return res.ok ? { ok: true } : { ok: false, error: res.error };
+    },
+    rejectJoinRequest: async (boardId, email) => {
+      const res = await request('POST', `board/${boardId}/reject`, { email });
+      await get().load();
+      return res.ok ? { ok: true } : { ok: false, error: res.error };
+    },
+    removeMember: async (boardId, email) => {
+      const res = await request('POST', `board/${boardId}/remove-member`, { email });
+      await get().load();
+      return res.ok ? { ok: true } : { ok: false, error: res.error };
+    },
+    addMemberDirectly: async (boardId, email) => {
+      const res = await request('POST', `board/${boardId}/add-member`, { email });
+      await get().load();
+      return res.ok ? { ok: true } : { ok: false, error: res.error };
+    },
+    leaveBoard: async (boardId) => {
+      const res = await request('POST', `board/${boardId}/leave`);
+      if (!res.ok) {
+        set({ error: res.error || NETWORK_MESSAGE });
+        return false;
+      }
+      await get().load();
+      return true;
+    },
 
-          if (srcColId === destColId) {
-            srcCards.splice(destIdx, 0, moved);
-            const reseq = srcCards.map((c, i) => ({ ...c, sequence: i }));
-            return { cards: [...allCards.filter((c) => c.columnId !== srcColId), ...reseq] };
-          }
+    // ── Columns ─────────────────────────────────────────────
+    addColumn: async (boardId, title) => {
+      const res = await request('POST', `board/${boardId}/columns`, { title });
+      if (!res.ok) return fail(res.error);
+      set((s) => ({ columns: [...s.columns, toColumn(res.data)] }));
+    },
+    updateColumn: async (id, title) => {
+      set((s) => ({ columns: s.columns.map((c) => (c.id === id ? { ...c, title } : c)) }));
+      const res = await request('PATCH', `column/${id}`, { title });
+      if (!res.ok) await fail(res.error);
+    },
+    deleteColumn: async (id) => {
+      set((s) => ({ columns: s.columns.filter((c) => c.id !== id), cards: s.cards.filter((c) => c.columnId !== id) }));
+      const res = await request('DELETE', `column/${id}`);
+      if (!res.ok) await fail(res.error);
+    },
+    reorderColumns: async (boardId, sourceIdx, destIdx) => {
+      const ordered = get().columns.filter((c) => c.boardId === boardId).sort(bySequence);
+      const [moved] = ordered.splice(sourceIdx, 1);
+      if (!moved) return;
+      ordered.splice(destIdx, 0, moved);
+      const sequence = new Map(ordered.map((c, i) => [c.id, i]));
+      set((s) => ({ columns: s.columns.map((c) => (sequence.has(c.id) ? { ...c, sequence: sequence.get(c.id)! } : c)) }));
+      const res = await request('POST', `board/${boardId}/columns/reorder`, { ids: ordered.map((c) => Number(c.id)) });
+      if (!res.ok) await fail(res.error);
+    },
 
-          const destCards = allCards
-            .filter((c) => c.columnId === destColId)
-            .sort((a, b) => a.sequence - b.sequence);
-          moved.columnId = destColId;
-          destCards.splice(destIdx, 0, moved);
+    // ── Cards ───────────────────────────────────────────────
+    addCard: async (columnId, _boardId, title) => {
+      const res = await request('POST', `column/${columnId}/cards`, { title });
+      if (!res.ok) return fail(res.error);
+      set((s) => ({ cards: [...s.cards, toCard(res.data)] }));
+    },
+    updateCard: async (id, updates) => {
+      patchCard(id, (c) => ({ ...c, ...updates }));
+      const body: Record<string, unknown> = {};
+      if ('title' in updates) body.title = updates.title;
+      if ('description' in updates) body.description = updates.description;
+      if ('labels' in updates) body.labels = updates.labels;
+      if ('dueDate' in updates) body.due_date = updates.dueDate;
+      if ('checklist' in updates) body.checklist = updates.checklist;
+      const res = await request('PATCH', `card/${id}`, body);
+      if (!res.ok) await fail(res.error);
+    },
+    deleteCard: async (id) => {
+      set((s) => ({ cards: s.cards.filter((c) => c.id !== id) }));
+      const res = await request('DELETE', `card/${id}`);
+      if (!res.ok) await fail(res.error);
+    },
+    moveCard: async (cardId, srcColId, destColId, srcIdx, destIdx) => {
+      const all = get().cards;
+      const src = all.filter((c) => c.columnId === srcColId).sort(bySequence);
+      const [moved] = src.splice(srcIdx, 1);
+      if (!moved) return;
+      const dest = srcColId === destColId ? src : all.filter((c) => c.columnId === destColId).sort(bySequence);
+      dest.splice(destIdx, 0, { ...moved, columnId: destColId });
+      const placed = new Map<string, TrelloCard>();
+      [...src, ...dest].forEach((c, i, list) => {
+        const siblings = list.filter((x) => x.columnId === c.columnId);
+        placed.set(c.id, { ...c, sequence: siblings.indexOf(c) });
+      });
+      set((s) => ({ cards: s.cards.map((c) => placed.get(c.id) || c) }));
+      const res = await request('POST', `card/${cardId}/move`, { column_id: Number(destColId), index: destIdx });
+      if (!res.ok) await fail(res.error);
+    },
 
-          const reseqSrc = srcCards.map((c, i) => ({ ...c, sequence: i }));
-          const reseqDest = destCards.map((c, i) => ({ ...c, sequence: i }));
-          return {
-            cards: [
-              ...allCards.filter((c) => c.columnId !== srcColId && c.columnId !== destColId),
-              ...reseqSrc,
-              ...reseqDest,
-            ],
-          };
+    // ── Checklists (stored on the card) ─────────────────────
+    addChecklistItem: async (cardId, text) => {
+      const card = get().cards.find((c) => c.id === cardId);
+      if (card) await get().updateCard(cardId, { checklist: [...card.checklist, { id: uid(), text, completed: false }] });
+    },
+    toggleChecklistItem: async (cardId, itemId) => {
+      const card = get().cards.find((c) => c.id === cardId);
+      if (card) {
+        await get().updateCard(cardId, {
+          checklist: card.checklist.map((i) => (i.id === itemId ? { ...i, completed: !i.completed } : i)),
         });
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
-
-      // ── Checklist actions ──────────────────────────────────
-      addChecklistItem: (cardId, text) => {
-        set((s) => ({
-          cards: s.cards.map((c) =>
-            c.id === cardId
-              ? { ...c, checklist: [...c.checklist, { id: uid(), text, completed: false }] }
-              : c
-          ),
-        }));
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
-      toggleChecklistItem: (cardId, itemId) => {
-        set((s) => ({
-          cards: s.cards.map((c) =>
-            c.id === cardId
-              ? { ...c, checklist: c.checklist.map((i) => (i.id === itemId ? { ...i, completed: !i.completed } : i)) }
-              : c
-          ),
-        }));
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
-      deleteChecklistItem: (cardId: string, itemId: string) => {
-        set((s) => ({
-          cards: s.cards.map((c) =>
-            c.id === cardId ? { ...c, checklist: c.checklist.filter((i) => i.id !== itemId) } : c
-          ),
-        }));
-        get().syncWithBackend(useAuthStore.getState().user?.email || 'student@eduai.com');
-      },
-
-      syncWithBackend: async (email) => {
-        const state = get();
-        try {
-          // POST local changes to the server (non-destructive upsert)
-          await fetch(`${API_BASE_URL}/trello/sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              boards: state.boards,
-              columns: state.columns,
-              cards: state.cards,
-              email
-            }),
-          });
-          // Then pull the merged state from the server (includes other users' changes)
-          await get().pullFromBackend(email);
-        } catch (error) {
-          console.error('Trello sync failed:', error);
-        }
-      },
-      pullFromBackend: async (email) => {
-        try {
-          const response = await fetch(`${API_BASE_URL}/trello/sync?email=${encodeURIComponent(email)}`);
-          if (response.ok) {
-            const data = await response.json();
-            set({
-              boards: data.boards,
-              columns: data.columns,
-              cards: data.cards
-            });
-          }
-        } catch (error) {
-          console.error('Trello pull failed:', error);
-        }
-      },
-    }),
-    { name: 'edugames-trello-storage' }
-  )
-);
+      }
+    },
+    deleteChecklistItem: async (cardId, itemId) => {
+      const card = get().cards.find((c) => c.id === cardId);
+      if (card) await get().updateCard(cardId, { checklist: card.checklist.filter((i) => i.id !== itemId) });
+    },
+  };
+});
