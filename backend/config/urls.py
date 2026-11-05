@@ -111,6 +111,8 @@ urlpatterns = [
     # Trello
     path('api/v1/trello/', include('apps.trello_app.urls')),
     path('trello/', include('apps.trello_app.urls')),
+    path('api/v1/', include('apps.forms_app.urls')),
+    path('', include('apps.forms_app.urls')),
 
     # AI Chat
     path('api/v1/ai/', include('apps.ai_chat.urls')),

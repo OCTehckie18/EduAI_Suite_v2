@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, Gamepad2, LayoutDashboard, ClipboardList, CalendarClock, LogOut, ChevronRight, Menu, Calendar } from "lucide-react";
+import { BookOpen, Gamepad2, LayoutDashboard, ClipboardList, CalendarClock, LogOut, ChevronRight, Menu, Calendar, FileSignature } from "lucide-react";
 import logo from "../../../logo/eduai_logo.png";
 import { useAuthStore } from "../store/useAuthStore";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
@@ -15,6 +15,7 @@ const studentNavItems = [
   { icon: Gamepad2, label: "EduGames", href: "/games" },
   { icon: Calendar, label: "My Calendar", href: "/calendar" },
   { icon: CalendarClock, label: "Appointments", href: "/appointments" },
+  { icon: FileSignature, label: "Forms", href: "/forms" },
 ];
 
 export const StudentShell: React.FC = () => {
