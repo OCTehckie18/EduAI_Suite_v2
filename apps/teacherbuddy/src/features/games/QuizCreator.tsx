@@ -18,12 +18,14 @@ import { useEffect } from "react";
 
 import { API_BASE_URL, authHeaders } from "../../shared/utils/apiConfig";
 interface Option {
+  id?: number;
   option_text: string;
   is_correct: boolean;
   color?: string;
 }
 
 interface Question {
+  id?: number;
   question_text: string;
   question_type: string;
   time_limit: number;
@@ -55,6 +57,7 @@ export const QuizCreator: React.FC = () => {
   ]);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     if (id) {
@@ -66,12 +69,14 @@ export const QuizCreator: React.FC = () => {
           setIsPublic(Boolean(data.is_public));
           if (data.questions && data.questions.length > 0) {
             setQuestions(data.questions.map((q: any) => ({
+              id: q.id,
               question_text: q.question_text,
               question_type: q.question_type,
               time_limit: q.time_limit,
               points: q.points,
               image_url: q.image_url,
               options: q.options.map((o: any) => ({
+                id: o.id,
                 option_text: o.option_text,
                 is_correct: o.is_correct,
                 color: o.color
@@ -154,7 +159,13 @@ export const QuizCreator: React.FC = () => {
           questions
         })
       });
-      if (res.ok) {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setSaveError(body.detail || "Could not save the quiz. Check it and try again.");
+        return;
+      }
+      {
+        setSaveError("");
         const data = await res.json();
         const quizId = data.id || id;
         if (startPlaying && quizId) {
@@ -164,7 +175,7 @@ export const QuizCreator: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error("Failed to save quiz", err);
+      setSaveError("Could not reach the server. Check your connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -174,6 +185,9 @@ export const QuizCreator: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-[calc(100dvh-100px)] lg:h-[calc(100dvh-100px)] bg-gray-50 -m-4 sm:-m-6 animate-fade-in">
+      {saveError && (
+        <p role="alert" className="bg-red-50 border-b border-red-200 px-8 py-3 text-sm font-semibold text-red-700">{saveError}</p>
+      )}
       {/* Top Bar */}
       <div className="bg-white border-b px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-3 shadow-sm z-10">
         <div className="flex items-center gap-4">

@@ -339,6 +339,36 @@ class QuizGameplayTests(QuizSocketCase):
             await self.close_all(teacher, ana)
         self.run_async(run)
 
+    def test_the_result_saved_for_a_student_is_a_mark_out_of_100(self):
+        from apps.core.models import StudentActivity
+
+        self.add_question("Second")
+        student_user = get_user_model().objects.create(
+            email="mark@example.com", role="STUDENT", is_active=True, register_no="R77")
+        token = jwt.encode({"sub": str(student_user.pk), "type": "access"}, settings.JWT_SECRET_KEY, algorithm="HS256")
+
+        async def run():
+            teacher = await self.teacher_connects()
+            student = await self.student_connects("Ana", f"&access_token={token}")
+            await self.until(student, "joined")
+            await teacher.send_json_to({"type": "start_game"})
+            await self.until(student, "new_question")
+            await self.answer(student)  # question one right, question two never answered
+            await self.until(teacher, "show_results")
+            await teacher.send_json_to({"type": "next_question"})
+            await self.until(student, "new_question")
+            await teacher.send_json_to({"type": "next_question"})
+            await self.until(teacher, "show_results")
+            await teacher.send_json_to({"type": "next_question"})
+            over = await self.until(student, "game_over")
+            entry = over["leaderboard"][0]
+            self.assertEqual((entry["correct"], entry["total"], entry["percent"]), (1, 2, 50.0))
+            await self.close_all(teacher, student)
+        self.run_async(run)
+
+        activity = StudentActivity.objects.get(student_id=student_user.pk)
+        self.assertEqual(activity.score, 50.0)
+
     def test_a_locked_lobby_turns_new_players_away_but_lets_existing_ones_back(self):
         async def run():
             teacher = await self.teacher_connects()

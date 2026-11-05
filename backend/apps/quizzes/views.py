@@ -4,6 +4,7 @@ import string
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -12,6 +13,7 @@ from rest_framework.views import APIView
 from ..core.permissions import IsTeacher
 from ..core.services import student_key
 from .models import Quiz, QuizQuestion, QuizOption, QuizSession, QuizPlayer, QuizAnswer
+from .report import build_report, report_csv
 from .serializers import QuizSerializer, QuizSessionSerializer, QuizPlayerSerializer
 
 
@@ -48,6 +50,67 @@ def _copy_questions(quiz, questions):
                 is_correct=bool(c_data.get("is_correct", False)),
                 color=c_data.get("color"),
             )
+
+
+class QuestionInUse(Exception):
+    pass
+
+
+def _write_question(quiz, position, q_data, question=None):
+    fields = {
+        "question_text": q_data.get("question_text", ""),
+        "question_type": q_data.get("question_type", "mcq"),
+        "image_url": q_data.get("image_url"),
+        "time_limit": int(q_data.get("time_limit", 20)),
+        "points": int(q_data.get("points", 1000)),
+        "order": position,
+    }
+    if question is None:
+        question = QuizQuestion.objects.create(quiz=quiz, **fields)
+    else:
+        for name, value in fields.items():
+            setattr(question, name, value)
+        question.save()
+
+    existing = {o.id: o for o in question.options.all()}
+    kept = set()
+    for c_data in q_data.get("options", []):
+        values = {
+            "option_text": c_data.get("option_text", ""),
+            "is_correct": bool(c_data.get("is_correct", False)),
+            "color": c_data.get("color"),
+        }
+        option = existing.get(c_data.get("id"))
+        if option is None:
+            QuizOption.objects.create(question=question, **values)
+        else:
+            for name, value in values.items():
+                setattr(option, name, value)
+            option.save()
+            kept.add(option.id)
+    question.options.exclude(id__in=kept).filter(id__in=existing).delete()
+
+
+def _sync_questions(quiz, incoming):
+    """Save an edited question list without losing what students already answered.
+
+    Questions the page sends back with their id are updated in place, so their past answers stay
+    attached. A question that is no longer in the list can only go if nobody has ever answered it."""
+    current = {q.id: q for q in quiz.questions.all()}
+    sent_ids = {q.get("id") for q in incoming if q.get("id") in current}
+    for question_id, question in current.items():
+        if question_id in sent_ids:
+            continue
+        if question.answers.exists():
+            raise QuestionInUse(
+                f"Question {question.order + 1} was answered in a past game, so it cannot be removed. "
+                "Edit it instead, or copy the quiz and change the copy."
+            )
+    for question_id, question in current.items():
+        if question_id not in sent_ids:
+            question.delete()
+    for position, q_data in enumerate(incoming):
+        _write_question(quiz, position, q_data, current.get(q_data.get("id")))
 
 
 class QuizSessionListView(APIView):
@@ -112,8 +175,16 @@ class QuizDetailView(APIView):
         quiz.save()
 
         if "questions" in data:
-            quiz.questions.all().delete()
-            _copy_questions(quiz, data["questions"])
+            if QuizSession.objects.filter(quiz=quiz, status__in=["active", "result"]).exists():
+                return Response(
+                    {"detail": "A game of this quiz is running right now. Finish or delete it before editing the questions."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            try:
+                with transaction.atomic():
+                    _sync_questions(quiz, data["questions"])
+            except QuestionInUse as problem:
+                return Response({"detail": str(problem)}, status=status.HTTP_409_CONFLICT)
 
         return Response(QuizSerializer(quiz).data)
 
@@ -184,6 +255,30 @@ class QuizSessionDetailView(APIView):
             pin=pin,
         )
         return Response(QuizSessionSerializer(session).data)
+
+    def delete(self, request, pin):
+        from ..core.models import StudentActivity
+
+        session = get_object_or_404(QuizSession.objects.filter(quiz__in=_managed_quizzes(request.user)), pin=pin)
+        with transaction.atomic():
+            # The marks this game gave students go with it, so no result outlives its game.
+            StudentActivity.objects.filter(activity_type="game", source_id=f"quiz:{session.pk}").delete()
+            session.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class QuizSessionReportView(APIView):
+    permission_classes = [IsTeacher]
+
+    def get(self, request, pin):
+        session = get_object_or_404(
+            QuizSession.objects.filter(quiz__in=_managed_quizzes(request.user)).select_related("quiz"), pin=pin)
+        report = build_report(session)
+        if request.query_params.get("export") == "csv":
+            response = HttpResponse(report_csv(report), content_type="text/csv; charset=utf-8")
+            response["Content-Disposition"] = f'attachment; filename="quiz-{session.pin}-results.csv"'
+            return response
+        return Response(report)
 
 
 class QuizSessionJoinView(APIView):

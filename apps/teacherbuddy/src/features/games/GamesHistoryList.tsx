@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { GlassCard } from "../../shared/components/GlassCard";
-import { Trash2, Play, History, Loader2 } from "lucide-react";
+import { Trash2, Play, History, Loader2, BarChart3 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
 
@@ -26,6 +27,7 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const navigate = useNavigate();
 
   const fetchSessions = async () => {
     setLoading(true);
@@ -243,12 +245,25 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={() => onRejoinGame(session.type, session.id, session.session_id || session.pin || "")}
-                  className="px-4 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-all text-xs font-bold shadow-sm flex items-center gap-1.5"
-                >
-                  <Play size={12} fill="currentColor" /> Open
-                </button>
+                <>
+                  {session.type === "quiz" && (
+                    <button
+                      onClick={() => navigate(`/games/quiz/report/${session.pin}`)}
+                      className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors text-xs font-bold flex items-center gap-1.5"
+                    >
+                      <BarChart3 size={12} /> Results
+                    </button>
+                  )}
+                  {/* A finished quiz has nothing left to run; its results are the thing to open. */}
+                  {!(session.type === "quiz" && session.status === "completed") && (
+                    <button
+                      onClick={() => onRejoinGame(session.type, session.id, session.session_id || session.pin || "")}
+                      className="px-4 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-all text-xs font-bold shadow-sm flex items-center gap-1.5"
+                    >
+                      <Play size={12} fill="currentColor" /> Open
+                    </button>
+                  )}
+                </>
               )}
               <button
                 onClick={() => handleDelete(session.type, session.id)}
