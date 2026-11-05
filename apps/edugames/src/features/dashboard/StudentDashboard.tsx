@@ -410,7 +410,7 @@ export const StudentDashboard: React.FC = () => {
 
           {(summary?.exams || []).length > 0 && (
             <GlassCard className="p-5">
-              <h3 className="section-title text-sm flex items-center gap-2 mb-3"><Target size={16} className="text-purple-500" /> Exams You Can Take</h3>
+              <h3 className="section-title text-sm flex items-center gap-2 mb-3"><Target size={16} className="text-blue-500" /> Exams You Can Take</h3>
               <div className="space-y-2">
                 {summary.exams.map((exam: any) => (
                   <div key={exam.id} className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border p-2.5 hover:bg-slate-50" style={{ borderColor: "var(--color-border)" }} role="link" tabIndex={0} onClick={() => navigate("/exams")} onKeyDown={(e) => { if (e.key === "Enter") navigate("/exams"); }}>
@@ -499,7 +499,7 @@ export const StudentDashboard: React.FC = () => {
               <div className="space-y-3">
                 {summary.announcements.map((item: any) => (
                   <div key={item.id} className="cursor-pointer" role="link" tabIndex={0} onClick={() => navigate("/classroom", { state: { courseId: item.courseId, tab: "announcements" } })} onKeyDown={(e) => { if (e.key === "Enter") navigate("/classroom", { state: { courseId: item.courseId, tab: "announcements" } }); }}>
-                    <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>{item.pinned ? "📌 " : ""}{item.title}</p>
+                    <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>{item.pinned ? "Pinned: " : ""}{item.title}</p>
                     <p className="line-clamp-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>{item.body}</p>
                     <p className="text-[10px] text-slate-400">{item.courseCode} · {new Date(item.createdAt).toLocaleDateString()}</p>
                   </div>

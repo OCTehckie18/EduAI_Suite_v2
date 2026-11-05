@@ -45,7 +45,7 @@ const affirmations = [
   "Taking care of yourself enables you to take care of others.",
   "Every class you teach shapes the future.",
   "Your dedication to education is truly admirable.",
-  "Rest is not a reward — it is a requirement for excellence.",
+  "Rest is not a reward. It is a requirement for excellence.",
 ];
 
 export const WellbeingPage: React.FC = () => {
@@ -505,7 +505,7 @@ export const WellbeingPage: React.FC = () => {
               <ul className="space-y-2.5">
                 {[
                   "Take a 5-min walk between classes to reset.",
-                  "Drink 8 glasses of water — dehydration causes fatigue.",
+                  "Drink 8 glasses of water. Dehydration causes fatigue.",
                   "Practice 3 deep breaths before difficult conversations.",
                   "Acknowledge one thing you did well today.",
                 ].map((tip, i) => (

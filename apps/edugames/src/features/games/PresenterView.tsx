@@ -23,7 +23,6 @@ import {
   ChevronRight,
   AlertCircle,
   Hash,
-  Sparkles,
 } from "lucide-react";
 import PPTXViewer from "./PPTXViewer";
 import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
@@ -277,7 +276,7 @@ const PresenterView: React.FC<Props> = ({ submissionId, fileUrl, fileName, onBac
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-6">
-          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-blue-500/30">
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-blue-500/30">
             <Radio className="w-12 h-12 text-white" />
           </div>
           <h1 className="text-3xl font-black text-white mb-3">Ready to Present?</h1>
@@ -442,7 +441,7 @@ const PresenterView: React.FC<Props> = ({ submissionId, fileUrl, fileName, onBac
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-blue-300">
-                      Interaction Ready — Slide {pendingInteraction.slide_number}
+                      Interaction ready: slide {pendingInteraction.slide_number}
                     </span>
                     <span
                       className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"

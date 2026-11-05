@@ -16,7 +16,6 @@ import {
   Loader2,
   AlertCircle,
   Layers,
-  Sparkles,
 } from "lucide-react";
 import PPTXViewer from "./PPTXViewer";
 import { API_BASE_URL } from "../../shared/utils/gameAPI";
@@ -231,9 +230,6 @@ const InteractionStudio: React.FC<Props> = ({
             ← Back
           </button>
           <div className="h-5 w-px bg-slate-200" />
-          <div className="bg-blue-50 p-1.5 rounded-lg">
-            <Sparkles className="w-5 h-5 text-blue-600" />
-          </div>
           <div>
             <h1 className="text-lg font-bold text-slate-900 leading-tight">Interaction Studio</h1>
             <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">EduAI Slido Mode</p>

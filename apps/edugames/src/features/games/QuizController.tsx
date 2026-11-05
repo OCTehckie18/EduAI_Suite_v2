@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   XCircle,
   Trophy,
-  Sparkles,
   Clock,
   Flame,
 } from "lucide-react";
@@ -239,13 +238,13 @@ export const QuizController: React.FC = () => {
 
   if (phase === "join") {
     return (
-      <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-6 text-white animate-fade-in relative overflow-hidden">
+      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col items-center justify-center p-6 text-white animate-fade-in relative overflow-hidden">
         <div className="w-full max-w-sm space-y-8 z-10">
           <div className="text-center">
             <motion.h1 initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-6xl font-black italic tracking-tighter mb-2 shadow-text">
               EduQuiz
             </motion.h1>
-            <p className="text-purple-200 font-black uppercase tracking-widest text-sm">Join the Battle</p>
+            <p className="text-blue-200 font-black uppercase tracking-widest text-sm">Join the Battle</p>
           </div>
 
           <form
@@ -260,7 +259,7 @@ export const QuizController: React.FC = () => {
               inputMode="numeric"
               aria-label="Game PIN"
               placeholder="Game PIN"
-              className="w-full p-5 text-center text-3xl font-black text-gray-800 bg-gray-50 rounded-2xl border-none outline-none focus:ring-4 focus:ring-purple-200 transition-all placeholder:text-gray-300"
+              className="w-full p-5 text-center text-3xl font-black text-gray-800 bg-gray-50 rounded-2xl border-none outline-none focus:ring-4 focus:ring-blue-200 transition-all placeholder:text-gray-300"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
             />
@@ -269,7 +268,7 @@ export const QuizController: React.FC = () => {
               aria-label="Nickname"
               placeholder="Nickname"
               maxLength={30}
-              className="w-full p-5 text-center text-xl font-black text-gray-800 bg-gray-50 rounded-2xl border-none outline-none focus:ring-4 focus:ring-purple-200 transition-all placeholder:text-gray-300"
+              className="w-full p-5 text-center text-xl font-black text-gray-800 bg-gray-50 rounded-2xl border-none outline-none focus:ring-4 focus:ring-blue-200 transition-all placeholder:text-gray-300"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
             />
@@ -293,7 +292,7 @@ export const QuizController: React.FC = () => {
 
   if (phase === "waiting") {
     return (
-      <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-6 text-white text-center">
+      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col items-center justify-center p-6 text-white text-center">
         <div className="mb-8 animate-pulse">
           <PlayerAvatar avatar={avatar} size={96} />
         </div>
@@ -310,7 +309,7 @@ export const QuizController: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col p-2 gap-2 animate-fade-in">
         <div className="h-3 rounded-full bg-gray-300 overflow-hidden" aria-label="Time left">
-          <div className="h-full bg-purple-600 transition-[width] duration-200" style={{ width: `${Math.min(100, (left / total) * 100)}%` }} />
+          <div className="h-full bg-blue-600 transition-[width] duration-200" style={{ width: `${Math.min(100, (left / total) * 100)}%` }} />
         </div>
         {problem && (
           <p role="alert" className="text-center text-sm font-bold text-red-600">
@@ -324,10 +323,8 @@ export const QuizController: React.FC = () => {
 
   if (phase === "submitted") {
     return (
-      <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-6 text-white text-center">
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="mb-8">
-          <Sparkles size={80} className="text-yellow-400" />
-        </motion.div>
+      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col items-center justify-center p-6 text-white text-center">
+        <div className="mb-8 h-16 w-16 animate-spin rounded-full border-4 border-white/30 border-t-white" />
         <h2 className="text-4xl font-black italic mb-4">Answer Submitted!</h2>
         <p className="text-xl font-bold opacity-60">Waiting for others to finish...</p>
       </div>
@@ -390,7 +387,7 @@ export const QuizController: React.FC = () => {
 
   if (phase === "finished") {
     return (
-      <div className="min-h-screen bg-[#46178f] flex flex-col p-6 text-white animate-fade-in relative overflow-hidden">
+      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col p-6 text-white animate-fade-in relative overflow-hidden">
         <div className="flex flex-col items-center text-center mt-8 mb-12">
           <Trophy size={80} className="text-yellow-400 mb-4 animate-bounce" />
           <h2 className="text-5xl font-black italic tracking-tighter mb-2 shadow-text">GAME OVER</h2>
@@ -412,11 +409,11 @@ export const QuizController: React.FC = () => {
               <div
                 key={p.id ?? idx}
                 className={`flex items-center justify-between p-4 rounded-2xl border ${
-                  p.id === me?.id ? "bg-yellow-400 text-[#46178f] border-yellow-500 scale-[1.02] shadow-xl" : "bg-white/5 border-white/10"
+                  p.id === me?.id ? "bg-yellow-400 text-[var(--color-brand-blue-dark)] border-yellow-500 scale-[1.02] shadow-xl" : "bg-white/5 border-white/10"
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <span className={`w-8 font-black ${p.id === me?.id ? "text-[#46178f]" : "text-white/40"}`}>{idx + 1}</span>
+                  <span className={`w-8 font-black ${p.id === me?.id ? "text-[var(--color-brand-blue-dark)]" : "text-white/40"}`}>{idx + 1}</span>
                   <PlayerAvatar avatar={p.avatar} size={32} />
                   <span className="font-bold text-lg">{p.nickname}</span>
                 </div>
@@ -428,7 +425,7 @@ export const QuizController: React.FC = () => {
 
         <button
           onClick={() => window.location.reload()}
-          className="mt-8 w-full p-6 bg-white text-[#46178f] rounded-2xl font-black text-2xl shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+          className="mt-8 w-full p-6 bg-white text-[var(--color-brand-blue-dark)] rounded-2xl font-black text-2xl shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
         >
           DONE
         </button>

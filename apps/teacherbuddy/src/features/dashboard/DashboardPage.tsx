@@ -157,7 +157,7 @@ export const DashboardPage: React.FC = () => {
             {getGreeting()}, {authUser?.name || "Professor"}
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
-            {getFormattedDate()} — Here's your academic overview for today.
+            {getFormattedDate()}. Here's your academic overview for today.
           </p>
         </div>
       </div>
@@ -396,7 +396,7 @@ export const DashboardPage: React.FC = () => {
 
         <GlassCard padding="sm">
           <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2"><BarChart2 size={15} className="text-purple-600" /><h3 className="section-title text-sm">Exam Results</h3></div>
+            <div className="flex items-center gap-2"><BarChart2 size={15} className="text-blue-600" /><h3 className="section-title text-sm">Exam Results</h3></div>
             <Link to="/exams" className="text-[10px] font-semibold text-blue-600">View All →</Link>
           </div>
           <div className="space-y-2">
@@ -461,7 +461,7 @@ export const DashboardPage: React.FC = () => {
 
         <GlassCard padding="sm" className="xl:col-span-2">
           <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2"><ClipboardList size={15} className="text-purple-600" /><h3 className="section-title text-sm">Recent Exams</h3></div>
+            <div className="flex items-center gap-2"><ClipboardList size={15} className="text-blue-600" /><h3 className="section-title text-sm">Recent Exams</h3></div>
             <Link to="/exams" className="text-[10px] font-semibold text-blue-600">View All →</Link>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-1">

@@ -14,7 +14,6 @@ import {
   Star,
   BarChart3,
   Eye,
-  Sparkles,
   Zap,
   FileText,
   Clock,
@@ -61,9 +60,9 @@ const DEFAULT_RUBRIC: RubricItem[] = [
 
 const FEEDBACK_TEMPLATES = [
   { mark: "EX", text: "Excellent work! Your research was thorough and well-presented." },
-  { mark: "DL", text: "Great delivery — confident and clear communication." },
+  { mark: "DL", text: "Great delivery. Confident and clear communication." },
   { mark: "VD", text: "Beautiful slides with professional visual design." },
-  { mark: "TM", text: "Work on pacing — some sections felt rushed." },
+  { mark: "TM", text: "Work on pacing. Some sections felt rushed." },
   { mark: "AI", text: "Consider adding more audience interaction next time." },
   { mark: "DA", text: "Strong data visualization and supporting evidence." },
   { mark: "RF", text: "Add more citations and references to strengthen arguments." },
@@ -344,7 +343,6 @@ const SplitViewGrading: React.FC = () => {
           {/* Panel Header */}
           <div className="p-4 border-b border-slate-100 bg-slate-50/50">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4" style={{ color: BRAND_BLUE }} />
               <span className="font-bold text-sm text-slate-700">Evaluation Rubric</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-0.5">Score each category to calculate the final grade</p>

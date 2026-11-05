@@ -370,7 +370,7 @@ const PresentationSubmissionPortal: React.FC = () => {
                   boxShadow: "0 4px 16px color-mix(in srgb, var(--color-brand-blue) 30%, transparent)",
                 }}
               >
-                <Radio className="w-5 h-5" /> Go Live — Present Now
+                <Radio className="w-5 h-5" /> Present now
               </button>
             )}
 
@@ -379,7 +379,7 @@ const PresentationSubmissionPortal: React.FC = () => {
                 onClick={() => setStudioMode(true)}
                 className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white transition"
                 style={{
-                  background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                  background: "var(--color-brand-blue)",
                   boxShadow: "0 4px 16px rgba(124,58,237,0.3)",
                 }}
               >

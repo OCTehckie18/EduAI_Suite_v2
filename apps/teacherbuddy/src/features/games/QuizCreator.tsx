@@ -256,8 +256,8 @@ export const QuizCreator: React.FC = () => {
       {/* Top Bar */}
       <div className="bg-white border-b px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-3 shadow-sm z-10">
         <div className="flex items-center gap-4">
-          <div className="bg-purple-100 p-2 rounded-lg">
-            <MonitorPlay className="text-purple-600" size={24} />
+          <div className="bg-blue-100 p-2 rounded-lg">
+            <MonitorPlay className="text-blue-600" size={24} />
           </div>
           <div>
             <input 

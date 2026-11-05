@@ -60,7 +60,7 @@ export const CreateBoardModal: React.FC<Props> = ({ onClose, onCreated }) => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-              placeholder="e.g. Sprint 1 — Group Project"
+              placeholder="e.g. Sprint 1 group project"
               className="form-input"
               autoFocus
             />

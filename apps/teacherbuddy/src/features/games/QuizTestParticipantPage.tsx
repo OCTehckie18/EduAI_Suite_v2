@@ -84,23 +84,23 @@ export const QuizTestParticipantPage: React.FC = () => {
   }
 
   if (status === "waiting" || status === "connecting") {
-    return <div className="min-h-screen bg-[#46178f] text-white flex flex-col items-center justify-center p-6 text-center">
-      <span className="text-sm uppercase tracking-[0.3em] text-purple-200">Private teacher preview</span>
+    return <div className="min-h-screen bg-[var(--color-brand-blue-dark)] text-white flex flex-col items-center justify-center p-6 text-center">
+      <span className="text-sm uppercase tracking-[0.3em] text-blue-200">Private teacher preview</span>
       <h1 className="mt-4 text-5xl font-black">You’re in!</h1>
-      <p className="mt-4 text-xl text-purple-100">Waiting for the quiz owner to start the test run.</p>
+      <p className="mt-4 text-xl text-blue-100">Waiting for the quiz owner to start the test run.</p>
       <p className="mt-8 rounded-full bg-white/10 px-5 py-2 font-bold">{nickname}</p>
     </div>;
   }
 
   if (status === "playing" && question) {
     return <div className="min-h-screen bg-slate-100 p-5 flex flex-col gap-6">
-      <div className="rounded-3xl bg-white p-7 shadow-sm"><span className="text-xs font-black uppercase tracking-widest text-purple-600">Test run question</span><h1 className="mt-3 text-3xl font-black text-slate-900">{question.text}</h1></div>
+      <div className="rounded-3xl bg-white p-7 shadow-sm"><span className="text-xs font-black uppercase tracking-widest text-blue-600">Test run question</span><h1 className="mt-3 text-3xl font-black text-slate-900">{question.text}</h1></div>
       <QuizAnswerInput key={question.id} question={question} disabled={selected !== null} onSubmit={submitAnswer} />
     </div>;
   }
 
-  if (status === "submitted") return <div className="min-h-screen bg-[#46178f] text-white flex flex-col items-center justify-center text-center"><CheckCircle2 size={96} className="text-emerald-300" /><h1 className="mt-6 text-4xl font-black">Answer submitted</h1><p className="mt-3 text-xl text-purple-100">Waiting for the quiz owner to show results.</p></div>;
+  if (status === "submitted") return <div className="min-h-screen bg-[var(--color-brand-blue-dark)] text-white flex flex-col items-center justify-center text-center"><CheckCircle2 size={96} className="text-emerald-300" /><h1 className="mt-6 text-4xl font-black">Answer submitted</h1><p className="mt-3 text-xl text-blue-100">Waiting for the quiz owner to show results.</p></div>;
   if (status === "feedback") return <div className="min-h-screen bg-emerald-600 text-white flex flex-col items-center justify-center text-center"><CheckCircle2 size={96} /><h1 className="mt-6 text-5xl font-black">{result?.is_correct ? "Correct" : "Not this time"}</h1><p className="mt-4 text-2xl font-bold">+{result?.points || 0} points</p></div>;
 
-  return <div className="min-h-screen bg-[#46178f] text-white p-8 text-center"><Trophy size={96} className="mx-auto text-yellow-300" /><h1 className="mt-5 text-5xl font-black">Test run complete</h1><div className="mx-auto mt-8 max-w-xl space-y-3">{leaderboard.map((player, index) => <div key={player.id || index} className="flex justify-between rounded-2xl bg-white/10 p-4 font-bold"><span>{index + 1}. {player.nickname}</span><span>{player.score}</span></div>)}</div><button onClick={() => navigate("/games/quiz")} className="mt-8 rounded-xl bg-white px-5 py-3 font-bold text-[#46178f]">Back to quizzes</button></div>;
+  return <div className="min-h-screen bg-[var(--color-brand-blue-dark)] text-white p-8 text-center"><Trophy size={96} className="mx-auto text-yellow-300" /><h1 className="mt-5 text-5xl font-black">Test run complete</h1><div className="mx-auto mt-8 max-w-xl space-y-3">{leaderboard.map((player, index) => <div key={player.id || index} className="flex justify-between rounded-2xl bg-white/10 p-4 font-bold"><span>{index + 1}. {player.nickname}</span><span>{player.score}</span></div>)}</div><button onClick={() => navigate("/games/quiz")} className="mt-8 rounded-xl bg-white px-5 py-3 font-bold text-[var(--color-brand-blue-dark)]">Back to quizzes</button></div>;
 };

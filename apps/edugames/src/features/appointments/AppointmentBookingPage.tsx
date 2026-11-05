@@ -10,7 +10,6 @@ import {
   MapPin,
   MessageSquare,
   RefreshCw,
-  Sparkles,
   User,
   Users,
 } from "lucide-react";
@@ -281,7 +280,6 @@ export const AppointmentBookingPage: React.FC = () => {
         <div>
           <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
             style={{ background: "color-mix(in srgb, var(--color-brand-gold) 12%, transparent)", color: "var(--color-brand-gold-dark)" }}>
-            <Sparkles size={12} />
             Student Appointment Center
           </div>
           <h1 className="mt-3 text-2xl font-bold" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-display)" }}>

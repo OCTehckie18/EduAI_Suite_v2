@@ -280,7 +280,7 @@ export const ExamsPage: React.FC = () => {
             {getGreeting()}, {authUser?.name || "Professor"}
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
-            {getFormattedDate()} — Manage and track your examinations.
+            {getFormattedDate()}. Manage and track your examinations.
           </p>
         </div>
         <button onClick={() => { setEditingExam(null); setShowCreator(true); }} className="btn btn-primary text-sm">
@@ -301,7 +301,7 @@ export const ExamsPage: React.FC = () => {
         {[
           { label: "Total Exams", value: String(stats.total_exams), icon: ClipboardList, color: "var(--color-brand-blue)" },
           { label: "Submissions Today", value: String(stats.submissions_today), icon: CheckCircle2, color: "#16a34a" },
-          { label: "Completion Rate", value: stats.avg_completion_rate == null ? "—" : `${stats.avg_completion_rate}%`, icon: Users, color: "#7c3aed" },
+          { label: "Completion Rate", value: stats.avg_completion_rate == null ? "—" : `${stats.avg_completion_rate}%`, icon: Users, color: "#264796" },
         ].map(s => (
           <GlassCard key={s.label} padding="sm" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
