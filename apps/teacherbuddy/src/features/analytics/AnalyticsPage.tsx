@@ -623,7 +623,7 @@ export const AnalyticsPage: React.FC = () => {
                   value={selectedCourseId || ""}
                   onChange={e => setSelectedCourseId(Number(e.target.value))}
                 >
-                  {Array.isArray(courses) && courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+                  {Array.isArray(courses) && courses.map(c => <option key={c.id} value={c.id}>{c.code}: {c.name}</option>)}
                 </select>
                 <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-blue-900 pointer-events-none" />
               </div>

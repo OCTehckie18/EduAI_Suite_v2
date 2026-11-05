@@ -1,5 +1,5 @@
 import React from "react";
-import { FileSignature, Sparkles, Wand2 } from "lucide-react";
+import { FileSignature } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
 import { useTheme } from "../../shared/hooks/useTheme";
 
@@ -25,7 +25,6 @@ export const FormsPage: React.FC = () => {
         {/* Custom Form Block */}
         <div className="p-1 rounded-3xl" style={{ background: "linear-gradient(135deg,color-mix(in srgb, var(--color-brand-gold) 40%, transparent),color-mix(in srgb, var(--color-brand-blue) 40%, transparent))" }}>
           <div className="w-full h-full p-6 rounded-[22px] flex flex-col items-center justify-center text-center space-y-4" style={{ background: "var(--color-surface-base)" }}>
-             <Wand2 size={40} style={{ color: "var(--color-brand-gold)" }} />
              <div>
                <h3 className="font-bold text-lg" style={{ color: "var(--color-text-primary)" }}>Upload Custom Form</h3>
                <p className="text-sm px-4 mt-1" style={{ color: "var(--color-text-secondary)" }}>Upload a blank PDF and let the AI figure out what to fill based on your context.</p>

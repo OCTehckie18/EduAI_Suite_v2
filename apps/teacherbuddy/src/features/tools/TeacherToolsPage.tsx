@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import {
-  Sparkles,
   BrainCircuit,
   Lightbulb,
   BookOpen,
@@ -34,8 +33,8 @@ const tools = [
   //   title: "Intervention Planner",
   //   desc: "Get AI-suggested actions and extra tasks for at-risk students.",
   //   icon: Sparkles,
-  //   color: "text-purple-500",
-  //   bg: "bg-purple-100/50",
+  //   color: "text-blue-500",
+  //   bg: "bg-blue-100/50",
   // },
 ];
 
@@ -145,11 +144,6 @@ export const TeacherToolsPage: React.FC = () => {
             className="p-12 text-center rounded-lg border-2 border-dashed"
             style={{ borderColor: "var(--color-border)" }}
           >
-            <Sparkles
-              size={32}
-              className="mx-auto mb-3 text-purple-400"
-              style={{ color: "var(--color-text-secondary)" }}
-            />
             <p style={{ color: "var(--color-text-secondary)" }}>
               Intervention planner coming soon...
             </p>

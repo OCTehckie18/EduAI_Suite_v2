@@ -35,7 +35,7 @@ const gameCategories = [
     description:
       "Students answer MCQs in real time. Points = speed + accuracy. Live leaderboard with Kahoot-style gameplay.",
     icon: Gamepad2,
-    color: "from-blue-400 to-indigo-500",
+    color: "from-blue-400 to-blue-600",
   },
   // {
   //   id: "team-puzzle",
@@ -51,7 +51,7 @@ const gameCategories = [
   //   description:
   //     "Live polling and Q&A integrated into presentations. Engage students in real-time feedback.",
   //   icon: BarChart,
-  //   color: "from-purple-400 to-violet-500",
+  //   color: "from-blue-400 to-blue-500",
   // },
   // {
   //   id: "slido-join",
@@ -63,7 +63,7 @@ const gameCategories = [
   // },
   {
     id: "trello-projects",
-    title: "Trello — Project Management",
+    title: "Trello: Project Management",
     description:
       "Kanban-style boards for managing group projects and tasks. Organize work with cards and columns.",
     icon: FlaskConical,

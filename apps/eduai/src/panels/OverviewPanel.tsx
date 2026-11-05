@@ -58,7 +58,7 @@ export function OverviewPanel({ overview, loadFailed, onRetry, onNavigate, refre
     { label: "Campuses", value: overview.institution.campuses, hint: "Manage campuses", Icon: Building2, tab: "campuses" },
     { label: "Student accounts", value: overview.users.students, hint: "Signed up so far; see the roster", Icon: GraduationCap, tab: "roster" },
     { label: "Teachers", value: overview.users.teachers, hint: "View users", Icon: Users, tab: "users" },
-    { label: "Awaiting approval", value: pending, hint: pending ? "Review applications" : "Nothing waiting", Icon: UserCheck, tab: "approvals", tone: pending ? "border-violet-200 bg-violet-50" : "" },
+    { label: "Awaiting approval", value: pending, hint: pending ? "Review applications" : "Nothing waiting", Icon: UserCheck, tab: "approvals", tone: pending ? "border-amber-200 bg-amber-50" : "" },
     { label: "Classrooms", value: overview.classrooms, hint: "Created by teachers", Icon: School },
   ];
 
@@ -132,12 +132,12 @@ export function OverviewPanel({ overview, loadFailed, onRetry, onNavigate, refre
         <PanelCard>
           <PanelHeader title="Teachers" subtitle="By approval status." />
           <dl className="grid grid-cols-3 gap-2 text-center text-xs">
-            {[["Approved", overview.teachers.approved, "bg-emerald-50 text-emerald-800"], ["Waiting", overview.teachers.pending, "bg-violet-50 text-violet-800"], ["Rejected", overview.teachers.rejected, "bg-slate-100 text-slate-700"]].map(([label, value, tone]) => (
+            {[["Approved", overview.teachers.approved, "bg-emerald-50 text-emerald-800"], ["Waiting", overview.teachers.pending, "bg-amber-50 text-amber-800"], ["Rejected", overview.teachers.rejected, "bg-slate-100 text-slate-700"]].map(([label, value, tone]) => (
               <div key={label as string} className={`rounded-lg py-3 ${tone}`}><dt>{label}</dt><dd className="text-2xl font-bold">{value}</dd></div>
             ))}
           </dl>
           {overview.teachers.oldest_pending_at && (
-            <button onClick={() => onNavigate("approvals")} className="mt-3 w-full rounded-lg border border-violet-200 px-3 py-2 text-left text-xs text-violet-800 hover:bg-violet-50">
+            <button onClick={() => onNavigate("approvals")} className="mt-3 w-full rounded-lg border border-amber-200 px-3 py-2 text-left text-xs text-amber-800 hover:bg-amber-50">
               The longest-waiting application was received {timeAgo(overview.teachers.oldest_pending_at)}. Review applications →
             </button>
           )}

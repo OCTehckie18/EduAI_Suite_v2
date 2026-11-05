@@ -7,7 +7,6 @@ import {
   Lock,
   Unlock,
   X,
-  Sparkles,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PlayerAvatar } from "../../shared/components/PlayerAvatar";
@@ -201,9 +200,9 @@ export const QuizMonitoring: React.FC = () => {
 
   if (problem && !pin) {
     return (
-      <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-8 text-white text-center gap-6">
+      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col items-center justify-center p-8 text-white text-center gap-6">
         <p role="alert" className="text-2xl font-black max-w-xl">{problem}</p>
-        <button onClick={() => navigate("/games/quiz")} className="px-10 py-4 bg-white text-[#46178f] rounded-2xl font-black text-xl">
+        <button onClick={() => navigate("/games/quiz")} className="px-10 py-4 bg-white text-[var(--color-brand-blue-dark)] rounded-2xl font-black text-xl">
           Back to quizzes
         </button>
       </div>
@@ -218,21 +217,8 @@ export const QuizMonitoring: React.FC = () => {
 
   if (status === "lobby") {
     return (
-      <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-8 text-white overflow-hidden relative">
+      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col items-center justify-center p-8 text-white overflow-hidden relative">
         {banner}
-        <div className="absolute inset-0 opacity-20 pointer-events-none">
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute"
-              initial={{ x: Math.random() * 100 + "%", y: Math.random() * 100 + "%" }}
-              animate={{ y: [0, -20, 0], opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 3 + Math.random() * 2, repeat: Infinity }}
-            >
-              <Sparkles size={20 + Math.random() * 20} />
-            </motion.div>
-          ))}
-        </div>
 
         <div className="max-w-4xl w-full space-y-12 z-10">
           <div className="flex flex-col items-center gap-6">
@@ -241,8 +227,8 @@ export const QuizMonitoring: React.FC = () => {
               animate={{ y: 0, opacity: 1 }}
               className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 border-b-8 border-gray-200"
             >
-              <p className="text-[#46178f] text-2xl font-black uppercase tracking-widest">Game PIN:</p>
-              <h1 className="text-[#46178f] text-9xl font-black tracking-tighter">{pin || "------"}</h1>
+              <p className="text-[var(--color-brand-blue-dark)] text-2xl font-black uppercase tracking-widest">Game PIN:</p>
+              <h1 className="text-[var(--color-brand-blue-dark)] text-9xl font-black tracking-tighter">{pin || "------"}</h1>
             </motion.div>
 
             <div className="flex items-center gap-6 flex-wrap justify-center">
@@ -260,13 +246,13 @@ export const QuizMonitoring: React.FC = () => {
               <button
                 onClick={() => send({ type: "start_game" })}
                 disabled={players.length === 0}
-                className="px-16 py-6 bg-white text-[#46178f] rounded-2xl text-3xl font-black shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                className="px-16 py-6 bg-white text-[var(--color-brand-blue-dark)] rounded-2xl text-3xl font-black shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
               >
                 START
               </button>
             </div>
-            {locked && <p className="font-bold text-purple-200">The game is locked. Nobody new can join.</p>}
-            {players.length === 0 && <p className="font-bold text-purple-200">Waiting for players. Ask them to enter this PIN.</p>}
+            {locked && <p className="font-bold text-blue-200">The game is locked. Nobody new can join.</p>}
+            {players.length === 0 && <p className="font-bold text-blue-200">Waiting for players. Ask them to enter this PIN.</p>}
           </div>
 
           <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-6 max-h-[40vh] overflow-y-auto p-4 custom-scrollbar">
@@ -304,7 +290,7 @@ export const QuizMonitoring: React.FC = () => {
         {banner}
         <div className="bg-white border-b p-6 flex justify-between items-center shadow-sm z-10">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg">
+            <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg">
               {questionIndex + 1}
             </div>
             <h2 className={`font-black text-gray-800 ${currentQuestion.image_url ? "text-3xl" : "text-5xl"}`}>{currentQuestion.text}</h2>
@@ -313,7 +299,7 @@ export const QuizMonitoring: React.FC = () => {
             {status === "active" && (
               <div className="flex flex-col items-center">
                 <span className="text-[10px] font-black uppercase text-gray-400">Answers</span>
-                <span className="text-4xl font-black text-purple-600">
+                <span className="text-4xl font-black text-blue-600">
                   {answerCount}
                   {playersTotal > 0 && <span className="text-2xl text-gray-400">/{playersTotal}</span>}
                 </span>
@@ -321,14 +307,14 @@ export const QuizMonitoring: React.FC = () => {
             )}
             <div
               className={`w-24 h-24 rounded-full border-8 flex items-center justify-center text-4xl font-black transition-all ${
-                timer < 5 && status === "active" ? "border-red-500 text-red-500 animate-pulse" : "border-purple-600 text-purple-600"
+                timer < 5 && status === "active" ? "border-red-500 text-red-500 animate-pulse" : "border-blue-600 text-blue-600"
               }`}
             >
               {status === "active" ? timer : <Clock size={32} />}
             </div>
             <button
               onClick={() => send({ type: "next_question" })}
-              className="bg-purple-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl hover:bg-purple-700 transition-all flex items-center gap-2 text-xl"
+              className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl hover:bg-blue-700 transition-all flex items-center gap-2 text-xl"
             >
               {status === "result" ? (questionIndex + 1 >= totalQuestions ? "Finish" : "Next") : "Skip"} <ChevronRight size={24} />
             </button>
@@ -345,12 +331,12 @@ export const QuizMonitoring: React.FC = () => {
           )}
 
           {currentQuestion.question_type === "multi" && status === "active" && (
-            <p className="text-xl font-black uppercase tracking-widest text-purple-600">Select all that apply</p>
+            <p className="text-xl font-black uppercase tracking-widest text-blue-600">Select all that apply</p>
           )}
           {currentQuestion.question_type === "typed" && (
             <div className="w-full max-w-3xl rounded-3xl bg-white p-8 text-center shadow-xl space-y-4">
               {status === "active" ? (
-                <p className="text-3xl font-black text-purple-700">Players are typing their answers</p>
+                <p className="text-3xl font-black text-blue-700">Players are typing their answers</p>
               ) : (
                 <>
                   <p className="text-xs font-black uppercase tracking-widest text-gray-400">Accepted answers</p>
@@ -427,7 +413,7 @@ export const QuizMonitoring: React.FC = () => {
           <span>
             Question {questionIndex + 1} of {totalQuestions}
           </span>
-          <div className="bg-[#46178f] text-white px-8 py-2 rounded-full font-black shadow-lg">PIN: {pin}</div>
+          <div className="bg-[var(--color-brand-blue-dark)] text-white px-8 py-2 rounded-full font-black shadow-lg">PIN: {pin}</div>
         </div>
       </div>
     );
@@ -435,7 +421,7 @@ export const QuizMonitoring: React.FC = () => {
 
   if (status === "completed") {
     return (
-      <div className="min-h-screen bg-[#46178f] flex flex-col items-center justify-center p-8 text-white animate-fade-in overflow-hidden relative">
+      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col items-center justify-center p-8 text-white animate-fade-in overflow-hidden relative">
         <Trophy size={120} className="text-yellow-400 mb-8 animate-bounce" />
         <h1 className="text-8xl font-black mb-16 italic tracking-tighter shadow-text">
           PODIUM
@@ -478,7 +464,7 @@ export const QuizMonitoring: React.FC = () => {
                   {leaderboard[0].nickname}
                 </span>
               </div>
-              <div className="w-full bg-yellow-400 text-[#46178f] h-80 rounded-t-3xl flex flex-col items-center justify-center shadow-2xl">
+              <div className="w-full bg-yellow-400 text-[var(--color-brand-blue-dark)] h-80 rounded-t-3xl flex flex-col items-center justify-center shadow-2xl">
                 <span className="text-9xl font-black">1</span>
                 <span className="text-xl font-black opacity-80">
                   {leaderboard[0].score} pts
@@ -512,7 +498,7 @@ export const QuizMonitoring: React.FC = () => {
 
         <button
           onClick={() => navigate("/games")}
-          className="mt-20 px-16 py-5 bg-white text-[#46178f] rounded-2xl font-black text-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all"
+          className="mt-20 px-16 py-5 bg-white text-[var(--color-brand-blue-dark)] rounded-2xl font-black text-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all"
         >
           Exit Game
         </button>

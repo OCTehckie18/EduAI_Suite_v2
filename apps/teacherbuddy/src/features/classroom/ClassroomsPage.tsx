@@ -30,7 +30,6 @@ import {
   CheckCircle2,
   XCircle,
   Timer,
-  Sparkles,
   ShieldAlert,
   Copy,
   Check,
@@ -1211,10 +1210,10 @@ export const ClassroomsPage: React.FC = () => {
                           </div>
                           <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                             <div className="flex items-center gap-3 mb-3">
-                              <div className="p-2.5 bg-purple-50 rounded-xl">
+                              <div className="p-2.5 bg-blue-50 rounded-xl">
                                 <FileCheck
                                   size={20}
-                                  className="text-purple-600"
+                                  className="text-blue-600"
                                 />
                               </div>
                               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
@@ -2340,7 +2339,7 @@ export const ClassroomsPage: React.FC = () => {
                           <div className="flex items-center gap-2 mb-2">
                             <ClipboardList
                               size={16}
-                              className="text-purple-600"
+                              className="text-blue-600"
                             />
                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
                               Exams
@@ -2489,7 +2488,7 @@ export const ClassroomsPage: React.FC = () => {
                               className="p-4 rounded-xl bg-white border border-slate-200 flex items-center justify-between"
                             >
                               <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-purple-50 text-purple-600">
+                                <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
                                   <ClipboardList size={18} />
                                 </div>
                                 <div>
@@ -2506,7 +2505,7 @@ export const ClassroomsPage: React.FC = () => {
                                 </div>
                               </div>
                               <div className="text-right">
-                                <p className="font-extrabold text-purple-700 text-sm">
+                                <p className="font-extrabold text-blue-700 text-sm">
                                   {e.score !== null ? e.score : "N/A"}
                                 </p>
                                 <span
@@ -2586,7 +2585,7 @@ export const ClassroomsPage: React.FC = () => {
                             (t: any, i: number) => (
                               <div key={i} className="relative">
                                 <div
-                                  className={`absolute -left-[25px] w-4 h-4 rounded-full border-2 border-white ${t.type === "assignment_submission" ? "bg-emerald-500" : t.type === "exam_attempt" ? "bg-purple-500" : "bg-amber-500"}`}
+                                  className={`absolute -left-[25px] w-4 h-4 rounded-full border-2 border-white ${t.type === "assignment_submission" ? "bg-emerald-500" : t.type === "exam_attempt" ? "bg-blue-500" : "bg-amber-500"}`}
                                 />
                                 <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 ml-2">
                                   <div className="flex items-center justify-between">

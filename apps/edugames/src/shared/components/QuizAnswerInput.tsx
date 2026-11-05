@@ -44,12 +44,12 @@ export const QuizAnswerInput: React.FC<Props> = ({ question, disabled, onSubmit,
           disabled={disabled}
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
-          className="w-full rounded-2xl border-4 border-purple-300 bg-white p-5 text-center text-2xl font-black text-gray-900 outline-none focus:border-purple-600"
+          className="w-full rounded-2xl border-4 border-blue-300 bg-white p-5 text-center text-2xl font-black text-gray-900 outline-none focus:border-blue-600"
         />
         <button
           type="submit"
           disabled={disabled || !typed.trim()}
-          className="rounded-2xl bg-purple-600 p-5 text-2xl font-black text-white shadow-lg disabled:opacity-50"
+          className="rounded-2xl bg-blue-600 p-5 text-2xl font-black text-white shadow-lg disabled:opacity-50"
         >
           Send answer
         </button>
@@ -93,7 +93,7 @@ export const QuizAnswerInput: React.FC<Props> = ({ question, disabled, onSubmit,
           type="button"
           disabled={disabled || picked.length === 0}
           onClick={() => onSubmit({ option_ids: picked })}
-          className="rounded-2xl bg-purple-600 p-5 text-2xl font-black text-white shadow-lg disabled:opacity-50"
+          className="rounded-2xl bg-blue-600 p-5 text-2xl font-black text-white shadow-lg disabled:opacity-50"
         >
           Send answer
         </button>

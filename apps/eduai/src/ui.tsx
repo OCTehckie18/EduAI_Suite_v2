@@ -141,7 +141,7 @@ const BADGE_TONES: Record<string, string> = {
   amber: "bg-amber-50 text-brand-blue border-amber-200",
   red: "bg-rose-50 text-rose-700 border-rose-200",
   blue: "bg-sky-50 text-sky-700 border-sky-200",
-  violet: "bg-violet-50 text-violet-700 border-violet-200",
+  violet: "bg-amber-50 text-amber-800 border-amber-200",
   stone: "bg-slate-100 text-slate-700 border-slate-300",
 };
 

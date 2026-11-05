@@ -3,7 +3,7 @@ import {
   X, Plus, Trash2, Upload, FileText, Settings, 
   CheckCircle2, BrainCircuit, ListOrdered, Shuffle,
   HelpCircle, ChevronDown, ChevronUp, Save, AlertCircle,
-  Download, Table, Sparkles
+  Download, Table
 } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
@@ -431,7 +431,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                       : "text-blue-400 hover:text-blue-600 hover:bg-blue-50/50"
                   }`}
                 >
-                  <Sparkles size={12} /> Smart Import
+                  Smart Import
                 </button>
                 <button
                   onClick={() => setImportTab("excel")}
@@ -450,7 +450,6 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                 {importTab === "smart" && (
                   <>
                     <div className="flex items-start gap-2 p-2.5 rounded-xl bg-blue-100/50 border border-blue-200/50">
-                      <Sparkles size={14} className="text-blue-600 mt-0.5 shrink-0" />
                       <p className="text-[10px] text-blue-700 leading-relaxed">
                         Upload a <strong>PDF or DOCX</strong> question paper. AI will automatically extract questions, options, and correct answers.
                       </p>

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, Clock, Send, Download, Share2, Check, Upload, FileText } from "lucide-react";
+import { Clock, Send, Download, Share2, Check, Upload, FileText } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
 
 import { API_BASE_URL } from "../../shared/utils/apiConfig";
@@ -417,7 +417,6 @@ ${generatedLesson.quiz_questions}`;
                 </>
               ) : (
                 <>
-                  <Sparkles size={14} />
                   Generate Lesson
                 </>
               )}

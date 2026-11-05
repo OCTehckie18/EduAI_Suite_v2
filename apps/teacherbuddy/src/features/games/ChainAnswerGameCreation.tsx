@@ -550,7 +550,7 @@ export const ChainAnswerGameCreation: React.FC<
                   className="block text-sm font-semibold mb-2"
                   style={{ color: "var(--color-text-primary)" }}
                 >
-                  Subject (Optional — Topic Filter)
+                  Subject (optional topic filter)
                 </label>
                 <input
                   type="text"

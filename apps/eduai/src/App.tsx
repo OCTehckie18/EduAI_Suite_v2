@@ -29,7 +29,7 @@ const NAV: { heading: string; items: TabDef[] }[] = [
   ] },
   { heading: "People", items: [
     { tab: "roster", label: "Student roster", title: "Student roster", subtitle: "Admitted students who may sign up on EduGames", Icon: GraduationCap, color: "text-lime-600", search: true },
-    { tab: "approvals", label: "Teacher approvals", title: "Teacher approvals", subtitle: "Review teachers who applied on TeacherBuddy", Icon: UserCheck, color: "text-violet-600", search: true },
+    { tab: "approvals", label: "Teacher approvals", title: "Teacher approvals", subtitle: "Review teachers who applied on TeacherBuddy", Icon: UserCheck, color: "text-amber-600", search: true },
     { tab: "users", label: "Users", title: "Users", subtitle: "Every account across the platform", Icon: Users, color: "text-sky-600", search: true },
   ] },
   { heading: "Maintenance", items: [
@@ -116,7 +116,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
                   {group.items.map(({ tab: key, label, Icon, color }) => (
                     <button key={key} onClick={() => go(key)} aria-current={tab === key ? "page" : undefined} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${tab === key ? "border border-slate-300 bg-slate-100 text-slate-900 shadow" : "border border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}>
                       <Icon className={`h-4 w-4 ${color}`} />{label}
-                      {key === "approvals" && pending > 0 && <span className="ml-auto rounded-full bg-violet-500 px-2 py-0.5 text-[11px] font-bold text-white">{pending}</span>}
+                      {key === "approvals" && pending > 0 && <span className="ml-auto rounded-full bg-amber-700 px-2 py-0.5 text-[11px] font-bold text-white">{pending}</span>}
                     </button>
                   ))}
                 </div>
