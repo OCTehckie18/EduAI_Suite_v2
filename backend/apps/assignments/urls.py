@@ -11,12 +11,15 @@ from .views import (
     RubricCriteriaListView,
     FeedbackTemplateListView,
 )
+from .evaluation import EvaluationQueueView, MyEvaluationView, RubricView, SubmissionEvaluationView
 
 assignment_urlpatterns = [
     path("rubric-criteria", RubricCriteriaListView.as_view(), name="rubric-criteria"),
     path("feedback-templates", FeedbackTemplateListView.as_view(), name="feedback-templates"),
     path("gradebook/<int:course_id>", GradebookView.as_view(), name="gradebook"),
     path("my-grades/<int:course_id>", MyGradesView.as_view(), name="my-grades"),
+    path("<int:assignment_id>/rubric", RubricView.as_view(), name="assignment-rubric"),
+    path("<int:assignment_id>/evaluation", EvaluationQueueView.as_view(), name="assignment-evaluation-queue"),
     path("<int:course_id>", AssignmentListCreateView.as_view(), name="assignment-list-create"),
     path("detail/<int:assignment_id>", AssignmentDetailView.as_view(), name="assignment-detail"),
     path("<int:assignment_id>/delete", AssignmentDetailView.as_view(), name="assignment-delete"),
@@ -26,6 +29,8 @@ submission_urlpatterns = [
     path("<int:assignment_id>", SubmissionListCreateView.as_view(), name="submission-list-create"),
     path("assignment/<int:assignment_id>", SubmissionListCreateView.as_view(), name="submission-by-assignment"),
     path("detail/<int:submission_id>", SubmissionDetailView.as_view(), name="submission-detail"),
+    path("evaluation/<int:submission_id>", SubmissionEvaluationView.as_view(), name="submission-evaluation"),
+    path("my-evaluation/<int:submission_id>", MyEvaluationView.as_view(), name="my-evaluation"),
     path("grade/<int:submission_id>", GradeSubmissionView.as_view(), name="submission-grade"),
     path("assignment/<int:assignment_id>/student/<str:student_name>", UnsubmitAssignmentView.as_view(), name="submission-unsubmit"),
 ]

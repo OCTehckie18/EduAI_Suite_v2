@@ -100,7 +100,23 @@ export const StudentClassrooms: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Record<number, File[]>>({});
   const [submittedAssignmentIds, setSubmittedAssignmentIds] = useState<number[]>([]);
-  const [gradesByAssignment, setGradesByAssignment] = useState<Record<number, { grade: number | null; max: number }>>({});
+  const [gradesByAssignment, setGradesByAssignment] = useState<Record<number, { grade: number | null; max: number; submissionId: number }>>({});
+  const [markingByAssignment, setMarkingByAssignment] = useState<Record<number, { feedback: string; criteria: { id: number; label: string; max_score: number; score: number | null; comment: string }[] } | 'none' | 'error'>>({});
+  const toggleMarking = async (assignmentId: number, submissionId: number) => {
+    if (markingByAssignment[assignmentId]) {
+      setMarkingByAssignment(({ [assignmentId]: _gone, ...rest }) => rest);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/submissions/my-evaluation/${submissionId}`);
+      if (res.status === 404) return setMarkingByAssignment((m) => ({ ...m, [assignmentId]: "none" }));
+      if (!res.ok) return setMarkingByAssignment((m) => ({ ...m, [assignmentId]: "error" }));
+      const data = await res.json();
+      setMarkingByAssignment((m) => ({ ...m, [assignmentId]: { feedback: data.feedback, criteria: data.criteria } }));
+    } catch {
+      setMarkingByAssignment((m) => ({ ...m, [assignmentId]: "error" }));
+    }
+  };
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
@@ -151,13 +167,13 @@ export const StudentClassrooms: React.FC = () => {
       );
       const allSubmissions = await Promise.all(submissionsPromises);
       const submittedIds: number[] = [];
-      const grades: Record<number, { grade: number | null; max: number }> = {};
+      const grades: Record<number, { grade: number | null; max: number; submissionId: number }> = {};
       // The server only returns this student's own submissions, so any row means "submitted".
       assignmentsList.forEach((a, i) => {
          const mine = Array.isArray(allSubmissions[i]) ? allSubmissions[i][0] : undefined;
          if (mine) {
             submittedIds.push(a.id);
-            grades[a.id] = { grade: mine.grade ?? null, max: mine.max_points ?? a.max_points ?? 100 };
+            grades[a.id] = { grade: mine.grade ?? null, max: mine.max_points ?? a.max_points ?? 100, submissionId: mine.id };
          }
       });
       setSubmittedAssignmentIds(submittedIds);
@@ -832,6 +848,14 @@ export const StudentClassrooms: React.FC = () => {
                                                 : "Work Submitted · awaiting grade"}
                                             </span>
                                           </div>
+                                          {gradesByAssignment[assignment.id]?.grade != null && (
+                                            <button
+                                              onClick={() => toggleMarking(assignment.id, gradesByAssignment[assignment.id].submissionId)}
+                                              className="inline-flex items-center justify-center rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-blue-700 text-xs font-bold hover:bg-blue-100"
+                                            >
+                                              {markingByAssignment[assignment.id] ? "Hide feedback" : "View feedback"}
+                                            </button>
+                                          )}
                                           {gradesByAssignment[assignment.id]?.grade == null && <button 
                                             onClick={() => handleUnsubmit(assignment.id)}
                                             className="inline-flex items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-red-600 text-xs font-bold hover:bg-red-100 transition-all shadow-sm"
@@ -841,6 +865,23 @@ export const StudentClassrooms: React.FC = () => {
                                           </button>}
                                       </div>
                                     </div>
+                                    {(() => {
+                                      const m = markingByAssignment[assignment.id];
+                                      if (!m) return null;
+                                      if (m === "none") return <p className="mt-3 text-sm" style={{ color: "var(--color-text-secondary)" }}>Your teacher gave this a mark without a rubric breakdown.</p>;
+                                      if (m === "error") return <p role="alert" className="mt-3 text-sm text-red-600">Could not load the feedback. Try again.</p>;
+                                      return (
+                                        <div className="mt-4 space-y-2 border-t pt-3 text-sm" style={{ borderColor: "var(--color-border)" }}>
+                                          {m.criteria.map((c) => (
+                                            <div key={c.id}>
+                                              <div className="flex justify-between font-semibold"><span>{c.label}</span><span>{c.score} / {c.max_score}</span></div>
+                                              {c.comment && <p style={{ color: "var(--color-text-secondary)" }}>{c.comment}</p>}
+                                            </div>
+                                          ))}
+                                          {m.feedback && <p className="rounded-lg bg-blue-50 p-3 text-blue-900">{m.feedback}</p>}
+                                        </div>
+                                      );
+                                    })()}
                                   </GlassCard>
                                 )
                               })}
