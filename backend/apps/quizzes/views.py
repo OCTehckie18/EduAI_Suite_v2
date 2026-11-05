@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 from ..core.permissions import IsTeacher
 from ..core.services import student_key
 from .models import Quiz, QuizQuestion, QuizOption, QuizSession, QuizPlayer, QuizAnswer
+from .question_types import TYPED, questions_problem
 from .report import build_report, report_csv
 from .serializers import QuizSerializer, QuizSessionSerializer, QuizPlayerSerializer
 
@@ -47,7 +48,8 @@ def _copy_questions(quiz, questions):
             QuizOption.objects.create(
                 question=question,
                 option_text=c_data.get("option_text", ""),
-                is_correct=bool(c_data.get("is_correct", False)),
+                # Every answer listed on a typed question is one that is accepted.
+                is_correct=question.question_type == TYPED or bool(c_data.get("is_correct", False)),
                 color=c_data.get("color"),
             )
 
@@ -77,7 +79,7 @@ def _write_question(quiz, position, q_data, question=None):
     for c_data in q_data.get("options", []):
         values = {
             "option_text": c_data.get("option_text", ""),
-            "is_correct": bool(c_data.get("is_correct", False)),
+            "is_correct": question.question_type == TYPED or bool(c_data.get("is_correct", False)),
             "color": c_data.get("color"),
         }
         option = existing.get(c_data.get("id"))
@@ -139,6 +141,8 @@ class QuizListCreateView(APIView):
 
     def post(self, request):
         data = request.data
+        if not data.get("is_draft") and (problem := questions_problem(data.get("questions", []))):
+            return Response({"detail": problem}, status=status.HTTP_400_BAD_REQUEST)
         teacher_id = (
             data.get("teacher_id")
             if getattr(request.user, "role", "") in {"MASTER_ADMIN"}
@@ -168,6 +172,10 @@ class QuizDetailView(APIView):
     def put(self, request, quiz_id):
         quiz = get_object_or_404(_managed_quizzes(request.user), pk=quiz_id)
         data = request.data
+        if "questions" in data and not data.get("is_draft", quiz.is_draft) and (
+            problem := questions_problem(data["questions"])
+        ):
+            return Response({"detail": problem}, status=status.HTTP_400_BAD_REQUEST)
 
         for field in ["title", "description", "cover_image", "is_draft", "is_public"]:
             if field in data:

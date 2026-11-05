@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from ..accounts.authentication import authenticate_access_token
 from ..core.services import record_student_activity, resolve_student, student_key
+from .question_types import TYPED, mark, normalise
 from .report import percent_correct
 from .models import QuizAnswer, QuizOption, QuizPlayer, QuizQuestion, QuizSession
 
@@ -304,7 +305,6 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         try:
             question_id = int(content["question_id"])
-            option_id = int(content["option_id"])
         except (KeyError, TypeError, ValueError):
             await self.send_json({"type": "error", "message": "Invalid answer payload."})
             return
@@ -312,7 +312,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         result = await self.save_answer(
             player_id=self.player_id,
             question_id=question_id,
-            option_id=option_id,
+            payload=content,
         )
         if result["error"]:
             await self.send_json({"type": "error", "message": result["error"]})
@@ -337,6 +337,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             "scoreboard": result["scoreboard"],
             "answered": result["answered"],
             "players_total": len(result["scoreboard"]),
+            "question_type": result["question_type"],
+            "accepted_answers": result["accepted_answers"],
+            "typed_answers": result["typed_answers"],
         }
 
     async def broadcast_lobby(self):
@@ -483,13 +486,15 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     @sync_to_async
     def new_question_message(self, question, index):
-        options = list(question.options.all()) if question else []
+        # A typed question's options are its accepted answers: they must never be sent to players.
+        options = list(question.options.all()) if question and question.question_type != TYPED else []
         return {
             "type": "new_question",
             "index": index,
             "total": question.quiz.questions.count() if question else 0,
             "question": {
                 "id": question.id,
+                "question_type": question.question_type or "mcq",
                 "text": question.question_text,
                 "question_text": question.question_text,
                 "image_url": question.image_url,
@@ -509,7 +514,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         }
 
     @database_sync_to_async
-    def save_answer(self, player_id, question_id, option_id):
+    def save_answer(self, player_id, question_id, payload):
         session = QuizSession.objects.filter(pin=self.pin).select_related("quiz").first()
         current_question = None
         if session:
@@ -532,9 +537,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 return {"error": "This question's time has expired."}
 
         question = current_question
-        option = QuizOption.objects.filter(id=option_id, question=question).first()
-        if not option:
-            return {"error": "That answer is no longer available."}
+        marked, problem = mark(question.question_type, list(question.options.all()), payload)
+        if problem:
+            return {"error": problem}
+        is_correct = marked["is_correct"]
 
         try:
             with transaction.atomic():
@@ -548,7 +554,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                     return {"error": "You have already answered this question."}
 
                 points = 0
-                if option.is_correct:
+                if is_correct:
                     # Full points for an instant answer, half for one at the buzzer.
                     points = round(question.points * (1 - min(response_time_ms, limit_ms) / limit_ms / 2))
                     player.streak += 1
@@ -560,8 +566,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 QuizAnswer.objects.create(
                     player=player,
                     question=question,
-                    option_id=option.id,
-                    is_correct=option.is_correct,
+                    option_id=marked["selected_ids"][0] if marked["selected_ids"] else None,
+                    selected_ids=marked["selected_ids"],
+                    text_answer=marked["text"],
+                    is_correct=is_correct,
                     points_earned=points,
                     response_time_ms=response_time_ms,
                 )
@@ -581,12 +589,24 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         question = QuizQuestion.objects.filter(quiz__sessions__pin=self.pin).order_by(
             "order", "id")[index:index + 1].first()
         if not question:
-            return {"stats": {}, "correct_option_ids": [], "scoreboard": [], "answered": 0}
+            return {"stats": {}, "correct_option_ids": [], "scoreboard": [], "answered": 0,
+                    "question_type": "mcq", "accepted_answers": [], "typed_answers": []}
         stats = {str(option_id): 0 for option_id in question.options.values_list("id", flat=True)}
         answers = {a.player_id: a for a in QuizAnswer.objects.filter(question=question, player__session__pin=self.pin)}
+        typed = {}
         for answer in answers.values():
-            key = str(answer.option_id)
-            stats[key] = stats.get(key, 0) + 1
+            if question.question_type == TYPED:
+                row = typed.setdefault(normalise(answer.text_answer), {
+                    "text": answer.text_answer or "", "count": 0, "is_correct": answer.is_correct})
+                row["count"] += 1
+                continue
+            for option_id in (answer.selected_ids or [answer.option_id]):
+                key = str(option_id)
+                stats[key] = stats.get(key, 0) + 1
+        typed_answers = sorted(typed.values(), key=lambda r: (-r["count"], r["text"]))[:8]
+        accepted = []
+        if question.question_type == TYPED:
+            accepted = [o.option_text for o in question.options.all() if o.is_correct and o.option_text]
 
         players = QuizPlayer.objects.filter(session__pin=self.pin).order_by("-score", "id")
         scoreboard = []
@@ -605,9 +625,13 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             })
         return {
             "stats": stats,
-            "correct_option_ids": list(question.options.filter(is_correct=True).values_list("id", flat=True)),
+            "correct_option_ids": [] if question.question_type == TYPED
+            else list(question.options.filter(is_correct=True).values_list("id", flat=True)),
             "scoreboard": scoreboard,
             "answered": len(answers),
+            "question_type": question.question_type or "mcq",
+            "accepted_answers": accepted,
+            "typed_answers": typed_answers,
         }
 
     @database_sync_to_async

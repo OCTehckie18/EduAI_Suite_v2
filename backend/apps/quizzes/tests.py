@@ -59,11 +59,14 @@ class QuizSocketCase(TransactionTestCase):
         self.assertTrue(connected)
         return student
 
-    async def until(self, comm, message_type, timeout=5):
+    async def until(self, comm, message_type, timeout=5, question=None):
         for _ in range(25):
             message = await comm.receive_json_from(timeout=timeout)
-            if message["type"] == message_type:
-                return message
+            if message["type"] != message_type:
+                continue
+            if question is not None and message["question"]["id"] != question.id:
+                continue
+            return message
         self.fail(f"never received {message_type}")
 
     async def answer(self, student, option=None, question=None):
@@ -325,14 +328,14 @@ class QuizGameplayTests(QuizSocketCase):
             self.assertEqual(first["scoreboard"][0]["streak"], 1)
 
             await teacher.send_json_to({"type": "next_question"})
-            await self.until(ana, "new_question")
+            await self.until(ana, "new_question", question=second)
             await self.answer(ana, second_correct, second)
             second_result = (await self.until(teacher, "show_results"))["scoreboard"][0]
             self.assertEqual(second_result["streak"], 2)
             self.assertGreaterEqual(second_result["gained"], 1000 - 30 + 100)  # speed points plus 100
 
             await teacher.send_json_to({"type": "next_question"})
-            await self.until(ana, "new_question")
+            await self.until(ana, "new_question", question=third)
             await self.answer(ana, third_wrong, third)
             third_result = (await self.until(teacher, "show_results"))["scoreboard"][0]
             self.assertEqual((third_result["streak"], third_result["gained"]), (0, 0))
@@ -368,6 +371,88 @@ class QuizGameplayTests(QuizSocketCase):
 
         activity = StudentActivity.objects.get(student_id=student_user.pk)
         self.assertEqual(activity.score, 50.0)
+
+    def make_question(self, kind, options, text="Kind of question"):
+        question = QuizQuestion.objects.create(
+            quiz=self.quiz, question_text=text, question_type=kind, time_limit=20, points=1000, order=0)
+        for option_text, right in options:
+            QuizOption.objects.create(question=question, option_text=option_text, is_correct=right)
+        QuizQuestion.objects.exclude(pk=question.pk).delete()  # this game asks only the question under test
+        return question
+
+    async def play_one(self, question, send):
+        """Join one student, ask the question, have them send `send`, and return the results the room sees."""
+        teacher = await self.teacher_connects()
+        student = await self.student_connects("Ana")
+        await self.until(student, "joined")
+        await teacher.send_json_to({"type": "start_game"})
+        asked = await self.until(student, "new_question")
+        await student.send_json_to({"type": "submit_answer", "question_id": question.id, **send})
+        results = await self.until(teacher, "show_results")
+        await self.close_all(teacher, student)
+        return asked, results
+
+    def test_a_typed_question_hides_its_answers_and_marks_loosely(self):
+        question = self.make_question("typed", [("Paris", True), ("City of Light", True)])
+
+        async def run():
+            asked, results = await self.play_one(question, {"text": "  pARIS "})
+            self.assertEqual(asked["question"]["question_type"], "typed")
+            self.assertEqual(asked["question"]["options"], [])  # accepted answers never reach players
+            self.assertNotIn("Paris", str(asked))
+            self.assertTrue(results["scoreboard"][0]["is_correct"])
+            self.assertEqual(results["accepted_answers"], ["Paris", "City of Light"])
+            self.assertEqual(results["typed_answers"], [{"text": "pARIS", "count": 1, "is_correct": True}])
+        self.run_async(run)
+
+    def test_a_wrong_typed_answer_scores_nothing(self):
+        question = self.make_question("typed", [("Paris", True)])
+
+        async def run():
+            _, results = await self.play_one(question, {"text": "Lyon"})
+            self.assertEqual((results["scoreboard"][0]["is_correct"], results["scoreboard"][0]["gained"]), (False, 0))
+        self.run_async(run)
+
+    def test_a_multiple_answer_question_needs_exactly_the_right_set(self):
+        question = self.make_question("multi", [("A", True), ("B", True), ("C", False)])
+        ids = {o.option_text: o.id for o in question.options.all()}
+
+        async def run():
+            _, partial = await self.play_one(question, {"option_ids": [ids["A"]]})
+            self.assertFalse(partial["scoreboard"][0]["is_correct"])
+        self.run_async(run)
+
+        QuizPlayer.objects.all().delete()
+        QuizSession.objects.filter(pin=self.pin).update(status="lobby", current_question_index=0)
+
+        async def run_all():
+            _, full = await self.play_one(question, {"option_ids": [ids["B"], ids["A"]]})
+            self.assertTrue(full["scoreboard"][0]["is_correct"])
+            self.assertEqual(full["correct_option_ids"], sorted([ids["A"], ids["B"]]))
+            self.assertEqual((full["stats"][str(ids["A"])], full["stats"][str(ids["B"])], full["stats"][str(ids["C"])]), (1, 1, 0))
+        self.run_async(run_all)
+
+    def test_true_false_works_like_a_single_choice(self):
+        question = self.make_question("true_false", [("True", False), ("False", True)])
+        false_id = question.options.get(option_text="False").id
+
+        async def run():
+            asked, results = await self.play_one(question, {"option_id": false_id})
+            self.assertEqual([o["text"] for o in asked["question"]["options"]], ["True", "False"])
+            self.assertTrue(results["scoreboard"][0]["is_correct"])
+        self.run_async(run)
+
+    def test_the_report_shows_what_each_player_actually_answered(self):
+        question = self.make_question("typed", [("Paris", True)])
+
+        async def run():
+            await self.play_one(question, {"text": "Lyon"})
+        self.run_async(run)
+
+        from .report import build_report
+        report = build_report(QuizSession.objects.get(pin=self.pin))
+        self.assertEqual(report["players"][0]["answers"][0]["option_text"], "Lyon")
+        self.assertEqual(report["questions"][0]["typed_answers"], [{"text": "Lyon", "count": 1, "is_correct": False}])
 
     def test_a_locked_lobby_turns_new_players_away_but_lets_existing_ones_back(self):
         async def run():

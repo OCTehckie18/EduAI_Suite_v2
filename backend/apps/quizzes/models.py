@@ -89,6 +89,8 @@ class QuizAnswer(models.Model):
     player = models.ForeignKey(QuizPlayer, on_delete=models.CASCADE, related_name="answers")
     question = models.ForeignKey(QuizQuestion, on_delete=models.CASCADE, related_name="answers")
     option_id = models.IntegerField(null=True, blank=True)
+    # Every option picked (several for a multiple-answer question); option_id keeps the first.
+    selected_ids = models.JSONField(default=list, blank=True)
     text_answer = models.CharField(max_length=500, blank=True, null=True)
     is_correct = models.BooleanField(default=False)
     points_earned = models.IntegerField(default=0)

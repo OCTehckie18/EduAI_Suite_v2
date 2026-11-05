@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CheckCircle2, Trophy, XCircle } from "lucide-react";
 import { buildWsUrl } from "../../shared/utils/apiConfig";
+import { QuizAnswerInput } from "../../shared/components/QuizAnswerInput";
 
 type ParticipantStatus = "connecting" | "waiting" | "playing" | "submitted" | "feedback" | "finished" | "error";
 
@@ -22,6 +23,7 @@ export const QuizTestParticipantPage: React.FC = () => {
   const [result, setResult] = useState<{ is_correct: boolean; points: number } | null>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
+  const playerId = useRef<number | null>(null);
 
   useEffect(() => {
     if (!pin) return;
@@ -39,17 +41,19 @@ export const QuizTestParticipantPage: React.FC = () => {
         setStatus("error");
         return;
       }
-      if (message.type === "lobby_update") setStatus("waiting");
+      if (message.type === "joined") playerId.current = message.player_id;
+      if (message.type === "lobby_update") setStatus((s) => (s === "connecting" ? "waiting" : s));
       if (message.type === "new_question") {
         setQuestion(message.question);
         setSelected(null);
         setStatus("playing");
       }
-      if (message.type === "answer_submitted") {
-        setResult({ is_correct: message.is_correct, points: message.points });
-        setStatus("submitted");
+      if (message.type === "answer_submitted") setStatus("submitted");
+      if (message.type === "show_results") {
+        const mine = (message.scoreboard || []).find((row: any) => row.id === playerId.current);
+        setResult({ is_correct: !!mine?.is_correct, points: mine?.gained || 0 });
+        setStatus("feedback");
       }
-      if (message.type === "show_results") setStatus("feedback");
       if (message.type === "game_over") {
         setLeaderboard(message.leaderboard || []);
         setStatus("finished");
@@ -63,11 +67,11 @@ export const QuizTestParticipantPage: React.FC = () => {
     return () => ws.close();
   }, [pin, nickname]);
 
-  const submitAnswer = (optionId: number) => {
+  const submitAnswer = (payload: Record<string, unknown>) => {
     const socket = socketRef.current;
     if (status !== "playing" || !socket || socket.readyState !== WebSocket.OPEN) return;
-    setSelected(optionId);
-    socket.send(JSON.stringify({ type: "submit_answer", question_id: question.id, option_id: optionId, response_time: 0 }));
+    setSelected(1);
+    socket.send(JSON.stringify({ type: "submit_answer", question_id: question.id, ...payload }));
   };
 
   if (status === "error") {
@@ -91,14 +95,12 @@ export const QuizTestParticipantPage: React.FC = () => {
   if (status === "playing" && question) {
     return <div className="min-h-screen bg-slate-100 p-5 flex flex-col gap-6">
       <div className="rounded-3xl bg-white p-7 shadow-sm"><span className="text-xs font-black uppercase tracking-widest text-purple-600">Test run question</span><h1 className="mt-3 text-3xl font-black text-slate-900">{question.text}</h1></div>
-      <div className="grid flex-1 grid-cols-2 gap-4">
-        {question.options.map((option: any) => <button key={option.id} disabled={selected !== null} onClick={() => submitAnswer(option.id)} className="rounded-3xl p-5 text-xl font-black text-white shadow-lg disabled:opacity-70" style={{ backgroundColor: option.color || "#333" }}>{option.text}</button>)}
-      </div>
+      <QuizAnswerInput key={question.id} question={question} disabled={selected !== null} onSubmit={submitAnswer} />
     </div>;
   }
 
   if (status === "submitted") return <div className="min-h-screen bg-[#46178f] text-white flex flex-col items-center justify-center text-center"><CheckCircle2 size={96} className="text-emerald-300" /><h1 className="mt-6 text-4xl font-black">Answer submitted</h1><p className="mt-3 text-xl text-purple-100">Waiting for the quiz owner to show results.</p></div>;
-  if (status === "feedback") return <div className="min-h-screen bg-emerald-600 text-white flex flex-col items-center justify-center text-center"><CheckCircle2 size={96} /><h1 className="mt-6 text-5xl font-black">{result?.is_correct ? "Correct" : "Answer reviewed"}</h1><p className="mt-4 text-2xl font-bold">+{result?.points || 0} points</p></div>;
+  if (status === "feedback") return <div className="min-h-screen bg-emerald-600 text-white flex flex-col items-center justify-center text-center"><CheckCircle2 size={96} /><h1 className="mt-6 text-5xl font-black">{result?.is_correct ? "Correct" : "Not this time"}</h1><p className="mt-4 text-2xl font-bold">+{result?.points || 0} points</p></div>;
 
   return <div className="min-h-screen bg-[#46178f] text-white p-8 text-center"><Trophy size={96} className="mx-auto text-yellow-300" /><h1 className="mt-5 text-5xl font-black">Test run complete</h1><div className="mx-auto mt-8 max-w-xl space-y-3">{leaderboard.map((player, index) => <div key={player.id || index} className="flex justify-between rounded-2xl bg-white/10 p-4 font-bold"><span>{index + 1}. {player.nickname}</span><span>{player.score}</span></div>)}</div><button onClick={() => navigate("/games/quiz")} className="mt-8 rounded-xl bg-white px-5 py-3 font-bold text-[#46178f]">Back to quizzes</button></div>;
 };
