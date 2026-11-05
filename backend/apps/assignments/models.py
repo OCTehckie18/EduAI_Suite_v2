@@ -66,3 +66,41 @@ class FeedbackTemplate(models.Model):
 
     def __str__(self):
         return f"{self.mark}: {self.text[:40]}"
+
+
+class AssignmentCriterion(models.Model):
+    """One line of an assignment's marking rubric. The lines add up to the assignment's total marks."""
+
+    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name="criteria")
+    label = models.CharField(max_length=120)
+    description = models.CharField(max_length=255, blank=True)
+    max_score = models.PositiveIntegerField()
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.label} ({self.max_score})"
+
+
+class SubmissionEvaluation(models.Model):
+    """The teacher's rubric marking of one submission."""
+
+    submission = models.OneToOneField(Submission, on_delete=models.CASCADE, related_name="evaluation")
+    evaluator = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    feedback = models.TextField(blank=True)
+    total = models.FloatField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class CriterionScore(models.Model):
+    evaluation = models.ForeignKey(SubmissionEvaluation, on_delete=models.CASCADE, related_name="scores")
+    criterion = models.ForeignKey(AssignmentCriterion, on_delete=models.CASCADE, related_name="scores")
+    score = models.FloatField()
+    comment = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["evaluation", "criterion"], name="one_score_per_criterion")]
