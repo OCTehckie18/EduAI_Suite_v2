@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, type DropResult, type DroppableProvided } from '@hello-pangea/dnd';
 import { ArrowLeft, Star, Plus, X, MoreHorizontal, Trash2, Pencil, Users } from 'lucide-react';
 import { useTrelloStore, type TrelloCard } from '../../store/useTrelloStore';
-import { useAuthStore } from '../../store/useAuthStore';
+import { TrelloErrorBanner } from './components/TrelloErrorBanner';
 import { BoardColumn } from './components/BoardColumn';
 import { CardDetailModal } from './components/CardDetailModal';
 import { ShareModal } from './components/ShareModal';
@@ -13,7 +13,7 @@ import './trello.css';
 export const TrelloBoardView: React.FC = () => {
   const { boardId } = useParams<{ boardId: string }>();
   const navigate = useNavigate();
-  const { boards, columns, cards, toggleStar, deleteBoard, addColumn, reorderColumns, moveCard, updateBoard, syncWithBackend, pullFromBackend } =
+  const { boards, columns, cards, toggleStar, deleteBoard, addColumn, reorderColumns, moveCard, updateBoard, load, loaded } =
     useTrelloStore();
 
   const board = boards.find((b) => b.id === boardId);
@@ -29,17 +29,17 @@ export const TrelloBoardView: React.FC = () => {
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
-  const user = useAuthStore((s) => s.user);
-  const userEmail = user?.email || 'guest@eduai.com';
 
   useEffect(() => {
-    if (userEmail) {
-      pullFromBackend(userEmail);
-      // Auto-sync every 10 seconds (pull only)
-      const interval = setInterval(() => pullFromBackend(userEmail), 5000);
-      return () => clearInterval(interval);
-    }
-  }, [userEmail, pullFromBackend]);
+    load();
+    // Pick up other people's changes; skipped while one of mine is still being saved.
+    const interval = setInterval(() => load(true), 5000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  if (!board && !loaded) {
+    return <div className="flex items-center justify-center h-96 text-sm font-medium text-slate-500">Loading board...</div>;
+  }
 
   if (!board) {
     return (
@@ -105,6 +105,8 @@ export const TrelloBoardView: React.FC = () => {
 
   return (
     <div className="trello-board-view" style={{ background: board.background }}>
+      <div className="px-4 pt-3"><TrelloErrorBanner /></div>
+
       {/* Board Header */}
       <div className="trello-board-header">
         <button
@@ -155,7 +157,7 @@ export const TrelloBoardView: React.FC = () => {
           <Users size={16} /> Share
         </button>
 
-        {board.joinRequests && board.joinRequests.length > 0 && userEmail === board.creatorEmail && (
+        {board.joinRequests && board.joinRequests.length > 0 && board.isOwner && (
           <button
             onClick={() => setShowPendingModal(true)}
             className="bg-amber-500/80 hover:bg-amber-500 text-white text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 mr-2 animate-pulse"

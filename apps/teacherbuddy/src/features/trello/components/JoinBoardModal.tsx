@@ -1,87 +1,28 @@
 import React, { useState } from 'react';
 import { X, LogIn, Loader2 } from 'lucide-react';
 import { useTrelloStore } from '../../../store/useTrelloStore';
-import { useAuthStore } from '../../../store/useAuthStore';
 
-import { API_BASE_URL } from "../../../shared/utils/apiConfig";
 interface Props {
   onClose: () => void;
 }
 
 export const JoinBoardModal: React.FC<Props> = ({ onClose }) => {
-  const { requestJoinBoard, boards, syncWithBackend } = useTrelloStore();
-  const user = useAuthStore((s) => s.user);
-  const [boardId, setBoardId] = useState('');
+  const requestJoinBoard = useTrelloStore((s) => s.requestJoinBoard);
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleJoin = async () => {
     setError('');
-    if (!boardId.trim()) return;
-
-    const userEmail = user?.email || 'teacher@eduai.com';
-    const trimmedId = boardId.trim();
-
-    // First check local store
-    const localBoard = boards.find(b => b.id === trimmedId);
-    if (localBoard) {
-      if (localBoard.creatorEmail === userEmail || localBoard.members?.includes(userEmail)) {
-        setError('You are already a member of this board.');
-        return;
-      }
-      if (localBoard.joinRequests?.includes(userEmail)) {
-        setError('You have already requested to join this board. Please wait for approval.');
-        return;
-      }
-      await requestJoinBoard(localBoard.id, userEmail);
-      syncWithBackend(userEmail);
-      setSuccess(true);
-      setTimeout(() => onClose(), 2000);
-      return;
-    }
-
-    // Not found locally — check backend (cross-app board)
+    if (!code.trim() || loading) return;
     setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/trello/board/${trimmedId}`);
-      if (!res.ok) {
-        setError('Board not found. Please check the ID.');
-        setLoading(false);
-        return;
-      }
-
-      const boardData = await res.json();
-
-      if (boardData.creatorEmail === userEmail || boardData.members?.includes(userEmail)) {
-        setError('You are already a member of this board.');
-        setLoading(false);
-        return;
-      }
-      if (boardData.joinRequests?.includes(userEmail)) {
-        setError('You have already requested to join this board. Please wait for approval.');
-        setLoading(false);
-        return;
-      }
-
-      // Submit join request via backend
-      const joinRes = await fetch(`${API_BASE_URL}/trello/board/${trimmedId}/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail }),
-      });
-
-      if (joinRes.ok) {
-        setSuccess(true);
-        setTimeout(() => onClose(), 2000);
-      } else {
-        const errData = await joinRes.json();
-        setError(errData.detail || 'Failed to submit join request.');
-      }
-    } catch (err) {
-      setError('Could not connect to server. Please try again.');
-    } finally {
-      setLoading(false);
+    const result = await requestJoinBoard(code.trim());
+    setLoading(false);
+    if (result.ok) {
+      setSuccess(true);
+    } else {
+      setError(result.error || 'Could not send the request.');
     }
   };
 
@@ -93,7 +34,7 @@ export const JoinBoardModal: React.FC<Props> = ({ onClose }) => {
             <h2 className="text-xl font-bold font-display flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
               <LogIn size={20} /> Join a Board
             </h2>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+            <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
               <X size={18} style={{ color: 'var(--color-text-secondary)' }} />
             </button>
           </div>
@@ -101,33 +42,34 @@ export const JoinBoardModal: React.FC<Props> = ({ onClose }) => {
           {!success ? (
             <>
               <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-                Enter the Board ID shared with you by the creator to request access.
+                Enter the board code the owner shared with you. They will decide whether to let you in.
               </p>
 
               <label className="block mb-6">
                 <span className="text-xs font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-secondary)' }}>
-                  Board ID <span className="text-red-500">*</span>
+                  Board code <span className="text-red-500">*</span>
                 </span>
                 <input
                   type="text"
-                  value={boardId}
-                  onChange={(e) => { setBoardId(e.target.value); setError(''); }}
+                  value={code}
+                  onChange={(e) => { setCode(e.target.value.toUpperCase()); setError(''); }}
                   onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-                  placeholder="e.g. a1b2c3d4"
-                  className="form-input"
+                  placeholder="e.g. K7QM2XPA"
+                  maxLength={12}
+                  className="form-input font-mono tracking-wider"
                   autoFocus
                 />
-                {error && <p className="text-xs text-red-500 mt-2 font-medium">{error}</p>}
+                {error && <p role="alert" className="text-xs text-red-500 mt-2 font-medium">{error}</p>}
               </label>
 
               <button
                 onClick={handleJoin}
-                disabled={!boardId.trim() || loading}
+                disabled={!code.trim() || loading}
                 className="btn btn-primary w-full py-2.5 text-sm flex items-center justify-center gap-2"
-                style={{ opacity: boardId.trim() && !loading ? 1 : 0.5 }}
+                style={{ opacity: code.trim() && !loading ? 1 : 0.5 }}
               >
                 {loading && <Loader2 size={16} className="animate-spin" />}
-                {loading ? 'Looking up board...' : 'Request Access'}
+                {loading ? 'Sending...' : 'Request Access'}
               </button>
             </>
           ) : (
@@ -135,10 +77,11 @@ export const JoinBoardModal: React.FC<Props> = ({ onClose }) => {
               <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
                 <LogIn size={24} className="text-green-600" />
               </div>
-              <h3 className="text-lg font-bold text-green-700 mb-2">Request Sent!</h3>
-              <p className="text-sm text-green-600/80">
-                The board creator has been notified. You will gain access once they approve your request.
+              <h3 className="text-lg font-bold text-green-700 mb-2">Request sent</h3>
+              <p className="text-sm text-green-600/80 mb-4">
+                You will see the board here once its owner approves your request.
               </p>
+              <button onClick={onClose} className="btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-6">Close</button>
             </div>
           )}
         </div>

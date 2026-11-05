@@ -2,29 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Star, LayoutGrid, Trash2, MoreHorizontal, ShieldAlert, LogIn } from 'lucide-react';
 import { useTrelloStore } from '../../store/useTrelloStore';
-import { useAuthStore } from '../../store/useAuthStore';
+import { TrelloErrorBanner } from './components/TrelloErrorBanner';
 import { CreateBoardModal } from './components/CreateBoardModal';
 import { JoinBoardModal } from './components/JoinBoardModal';
 import './trello.css';
 
 export const TrelloBoardsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { boards, toggleStar, deleteBoard, pullFromBackend } = useTrelloStore();
-  const user = useAuthStore((s) => s.user);
-  const fallbackEmail = user?.email || 'teacher@eduai.com';
+  const { boards, loaded, toggleStar, deleteBoard, load } = useTrelloStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (fallbackEmail) {
-      pullFromBackend(fallbackEmail);
-    }
-  }, [fallbackEmail, pullFromBackend]);
+    load();
+  }, [load]);
 
-  const accessibleBoards = boards.filter(
-    (b) => b.creatorEmail === fallbackEmail || b.members?.includes(fallbackEmail)
-  );
+  // The server only sends boards this person is on.
+  const accessibleBoards = boards;
 
   const totalPendingRequests = 0; // Disabled per user request
 
@@ -61,6 +56,8 @@ export const TrelloBoardsPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <TrelloErrorBanner />
 
       {/* Starred Boards */}
       {starredBoards.length > 0 && (
@@ -120,7 +117,7 @@ export const TrelloBoardsPage: React.FC = () => {
       </section>
 
       {/* Empty State */}
-      {accessibleBoards.length === 0 && (
+      {loaded && accessibleBoards.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20">
           <div
             className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5"

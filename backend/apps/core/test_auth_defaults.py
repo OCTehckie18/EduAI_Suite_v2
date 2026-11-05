@@ -13,7 +13,7 @@ PROTECTED = [
     ("get", "/dashboard/summary"),
     ("get", "/announcements/1"),
     ("get", "/assignments/1"),
-    ("get", "/trello/board"),
+    ("get", "/trello/state"),
     ("get", "/api/v1/institution/campuses/"),
     ("post", "/api/v1/institution/campuses/"),
     ("get", "/engagement/student/1/"),
