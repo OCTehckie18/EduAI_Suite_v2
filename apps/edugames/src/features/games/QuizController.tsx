@@ -13,6 +13,7 @@ import { buildWsUrl } from "../../shared/utils/apiConfig";
 import { requestGameFullscreen } from "./fullscreen";
 import { getCurrentAccessToken, getCurrentStudentName } from "../../shared/utils/currentStudent";
 import { PlayerAvatar } from "../../shared/components/PlayerAvatar";
+import { QuizAnswerInput } from "../../shared/components/QuizAnswerInput";
 
 const SEAT_KEY = "eduquiz_seat";
 const MAX_RECONNECTS = 5;
@@ -228,12 +229,12 @@ export const QuizController: React.FC = () => {
     open(cleanPin, cleanName, "");
   };
 
-  const submitAnswer = (optionId: number) => {
+  const submitAnswer = (payload: Record<string, unknown>) => {
     const socket = socketRef.current;
     if (phase !== "playing" || !currentQuestion || chosen !== null || !socket || socket.readyState !== WebSocket.OPEN) return;
-    setChosen(optionId);
-    // Only which answer was picked is sent; the server times the answer itself.
-    socket.send(JSON.stringify({ type: "submit_answer", question_id: currentQuestion.id, option_id: optionId }));
+    setChosen(1);
+    // Only what was answered is sent; the server times and marks the answer itself.
+    socket.send(JSON.stringify({ type: "submit_answer", question_id: currentQuestion.id, ...payload }));
   };
 
   if (phase === "join") {
@@ -316,25 +317,7 @@ export const QuizController: React.FC = () => {
             {problem}
           </p>
         )}
-        <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-2">
-          {currentQuestion.options.map((opt: any, idx: number) => (
-            <motion.button
-              key={opt.id}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => submitAnswer(opt.id)}
-              aria-label={opt.text}
-              className="w-full h-full rounded-2xl flex items-center justify-center shadow-lg active:brightness-90 transition-all border-b-8 border-black/20"
-              style={{ backgroundColor: opt.color || "#333" }}
-            >
-              <div className="w-20 h-20 border-8 border-white/30 rounded-2xl flex items-center justify-center">
-                {idx === 0 && <div className="w-10 h-10 bg-white rotate-45" />}
-                {idx === 1 && <div className="w-10 h-10 bg-white rounded-full" />}
-                {idx === 2 && <div className="w-10 h-10 bg-white -rotate-45" />}
-                {idx === 3 && <div className="w-10 h-10 bg-white" />}
-              </div>
-            </motion.button>
-          ))}
-        </div>
+        <QuizAnswerInput key={currentQuestion.id} question={currentQuestion} disabled={chosen !== null} onSubmit={submitAnswer} />
       </div>
     );
   }

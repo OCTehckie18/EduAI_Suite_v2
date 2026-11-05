@@ -131,10 +131,11 @@ class EditKeepsHistoryTests(ResultsBase):
         self.assertEqual(list(self.quiz.questions.values_list("question_text", flat=True)), ["One", "Three"])
 
     def test_removing_an_option_keeps_the_question_and_its_answers(self):
+        QuizOption.objects.create(question=self.q1, option_text="Extra")
         data = self.payload()
         data["questions"][0]["options"] = [o for o in data["questions"][0]["options"] if o["id"] != self.q1_wrong.pk]
         self.assertEqual(self.edit(data).status_code, 200)
-        self.assertEqual(self.q1.options.count(), 1)
+        self.assertEqual(self.q1.options.count(), 2)
         self.assertEqual(QuizAnswer.objects.filter(question=self.q1).count(), 2)
 
     def test_questions_cannot_be_changed_while_a_game_is_running(self):

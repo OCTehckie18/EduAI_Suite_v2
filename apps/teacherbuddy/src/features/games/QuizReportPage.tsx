@@ -12,6 +12,8 @@ interface ReportOption {
 }
 interface ReportQuestion {
   id: number;
+  question_type?: string;
+  typed_answers?: { text: string; count: number; is_correct: boolean }[];
   number: number;
   text: string;
   answered: number;
@@ -176,7 +178,22 @@ export const QuizReportPage: React.FC = () => {
                 </p>
               </div>
             </div>
-            <div className="space-y-1.5">
+            {q.question_type === "typed" && (
+              <div className="space-y-1.5 text-sm">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400">What players typed</p>
+                {(q.typed_answers || []).length === 0 && <p className="text-slate-500">Nobody answered.</p>}
+                {(q.typed_answers || []).map((a) => (
+                  <div key={a.text} className="flex justify-between rounded-lg bg-slate-50 px-3 py-1.5">
+                    <span className={a.is_correct ? "font-black text-green-700" : "text-slate-700"}>
+                      {a.text} {a.is_correct && "✓"}
+                    </span>
+                    <span className="font-bold">{a.count}</span>
+                  </div>
+                ))}
+                <p className="text-xs text-slate-500">Accepted: {q.options.map((o) => o.text).join(", ")}</p>
+              </div>
+            )}
+            <div className={`space-y-1.5 ${q.question_type === "typed" ? "hidden" : ""}`}>
               {q.options.map((o) => (
                 <div key={o.id} className="flex items-center gap-3 text-sm">
                   <span className={`w-48 truncate ${o.is_correct ? "font-black text-green-700" : "text-slate-600"}`}>

@@ -24,6 +24,31 @@ interface Option {
   color?: string;
 }
 
+const COLORS = ["#e21b3c", "#1368ce", "#d89e00", "#26890c"];
+const TYPES: { id: string; label: string }[] = [
+  { id: "mcq", label: "Multiple choice" },
+  { id: "true_false", label: "True / False" },
+  { id: "multi", label: "Select all that apply" },
+  { id: "typed", label: "Type the answer" },
+];
+const TYPE_LABEL: Record<string, string> = { mcq: "Multiple choice", true_false: "True / False", multi: "Select all", typed: "Typed answer" };
+
+const blankOptions = (count: number): Option[] =>
+  Array.from({ length: count }, (_, i) => ({ option_text: "", is_correct: i === 0, color: COLORS[i] }));
+
+/** The same checks the server makes, so the teacher hears about a problem before saving. */
+const questionProblem = (q: Question): string | null => {
+  if (!q.question_text.trim()) return "has no question text.";
+  const texts = q.options.map((o) => o.option_text.trim());
+  const right = q.options.filter((o) => o.is_correct).length;
+  if (q.question_type === "typed") return texts.some(Boolean) ? null : "needs at least one accepted answer.";
+  if (q.question_type === "true_false") return right === 1 ? null : "needs one correct answer.";
+  if (texts.some((t) => !t)) return "has an empty answer. Fill it in or remove it.";
+  if (new Set(texts.map((t) => t.toLowerCase())).size !== texts.length) return "has two answers that are the same.";
+  if (q.question_type === "multi") return right >= 1 ? null : "needs at least one correct answer.";
+  return right === 1 ? null : "needs one correct answer.";
+};
+
 interface Question {
   id?: number;
   question_text: string;
@@ -121,13 +146,42 @@ export const QuizCreator: React.FC = () => {
     setQuestions(newQuestions);
   };
 
+  const changeType = (type: string) => {
+    const current = questions[activeQuestionIndex];
+    if (current.question_type === type) return;
+    const filled = current.options.filter((o) => o.option_text.trim());
+    let options: Option[];
+    if (type === "true_false") {
+      options = [
+        { option_text: "True", is_correct: true, color: COLORS[0] },
+        { option_text: "False", is_correct: false, color: COLORS[1] },
+      ];
+    } else if (type === "typed") {
+      options = (filled.length ? filled : [current.options[0] ?? blankOptions(1)[0]]).map((o) => ({ ...o, is_correct: true }));
+    } else {
+      const base = current.question_type === "true_false" || current.question_type === "typed" ? blankOptions(4) : current.options;
+      const padded = [...base];
+      while (padded.length < 4) padded.push({ option_text: "", is_correct: false, color: COLORS[padded.length] });
+      // A single-answer question keeps only its first correct answer.
+      let seen = false;
+      options = padded.map((o) => {
+        const keep = type === "multi" ? o.is_correct : o.is_correct && !seen;
+        if (o.is_correct && keep) seen = true;
+        return { ...o, is_correct: keep };
+      });
+      if (!options.some((o) => o.is_correct)) options[0] = { ...options[0], is_correct: true };
+    }
+    updateQuestion({ question_type: type, options });
+  };
+
   const updateOption = (optIndex: number, updates: Partial<Option>) => {
     const newQuestions = [...questions];
     const newOptions = [...newQuestions[activeQuestionIndex].options];
     newOptions[optIndex] = { ...newOptions[optIndex], ...updates };
     
-    // If setting one as correct, unset others (for MCQ)
-    if (updates.is_correct) {
+    // Single-answer questions: choosing one answer un-chooses the rest.
+    const single = newQuestions[activeQuestionIndex].question_type !== "multi";
+    if (single && updates.is_correct) {
       newOptions.forEach((opt, i) => {
         if (i !== optIndex) opt.is_correct = false;
       });
@@ -143,6 +197,17 @@ export const QuizCreator: React.FC = () => {
       return;
     }
     
+    if (!asDraft) {
+      for (let i = 0; i < questions.length; i++) {
+        const problem = questionProblem(questions[i]);
+        if (problem) {
+          setActiveQuestionIndex(i);
+          setSaveError(`Question ${i + 1} ${problem}`);
+          return;
+        }
+      }
+    }
+
     setSaving(true);
     try {
       const url = id ? `${API_BASE_URL}/quizzes/${id}` : `${API_BASE_URL}/quizzes/`;
@@ -280,7 +345,7 @@ export const QuizCreator: React.FC = () => {
                 <div className="w-3 h-3 rounded-full bg-blue-100 flex items-center justify-center">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                 </div>
-                <span className="text-[9px] font-bold text-gray-400">{q.time_limit}s</span>
+                <span className="text-[9px] font-bold text-gray-400">{q.time_limit}s · {TYPE_LABEL[q.question_type] || "Multiple choice"}</span>
               </div>
             </div>
           ))}
@@ -364,42 +429,107 @@ export const QuizCreator: React.FC = () => {
               )}
             </div>
 
-            {/* Options Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              {activeQuestion.options.map((opt, idx) => (
-                <div 
-                  key={idx}
-                  className="group relative h-24 rounded-2xl flex items-center shadow-lg overflow-hidden transition-all hover:scale-[1.01]"
-                  style={{ backgroundColor: opt.color }}
+            {/* Kind of question */}
+            <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="Kind of question">
+              {TYPES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => changeType(t.id)}
+                  aria-pressed={activeQuestion.question_type === t.id}
+                  className={`px-4 py-2 rounded-full text-xs font-black border-2 transition-all ${
+                    activeQuestion.question_type === t.id ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                  }`}
                 >
-                  <div className="w-12 h-full flex items-center justify-center">
-                    <div className="w-6 h-6 border-2 border-white/40 rounded-lg flex items-center justify-center">
-                       {idx === 0 && <div className="w-3 h-3 bg-white rotate-45" />}
-                       {idx === 1 && <div className="w-3 h-3 bg-white rounded-full" />}
-                       {idx === 2 && <div className="w-3 h-3 bg-white -rotate-45" />}
-                       {idx === 3 && <div className="w-3 h-3 bg-white" />}
-                    </div>
-                  </div>
-                  <input 
-                    type="text" 
-                    placeholder={`Answer ${idx + 1}`}
-                    className="flex-1 bg-transparent border-none outline-none text-white font-bold placeholder:text-white/40 px-4"
-                    value={opt.option_text}
-                    onChange={e => updateOption(idx, { option_text: e.target.value })}
-                  />
-                  <div className="p-4">
-                    <button 
-                      onClick={() => updateOption(idx, { is_correct: !opt.is_correct })}
-                      className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center transition-all ${
-                        opt.is_correct ? 'bg-white text-green-500 shadow-md scale-110' : 'bg-transparent text-transparent hover:bg-white/10'
-                      }`}
-                    >
-                      <CheckCircle2 size={20} />
-                    </button>
-                  </div>
-                </div>
+                  {t.label}
+                </button>
               ))}
             </div>
+
+            {activeQuestion.question_type === "typed" ? (
+              <div className="bg-white rounded-2xl shadow-lg p-6 space-y-3">
+                <p className="text-sm font-black text-gray-700">Accepted answers</p>
+                <p className="text-xs text-gray-500">Players type their answer. Capital letters and extra spaces are ignored. Add every spelling you want to accept.</p>
+                {activeQuestion.options.map((opt, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      aria-label={`Accepted answer ${idx + 1}`}
+                      placeholder={`Accepted answer ${idx + 1}`}
+                      maxLength={200}
+                      className="flex-1 rounded-xl border-2 border-gray-200 px-4 py-3 font-bold outline-none focus:border-blue-500"
+                      value={opt.option_text}
+                      onChange={e => updateOption(idx, { option_text: e.target.value, is_correct: true })}
+                    />
+                    {activeQuestion.options.length > 1 && (
+                      <button
+                        type="button"
+                        aria-label={`Remove accepted answer ${idx + 1}`}
+                        onClick={() => updateQuestion({ options: activeQuestion.options.filter((_, i) => i !== idx) })}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {activeQuestion.options.length < 8 && (
+                  <button
+                    type="button"
+                    onClick={() => updateQuestion({ options: [...activeQuestion.options, { option_text: "", is_correct: true, color: COLORS[0] }] })}
+                    className="text-sm font-bold text-blue-600 hover:underline"
+                  >
+                    + Add another accepted answer
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                {activeQuestion.question_type === "multi" && (
+                  <p className="text-center text-xs font-bold text-gray-500">Tick every correct answer. Players must pick exactly those to score.</p>
+                )}
+                <div className={`grid gap-4 ${activeQuestion.question_type === "true_false" ? "grid-cols-2" : "grid-cols-2"}`}>
+                  {activeQuestion.options.map((opt, idx) => (
+                    <div
+                      key={idx}
+                      className="group relative h-24 rounded-2xl flex items-center shadow-lg overflow-hidden transition-all hover:scale-[1.01]"
+                      style={{ backgroundColor: opt.color }}
+                    >
+                      <div className="w-12 h-full flex items-center justify-center">
+                        <div className="w-6 h-6 border-2 border-white/40 rounded-lg flex items-center justify-center">
+                          {idx === 0 && <div className="w-3 h-3 bg-white rotate-45" />}
+                          {idx === 1 && <div className="w-3 h-3 bg-white rounded-full" />}
+                          {idx === 2 && <div className="w-3 h-3 bg-white -rotate-45" />}
+                          {idx === 3 && <div className="w-3 h-3 bg-white" />}
+                        </div>
+                      </div>
+                      <input
+                        type="text"
+                        aria-label={`Answer ${idx + 1}`}
+                        placeholder={`Answer ${idx + 1}`}
+                        readOnly={activeQuestion.question_type === "true_false"}
+                        className="flex-1 bg-transparent border-none outline-none text-white font-bold placeholder:text-white/40 px-4"
+                        value={opt.option_text}
+                        onChange={e => updateOption(idx, { option_text: e.target.value })}
+                      />
+                      <div className="p-4">
+                        <button
+                          type="button"
+                          aria-label={opt.is_correct ? `Answer ${idx + 1} is correct` : `Mark answer ${idx + 1} correct`}
+                          aria-pressed={opt.is_correct}
+                          onClick={() => updateOption(idx, { is_correct: activeQuestion.question_type === "multi" ? !opt.is_correct : true })}
+                          className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center transition-all ${
+                            opt.is_correct ? 'bg-white text-green-500 shadow-md scale-110' : 'bg-transparent text-transparent hover:bg-white/10'
+                          }`}
+                        >
+                          <CheckCircle2 size={20} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

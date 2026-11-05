@@ -57,6 +57,8 @@ export const QuizMonitoring: React.FC = () => {
   const [playersTotal, setPlayersTotal] = useState(0);
   const [stats, setStats] = useState<Record<string, number>>({});
   const [correctOptionIds, setCorrectOptionIds] = useState<number[]>([]);
+  const [acceptedAnswers, setAcceptedAnswers] = useState<string[]>([]);
+  const [typedAnswers, setTypedAnswers] = useState<{ text: string; count: number; is_correct: boolean }[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnects = useRef(0);
   const leaving = useRef(false);
@@ -104,6 +106,8 @@ export const QuizMonitoring: React.FC = () => {
         case "show_results":
           setStats(message.stats || {});
           setCorrectOptionIds(message.correct_option_ids || []);
+          setAcceptedAnswers(message.accepted_answers || []);
+          setTypedAnswers(message.typed_answers || []);
           setScoreboard(message.scoreboard || []);
           setAnswerCount(message.answered ?? 0);
           setPlayersTotal(message.players_total ?? 0);
@@ -340,7 +344,35 @@ export const QuizMonitoring: React.FC = () => {
             <div className="h-10" />
           )}
 
-          <div className={`grid grid-cols-2 gap-6 w-full max-w-7xl ${status === "result" ? "opacity-90" : ""}`}>
+          {currentQuestion.question_type === "multi" && status === "active" && (
+            <p className="text-xl font-black uppercase tracking-widest text-purple-600">Select all that apply</p>
+          )}
+          {currentQuestion.question_type === "typed" && (
+            <div className="w-full max-w-3xl rounded-3xl bg-white p-8 text-center shadow-xl space-y-4">
+              {status === "active" ? (
+                <p className="text-3xl font-black text-purple-700">Players are typing their answers</p>
+              ) : (
+                <>
+                  <p className="text-xs font-black uppercase tracking-widest text-gray-400">Accepted answers</p>
+                  <p className="text-3xl font-black text-green-700">{acceptedAnswers.join("  ·  ") || "None set"}</p>
+                  {typedAnswers.length > 0 && (
+                    <ul className="space-y-1 pt-2 text-left">
+                      {typedAnswers.map((a) => (
+                        <li key={a.text} className="flex justify-between rounded-xl bg-gray-50 px-4 py-2 text-lg font-bold">
+                          <span className={a.is_correct ? "text-green-700" : "text-gray-700"}>
+                            {a.text} {a.is_correct && "✓"}
+                          </span>
+                          <span>{a.count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          <div className={`grid grid-cols-2 gap-6 w-full max-w-7xl ${status === "result" ? "opacity-90" : ""} ${currentQuestion.question_type === "typed" ? "hidden" : ""}`}>
             {currentQuestion.options.map((opt: any, idx: number) => {
               const count = stats[String(opt.id)] || 0;
               const isRight = correctOptionIds.includes(opt.id);

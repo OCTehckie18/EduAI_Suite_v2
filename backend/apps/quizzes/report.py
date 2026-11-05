@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from .models import QuizAnswer, QuizPlayer
+from .question_types import TYPED, normalise
 
 
 def percent_correct(correct, total):
@@ -29,6 +30,14 @@ def _students_for(players):
     return {key: lookup.get(str(key).strip().lower()) for key in keys}
 
 
+def _answer_text(answer, option_text):
+    """What the player actually answered, in words."""
+    if answer.text_answer:
+        return answer.text_answer
+    ids = answer.selected_ids or [answer.option_id]
+    return ", ".join(option_text.get(i, "") for i in ids)
+
+
 def build_report(session):
     """Everything a teacher needs to see how a game went: per question and per player."""
     questions = list(session.quiz.questions.prefetch_related("options").order_by("order", "id"))
@@ -49,11 +58,20 @@ def build_report(session):
     for number, question in enumerate(questions, start=1):
         given = by_question.get(question.id, [])
         counts = {}
+        typed = {}
         for answer in given:
-            counts[answer.option_id] = counts.get(answer.option_id, 0) + 1
+            if question.question_type == TYPED:
+                row = typed.setdefault(normalise(answer.text_answer), {
+                    "text": answer.text_answer or "", "count": 0, "is_correct": answer.is_correct})
+                row["count"] += 1
+                continue
+            for option_id in (answer.selected_ids or [answer.option_id]):
+                counts[option_id] = counts.get(option_id, 0) + 1
         correct = sum(1 for a in given if a.is_correct)
         question_rows.append({
             "id": question.id,
+            "question_type": question.question_type or "mcq",
+            "typed_answers": sorted(typed.values(), key=lambda r: (-r["count"], r["text"])),
             "number": number,
             "text": question.question_text or "",
             "points": question.points,
@@ -93,7 +111,7 @@ def build_report(session):
                 {
                     "question_id": q.id,
                     "answered": q.id in mine,
-                    "option_text": option_text.get(mine[q.id].option_id, "") if q.id in mine else None,
+                    "option_text": _answer_text(mine[q.id], option_text) if q.id in mine else None,
                     "is_correct": mine[q.id].is_correct if q.id in mine else False,
                     "points": mine[q.id].points_earned if q.id in mine else 0,
                     "time_s": round(mine[q.id].response_time_ms / 1000, 1) if q.id in mine else None,
