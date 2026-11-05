@@ -8,6 +8,7 @@ from .views import (
     QuizSessionDetailView,
     QuizSessionJoinView,
     QuizLeaderboardView,
+    QuizSessionReportView,
 )
 
 urlpatterns = [
@@ -26,6 +27,10 @@ urlpatterns = [
          name="quiz-session-join"),
     path("sessions/<str:pin>/join", QuizSessionJoinView.as_view(),
          name="quiz-session-join-plural"),
+    path("session/<str:pin>/report", QuizSessionReportView.as_view(),
+         name="quiz-session-report"),
+    path("sessions/<str:pin>/report", QuizSessionReportView.as_view(),
+         name="quiz-session-report-plural"),
     path("session/<str:pin>/leaderboard", QuizLeaderboardView.as_view(),
          name="quiz-session-leaderboard"),
 ]

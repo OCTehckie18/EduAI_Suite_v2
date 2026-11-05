@@ -13,6 +13,7 @@ import { GamesPage } from "../features/games/GamesPage";
 import { QuizCreator } from "../features/games/QuizCreator";
 import { QuizLibraryPage } from "../features/games/QuizLibraryPage";
 import { QuizMonitoring } from "../features/games/QuizMonitoring";
+import { QuizReportPage } from "../features/games/QuizReportPage";
 import { QuizTestParticipantPage } from "../features/games/QuizTestParticipantPage";
 import SlidoAssignmentDashboard from "../features/games/SlidoAssignmentDashboard";
 import { LiveGradingPage } from "../features/games/LiveGradingForm";
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
       { path: "games/quiz/edit/:id", element: <QuizCreator /> },
       { path: "games/quiz/host/:quizId", element: <QuizMonitoring /> },
       { path: "games/quiz/session/:pin", element: <QuizMonitoring /> },
+      { path: "games/quiz/report/:pin", element: <QuizReportPage /> },
       { path: "games/quiz/test/:pin", element: <QuizTestParticipantPage /> },
       // Slido has no server part yet, so these screens would only show errors.
       { path: "games/slido/assignments", element: <ConstructionPage title="Slido live polls" /> },

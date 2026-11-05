@@ -414,6 +414,11 @@ export const QuizController: React.FC = () => {
           <div className="flex flex-col items-center gap-2">
             <span className="text-8xl font-black text-yellow-400">#{me?.rank ?? "-"}</span>
             <span className="text-xl font-bold opacity-60">Final Score: {me?.score ?? 0} pts</span>
+            {typeof (me as any)?.correct === "number" && (
+              <span className="text-xl font-bold opacity-80">
+                {(me as any).correct} of {(me as any).total} correct{(me as any).percent !== null && ` (${(me as any).percent}%)`}
+              </span>
+            )}
           </div>
         </div>
 

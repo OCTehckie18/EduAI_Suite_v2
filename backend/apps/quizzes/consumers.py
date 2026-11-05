@@ -7,10 +7,12 @@ from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.db import IntegrityError, transaction
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from ..accounts.authentication import authenticate_access_token
 from ..core.services import record_student_activity, resolve_student, student_key
+from .report import percent_correct
 from .models import QuizAnswer, QuizOption, QuizPlayer, QuizQuestion, QuizSession
 
 logger = logging.getLogger(__name__)
@@ -436,16 +438,21 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         session = QuizSession.objects.select_related("quiz").get(pin=self.pin)
         if session.is_test_run:
             return
-        for player in session.players.exclude(student_id__isnull=True).exclude(student_id=""):
+        total = session.quiz.questions.count()
+        players = session.players.exclude(student_id__isnull=True).exclude(student_id="").annotate(
+            n_correct=Count("answers", filter=Q(answers__is_correct=True)))
+        for player in players:
             student = resolve_student(player.student_id)
             if student is None:
                 continue
+            # Saved as a mark out of 100 (questions answered correctly, unanswered ones count as wrong),
+            # not the speed-weighted game points, so it can be compared with other results.
             record_student_activity(
                 student_id=student.pk,
                 activity_type="game",
                 source_id=f"quiz:{session.pk}",
                 title=session.quiz.title or "Quiz",
-                score=player.score,
+                score=percent_correct(player.n_correct, total),
                 status="completed",
             )
 
@@ -605,8 +612,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def get_leaderboard(self):
-        players = list(QuizPlayer.objects.filter(
-            session__pin=self.pin).order_by("-score", "id"))
+        total = QuizQuestion.objects.filter(quiz__sessions__pin=self.pin).count()
+        players = list(QuizPlayer.objects.filter(session__pin=self.pin).annotate(
+            n_correct=Count("answers", filter=Q(answers__is_correct=True))).order_by("-score", "id"))
         return [
             {
                 "id": player.id,
@@ -614,6 +622,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 "avatar": player.avatar,
                 "score": player.score,
                 "rank": rank,
+                "correct": player.n_correct,
+                "total": total,
+                "percent": percent_correct(player.n_correct, total),
             }
             for rank, player in enumerate(players, start=1)
         ]
