@@ -255,6 +255,7 @@ export const StudentClassrooms: React.FC = () => {
         delete next[assignmentId];
         return next;
       });
+      void refresh(); // progress and counts change once work is handed in
     } catch (err) {
       alert(err instanceof Error ? err.message : "Could not upload work");
     }
@@ -274,6 +275,7 @@ export const StudentClassrooms: React.FC = () => {
 
       alert("Assignment unsubmitted successfully!");
       setSubmittedAssignmentIds(prev => prev.filter(id => id !== assignmentId));
+      void refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Could not unsubmit work");
     }
@@ -281,8 +283,9 @@ export const StudentClassrooms: React.FC = () => {
 
   const handleJoinByCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (joinCode.length !== 6) {
-      alert("Please enter a valid 6-character code.");
+    const code = joinCode.trim();
+    if (code.length < 4) {
+      alert("Enter the class code your teacher gave you.");
       return;
     }
 
@@ -304,7 +307,7 @@ export const StudentClassrooms: React.FC = () => {
         );
       }
 
-      const response = await fetch(`${API_BASE_URL}/students/enroll/code?enrollment_code=${joinCode}`, {
+      const response = await fetch(`${API_BASE_URL}/students/enroll/code?enrollment_code=${encodeURIComponent(code)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -953,14 +956,14 @@ export const StudentClassrooms: React.FC = () => {
             
             <form onSubmit={handleJoinByCode} className="space-y-6">
               <div className="text-center">
-                <p className="text-sm text-slate-600 mb-4">Enter the 6-character code provided by your teacher to enroll instantly.</p>
+                <p className="text-sm text-slate-600 mb-4">Enter the class code your teacher gave you, for example BK92X1 or EDU-7K2M9QXA.</p>
                 <input 
                   type="text" 
-                  maxLength={6}
+                  maxLength={20}
                   value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/\s+/g, ""))}
                   placeholder="EX: BK92X1"
-                  className="w-full text-center text-3xl font-black tracking-[0.2em] bg-slate-50 border-2 border-slate-200 rounded-2xl p-5 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all placeholder:text-slate-300 uppercase"
+                  className="w-full text-center text-2xl font-black tracking-[0.15em] bg-slate-50 border-2 border-slate-200 rounded-2xl p-5 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all placeholder:text-slate-300 uppercase"
                 />
               </div>
 
@@ -984,7 +987,7 @@ export const StudentClassrooms: React.FC = () => {
 
               <button 
                 type="submit" 
-                disabled={isJoining || joinCode.length !== 6}
+                disabled={isJoining || joinCode.trim().length < 4}
                 className="w-full bg-brand-blue hover:bg-blue-700 disabled:bg-slate-300 text-white shadow-xl shadow-blue-500/30 py-4 rounded-2xl font-bold text-lg transition-all hover:-translate-y-1 flex items-center justify-center gap-2"
               >
                 {isJoining ? <Loader2 size={24} className="animate-spin" /> : "Verify & Enroll"}

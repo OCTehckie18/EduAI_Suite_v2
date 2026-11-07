@@ -676,6 +676,8 @@ export const ChainAnswerGameCreation: React.FC<
                       type="checkbox"
                       checked={selectedPlayerIds.has(student.id)}
                       onChange={() => handleTogglePlayer(student.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Select ${student.name}`}
                       className="mr-3"
                     />
                     <span

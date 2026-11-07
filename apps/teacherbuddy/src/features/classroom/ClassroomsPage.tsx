@@ -912,12 +912,12 @@ export const ClassroomsPage: React.FC = () => {
                       </div>
                       <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
                         <p className="text-xs font-bold uppercase tracking-widest mb-3 text-slate-500 ">
-                          Course Progress
+                          Marking progress
                         </p>
                         <div className="space-y-3 mt-1">
                           <div className="flex justify-between items-center">
                             <p className="text-2xl font-extrabold text-slate-900 ">
-                              {selected.progress == null ? "No assignments yet" : `${selected.progress}%`}
+                              {selected.progress == null ? "Nothing handed in yet" : `${selected.progress}% marked`}
                             </p>
                           </div>
                           <div className="progress-bar rounded-full h-3 bg-slate-200 ">
@@ -2027,7 +2027,7 @@ export const ClassroomsPage: React.FC = () => {
               >
                 {editingAssignmentId
                   ? "Save Changes & Announce"
-                  : "Activate Assignment Block"}
+                  : "Create assignment"}
               </button>
             </form>
           </div>

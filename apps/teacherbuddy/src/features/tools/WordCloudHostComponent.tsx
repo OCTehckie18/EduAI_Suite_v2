@@ -3,6 +3,7 @@ import { GlassCard } from "../../shared/components/GlassCard";
 import { BarChart, Copy, Check, ArrowLeft } from "lucide-react";
 
 import { API_BASE_URL, buildWsUrl } from "../../shared/utils/apiConfig";
+import { eduGamesUrl } from "../../shared/utils/eduGamesUrl";
 interface WordData {
   text: string;
   value: number;
@@ -248,7 +249,7 @@ return (
             {prompt}
           </h2>
           <p className="text-lg mt-1" style={{ color: "var(--color-text-secondary)" }}>
-            Join at <strong>edugames.app</strong> with PIN: <span className="font-mono text-xl text-blue-500 font-bold tracking-widest">{pin}</span>
+            Join in EduGames (<strong>{eduGamesUrl("/games/word-cloud").replace(/^https?:\/\//, "")}</strong>) with PIN: <span className="font-mono text-xl text-blue-500 font-bold tracking-widest">{pin}</span>
           </p>
         </div>
         <div className="flex gap-2">
