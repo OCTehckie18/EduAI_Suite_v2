@@ -12,6 +12,7 @@ class Appointment(models.Model):
     details = models.TextField(blank=True, null=True)
     rejection_reason = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=50, default="pending")
+    booked_by_teacher = models.BooleanField(default=False)  # the teacher set it up, so it needed no approval
     requested_at = models.CharField(max_length=100, blank=True, null=True)
     reviewed_at = models.CharField(max_length=100, blank=True, null=True)
     reviewed_by = models.CharField(max_length=255, blank=True, null=True)

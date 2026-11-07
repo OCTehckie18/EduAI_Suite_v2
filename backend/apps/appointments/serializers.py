@@ -17,6 +17,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "details",
             "rejection_reason",
             "status",
+            "booked_by_teacher",
             "requested_at",
             "reviewed_at",
             "reviewed_by",

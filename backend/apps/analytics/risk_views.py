@@ -155,3 +155,30 @@ class WatchDetailView(APIView):
     def delete(self, request, watch_id):
         get_object_or_404(RiskWatch, pk=watch_id, teacher=request.user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MyProgressView(APIView):
+    """A student's own progress, from the same signals as the teacher's risk dashboard.
+
+    It shows where the student stands and what to do next, but never the numeric risk score:
+    that is a tool for teachers, not a grade."""
+
+    def get(self, request):
+        from apps.core.access import visible_courses
+
+        student = request.user
+        if getattr(student, "role", "") != User.Role.STUDENT:
+            return _bad("This page is for students.", status.HTTP_403_FORBIDDEN)
+        courses = list(visible_courses(student))
+        overall = engine.analyse(courses).get(student.pk) if courses else None
+        per_course = []
+        for c in courses:
+            mine = engine.analyse([c]).get(student.pk)
+            if mine:
+                per_course.append(engine.student_view(mine, c))
+        order = {"act_now": 0, "needs_attention": 1, "on_track": 2, "getting_started": 3}
+        per_course.sort(key=lambda x: order[x["status"]])
+        return Response({
+            "overall": engine.student_view(overall) if overall else None,
+            "courses": per_course,
+        })

@@ -58,6 +58,7 @@ type Appointment = {
   reviewed_at?: string | null;
   reviewed_by?: string | null;
   notes?: string | null;
+  booked_by_teacher?: boolean;
 };
 
 const formatTimestamp = (value: string) => {
@@ -486,6 +487,7 @@ export const TeacherAppointmentsPage: React.FC = () => {
                       <h4 className="text-xl font-black tracking-tight" style={{ color: "var(--color-text-primary)" }}>{appointment.student_name}</h4>
                       <div className="space-y-0.5">
                         <p className="text-sm font-bold leading-tight" style={{ color: "var(--color-brand-blue)" }}>{appointment.agenda}</p>
+                        {appointment.booked_by_teacher && <span className="mt-1 inline-block rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-800">You booked this</span>}
                         {appointment.details && <p className="text-xs line-clamp-1 italic" style={{ color: "var(--color-text-muted)" }}>{appointment.details}</p>}
                       </div>
                       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest pt-1" style={{ color: "var(--color-text-muted)" }}>

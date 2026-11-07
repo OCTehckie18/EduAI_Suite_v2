@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
+import { TeacherFollowUps } from "./TeacherFollowUps";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 
@@ -392,6 +393,7 @@ export const StudentDashboard: React.FC = () => {
 
         {/* Right Sidebar */}
         <div className="space-y-6">
+          <TeacherFollowUps summary={summary} />
           {(summary?.comingUp || []).length > 0 && (
             <GlassCard className="p-5">
               <h3 className="section-title text-sm flex items-center gap-2 mb-3"><Clock size={16} className="text-emerald-500" /> Today &amp; Tomorrow</h3>

@@ -6,10 +6,11 @@ from .views import (
     CourseAnalyticsView,
 )
 
-from .risk_views import RiskDashboardView, WatchDetailView, WatchListView
+from .risk_views import MyProgressView, RiskDashboardView, WatchDetailView, WatchListView
 
 urlpatterns = [
     path("risk", RiskDashboardView.as_view(), name="analytics-risk"),
+    path("my-progress", MyProgressView.as_view(), name="analytics-my-progress"),
     path("watchlist", WatchListView.as_view(), name="analytics-watchlist"),
     path("watchlist/<int:watch_id>", WatchDetailView.as_view(), name="analytics-watch-detail"),
     path("summary", DashboardSummaryView.as_view(), name="dashboard-summary"),

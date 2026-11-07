@@ -50,6 +50,7 @@ class StudentRisk:
     results: list = field(default_factory=list)
     past_due: int = 0
     missing: list = field(default_factory=list)
+    missing_items: list = field(default_factory=list)  # {title, due, course_id, assignment_id}
     late: list = field(default_factory=list)
     flags: list = field(default_factory=list)
 
@@ -219,6 +220,7 @@ def analyse(classrooms, now=None):
                 risk.past_due += 1
                 if sub is None:
                     risk.missing.append(a.title or "Assignment")
+                    risk.missing_items.append({"assignment_id": a.pk, "title": a.title or "Assignment", "due": due.isoformat(), "course_id": a.course_id})
                 elif sub.created_at > due + timedelta(minutes=5):
                     risk.late.append(a.title or "Assignment")
 
@@ -278,4 +280,49 @@ def summary(risks):
         "distribution": [{"range": label, "students": n} for (label, _, _), n in zip(bands, buckets)],
         "weekly_average": trend,
         "graded_results": sum(len(r.results) for r in rows),
+    }
+
+
+STUDENT_STATUS = {"high": "act_now", "moderate": "needs_attention", "low": "on_track", "no_data": "getting_started"}
+
+
+def student_tips(risk):
+    """The same signals the teacher sees, said to the student, with something they can do about each."""
+    tips = []
+    for reason in risk.reasons():
+        kind = reason["signal"]
+        if kind == "marks":
+            tips.append({"signal": kind, "text": f"Your recent marks average {risk.recent_average}%. Ask your teacher which topics to revise, and redo the questions you lost marks on."})
+        elif kind == "missing":
+            n = len(risk.missing)
+            tips.append({"signal": kind, "text": f"{n} assignment{'s are' if n != 1 else ' is'} past the due date and not handed in. Hand {'them' if n != 1 else 'it'} in, or ask your teacher for a new date."})
+        elif kind == "late":
+            n = len(risk.late)
+            tips.append({"signal": kind, "text": f"{n} of your hand-ins {'were' if n != 1 else 'was'} late. Try to finish a day before the deadline."})
+        elif kind == "trend":
+            tips.append({"signal": kind, "text": f"Your marks have been dropping, by about {abs(risk.slope)} points per result. Book a meeting with your teacher to get back on track."})
+        elif kind == "integrity":
+            n = len(risk.flags)
+            tips.append({"signal": kind, "text": f"{n} exam attempt{'s were' if n != 1 else ' was'} ended because you left the exam window. Close other apps and turn off notifications before you start."})
+    if not tips:
+        tips.append({"signal": "ok", "text": "You are on track. Keep handing work in on time." if risk.has_data
+                     else "Nothing has been marked yet. Your progress will show here after your first marked work."})
+    return tips
+
+
+def student_view(risk, course=None):
+    return {
+        **({"course_id": course.pk, "code": course.subject_code, "name": course.name} if course else {}),
+        "status": STUDENT_STATUS[risk.level],
+        "average": risk.average,
+        "recent_average": risk.recent_average,
+        "trend_slope": risk.slope,
+        "results_count": len(risk.results),
+        "past_due_count": risk.past_due,
+        "missing": risk.missing_items,
+        "late_count": len(risk.late),
+        "exam_flags": len(risk.flags),
+        "tips": student_tips(risk),
+        "timeline": [{"date": r.when.date().isoformat(), "percent": r.percent, "kind": r.kind, "title": r.title}
+                     for r in sorted(risk.results, key=lambda r: r.when)],
     }

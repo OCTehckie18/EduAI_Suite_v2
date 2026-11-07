@@ -62,6 +62,7 @@ type Appointment = {
   reviewed_at?: string | null;
   reviewed_by?: string | null;
   notes?: string | null;
+  booked_by_teacher?: boolean;
 };
 
 type TeacherGroup = {
@@ -530,6 +531,7 @@ export const AppointmentBookingPage: React.FC = () => {
                         <div>
                           <p className="text-sm font-bold" style={{ color: "var(--color-text-primary)" }}>{appointment.teacher_name}</p>
                           <p className="text-[11px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>{appointment.agenda}</p>
+                          {appointment.booked_by_teacher && <span className="mt-1 inline-block rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-800">Booked by your teacher</span>}
                         </div>
                         <span className="badge text-[10px]" style={{ background: meta.bg, color: meta.color }}>
                           {meta.label}
