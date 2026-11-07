@@ -117,7 +117,7 @@ export const WordCloudHostComponent: React.FC<WordCloudHostProps> = ({ onBack, i
     const connect = () => {
       if (isCancelled) return;
 
-      const getWsUrl = () => buildWsUrl(`/ws/wordcloud/${pin}?role=teacher`);
+      const getWsUrl = () => buildWsUrl(`/ws/wordcloud/${pin}?role=teacher&access_token=${encodeURIComponent(localStorage.getItem("token") || "")}`);
 
       ws = new WebSocket(getWsUrl());
 

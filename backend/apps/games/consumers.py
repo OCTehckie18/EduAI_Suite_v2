@@ -1,9 +1,14 @@
 from urllib.parse import parse_qs
 
+from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
+from ..accounts.authentication import authenticate_access_token
 from .models import WordCloudSession, WordCloudSubmission
+
+CLOSE_UNAUTHORISED = 4401
+CLOSE_FORBIDDEN = 4403
 
 
 class WordCloudConsumer(AsyncJsonWebsocketConsumer):
@@ -11,13 +16,35 @@ class WordCloudConsumer(AsyncJsonWebsocketConsumer):
         self.pin = self.scope["url_route"]["kwargs"]["pin"]
         query = parse_qs(self.scope.get("query_string", b"").decode())
         self.role = query.get("role", ["student"])[0]
-        self.student_name = query.get("student_name", [""])[0].strip() or None
+        self.student_name = None
         self.group_name = f"wordcloud_{self.pin}"
 
+        # Who is connecting comes from the verified token, never from the query string.
+        token = query.get("access_token", [""])[0]
+        if not token:
+            await self.close(code=CLOSE_UNAUTHORISED)
+            return
+        try:
+            user, _ = await sync_to_async(authenticate_access_token)(token)
+        except Exception:
+            await self.close(code=CLOSE_UNAUTHORISED)
+            return
+
         if not await self.session_exists():
+            await self.accept()
             await self.send_json({"type": "error", "message": "Session not found"})
             await self.close(code=4404)
             return
+
+        if self.role == "teacher":
+            if not await self.may_host(user):
+                await self.close(code=CLOSE_FORBIDDEN)
+                return
+        elif getattr(user, "role", "") != "STUDENT":
+            await self.close(code=CLOSE_FORBIDDEN)
+            return
+        else:
+            self.student_name = user.full_name or user.email
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
@@ -54,6 +81,12 @@ class WordCloudConsumer(AsyncJsonWebsocketConsumer):
             self.group_name,
             {"type": "wordcloud_broadcast", "message": message},
         )
+
+    @database_sync_to_async
+    def may_host(self, user):
+        if getattr(user, "role", "") == "MASTER_ADMIN" or user.is_superuser:
+            return True
+        return WordCloudSession.objects.filter(pin=self.pin, teacher_id=user.pk).exists()
 
     @database_sync_to_async
     def session_exists(self):

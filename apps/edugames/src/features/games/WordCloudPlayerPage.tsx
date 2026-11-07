@@ -40,7 +40,7 @@ export const WordCloudPlayerPage: React.FC = () => {
       if (isCancelled) return;
 
       const getWsUrl = () =>
-        buildWsUrl(`/ws/wordcloud/${session.pin}?role=student`);
+        buildWsUrl(`/ws/wordcloud/${session.pin}?role=student&access_token=${encodeURIComponent(localStorage.getItem("token") || "")}`);
 
       ws = new WebSocket(getWsUrl());
 

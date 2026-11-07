@@ -111,7 +111,16 @@ class LessonListCreateView(APIView):
         elif status_param == "draft":
             qs = qs.filter(posted_at__isnull=True)
 
-        return Response(LessonSerializer(qs, many=True).data)
+        # A page at a time: 100 by default, 200 at most. The full count is in X-Total-Count.
+        try:
+            limit = max(1, min(int(request.query_params.get("limit", 100)), 200))
+            offset = max(0, int(request.query_params.get("offset", 0)))
+        except (TypeError, ValueError):
+            limit, offset = 100, 0
+        total = qs.count()
+        response = Response(LessonSerializer(qs[offset:offset + limit], many=True).data)
+        response["X-Total-Count"] = str(total)
+        return response
 
     def post(self, request):
         data = request.data

@@ -90,3 +90,16 @@ class LessonEduGamesTests(TestCase):
         response = self.client.post(f"/api/v1/lessons/{lesson.id}/edugames")
 
         self.assertEqual(response.status_code, 400)
+
+class LessonPagingTests(LessonEduGamesTests):
+    def test_the_list_is_paged_and_reports_the_total(self):
+        for i in range(5):
+            Lesson.objects.create(course=self.classroom, title=f"L{i}", created_by=self.teacher.pk)
+        self.client.force_authenticate(self.teacher)
+        res = self.client.get("/lessons/?limit=2&offset=1")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.json()), 2)
+        self.assertEqual(res["X-Total-Count"], "5")
+        self.assertEqual(len(self.client.get("/lessons/").json()), 5)
+        self.assertEqual(len(self.client.get("/lessons/?limit=abc").json()), 5)
+        self.assertEqual(len(self.client.get("/lessons/?limit=0").json()), 1)
