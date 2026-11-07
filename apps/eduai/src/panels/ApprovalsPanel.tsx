@@ -75,7 +75,7 @@ export function ApprovalsPanel({ search, onChanged }: { search: string; onChange
                 <td className="p-3 text-xs text-slate-500 sm:p-4">{timeAgo(status === "pending" ? row.applied_at : row.reviewed_at)}{status !== "pending" && row.reviewed_by ? ` · ${row.reviewed_by}` : ""}</td>
                 <td className="p-3 text-right sm:p-4">
                   {status === "pending" ? (
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <button disabled={busyId === row.id || !row.profile_complete} title={row.profile_complete ? "" : "The applicant has not finished their profile"} onClick={() => void decide(row, "approve")} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-40"><Check className="h-3.5 w-3.5" />Approve</button>
                       <button disabled={busyId === row.id} onClick={() => void decide(row, "reject")} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-40"><X className="h-3.5 w-3.5" />Reject</button>
                     </div>

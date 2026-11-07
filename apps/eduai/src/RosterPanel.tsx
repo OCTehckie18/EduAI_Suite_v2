@@ -124,7 +124,7 @@ export function RosterPanel({ search }: { search: string }) {
       </div>
     </div>
 
-    {result && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-100">
+    {result && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
       <p className="font-semibold">Import finished: {result.created} added, {result.updated} updated, {result.unchanged} unchanged{result.errors.length ? `, ${result.errors.length} rows need attention` : ""}.</p>
       {result.errors.length > 0 && <ul className="mt-2 max-h-40 list-disc space-y-1 overflow-y-auto pl-5 text-xs text-amber-800">{result.errors.map((e) => <li key={`${e.row}-${e.error}`}>Row {e.row}: {e.error}</li>)}</ul>}
     </div>}
