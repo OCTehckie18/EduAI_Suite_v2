@@ -149,6 +149,8 @@ export const ClassroomsPage: React.FC = () => {
     department: DEPARTMENTS[0],
   });
   const [studentTab, setStudentTab] = useState<"manual" | "csv">("manual");
+  const [studentMsg, setStudentMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
   const studentFileInputRef = useRef<HTMLInputElement>(null);
 
   const [announcementForm, setAnnouncementForm] = useState({
@@ -515,46 +517,75 @@ export const ClassroomsPage: React.FC = () => {
     });
   };
 
-  const handleAddStudentManual = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleApiCall(
-      () =>
-        fetch(`${API_URL}/students/${selectedId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(studentForm),
-        }),
-      () => {
-        setStudentForm({
-          name: "",
-          email: "",
-          registration_number: "",
-          student_class: "",
-          department: DEPARTMENTS[0],
-        });
-        setShowStudentModal(false);
-        fetchCourseData();
-      },
-    );
+  const readDetail = async (res: Response) => {
+    try {
+      const data = await res.json();
+      return data?.detail || data?.error?.message || data?.message || "";
+    } catch {
+      return "";
+    }
   };
 
-  const handleBulkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !e.target.files[0] || !selectedId) return;
-    const file = e.target.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-
-    handleApiCall(
-      () =>
-        fetch(`${API_URL}/students/bulk_upload/${selectedId}`, {
-          method: "POST",
-          body: formData,
+  const handleAddStudentManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (enrolling) return;
+    setEnrolling(true);
+    setStudentMsg(null);
+    try {
+      const res = await fetch(`${API_URL}/students/${selectedId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: studentForm.email.trim(),
+          registration_number: studentForm.registration_number.trim(),
         }),
-      () => {
-        setShowStudentModal(false);
-        fetchCourseData();
-      },
-    );
+      });
+      if (!res.ok) {
+        setStudentMsg({ kind: "error", text: (await readDetail(res)) || `Could not enroll the student (${res.status}).` });
+        return;
+      }
+      const added = await res.json().catch(() => null);
+      setStudentMsg({ kind: "ok", text: `${added?.name || "The student"} is now enrolled.` });
+      setStudentForm({ ...studentForm, email: "", registration_number: "" });
+      fetchCourses();
+      fetchCourseData();
+    } catch {
+      setStudentMsg({ kind: "error", text: "Could not reach the server. Check your connection and try again." });
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
+  const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    if (!input.files || !input.files[0] || !selectedId || enrolling) return;
+    const formData = new FormData();
+    formData.append("file", input.files[0]);
+    setEnrolling(true);
+    setStudentMsg(null);
+    try {
+      const res = await fetch(`${API_URL}/students/bulk_upload/${selectedId}`, { method: "POST", body: formData });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setStudentMsg({ kind: "error", text: data?.detail || `The file could not be used (${res.status}).` });
+        return;
+      }
+      const skipped: { who: string; reason: string }[] = data?.skipped || [];
+      const parts = [`${data?.enrolled ?? 0} enrolled`];
+      if (data?.already_enrolled) parts.push(`${data.already_enrolled} were already in the class`);
+      if (skipped.length) {
+        const shown = skipped.slice(0, 5).map((x) => `${x.who} (${x.reason})`).join("; ");
+        parts.push(`${skipped.length} skipped: ${shown}${skipped.length > 5 ? "; and more" : ""}`);
+      }
+      setStudentMsg({ kind: skipped.length ? "error" : "ok", text: parts.join(". ") + "." });
+      fetchCourses();
+      fetchCourseData();
+    } catch {
+      setStudentMsg({ kind: "error", text: "Could not reach the server. Check your connection and try again." });
+    } finally {
+      setEnrolling(false);
+      input.value = "";
+    }
   };
 
   const handleDeleteStudent = (id: number) => {
@@ -1075,11 +1106,20 @@ export const ClassroomsPage: React.FC = () => {
 
                 {activeTab === "students" && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-slate-600">{students.length} enrolled</p>
+                      <button
+                        type="button"
+                        onClick={() => { setStudentMsg(null); setStudentTab("manual"); setShowStudentModal(true); }}
+                        className="bg-brand-blue hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors"
+                      >
+                        Enroll students
+                      </button>
+                    </div>
                     {students.length === 0 ? (
                       <div className="text-center py-16 rounded-2xl bg-white/60 border border-slate-200 ">
                         <p className="text-slate-500 font-medium">
-                          No students enrolled. Add some to begin mapping
-                          grades.
+                          No students enrolled yet. Enroll students by email or register number, or give them the join code of this class.
                         </p>
                       </div>
                     ) : (
@@ -1718,101 +1758,55 @@ export const ClassroomsPage: React.FC = () => {
               </button>
             </div>
 
+            {studentMsg && (
+              <p role={studentMsg.kind === "error" ? "alert" : "status"} className={`mb-4 rounded-xl border px-4 py-3 text-sm font-medium ${studentMsg.kind === "error" ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}`}>
+                {studentMsg.text}
+              </p>
+            )}
+
             {studentTab === "manual" ? (
-              <form onSubmit={handleAddStudentManual} className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4">
+              <form onSubmit={handleAddStudentManual} className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  Enter the university email or the register number of the student. They must be on the admitted-students list.
+                </p>
                 <div>
-                  <label className={premiumLabel}>Full Name</label>
+                  <label className={premiumLabel} htmlFor="enroll-email">Email address</label>
                   <input
-                    required
-                    className={premiumInput}
-                    placeholder="John Doe"
-                    value={studentForm.name}
-                    onChange={(e) =>
-                      setStudentForm({ ...studentForm, name: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className={premiumLabel}>Email Address</label>
-                  <input
-                    required
+                    id="enroll-email"
                     type="email"
                     className={premiumInput}
                     placeholder="student@university.edu"
                     value={studentForm.email}
-                    onChange={(e) =>
-                      setStudentForm({ ...studentForm, email: e.target.value })
-                    }
+                    onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4 lg:col-span-2">
-                  <div>
-                    <label className={premiumLabel}>Reg Number</label>
-                    <input
-                      required
-                      className={premiumInput}
-                      placeholder="ID908"
-                      value={studentForm.registration_number}
-                      onChange={(e) =>
-                        setStudentForm({
-                          ...studentForm,
-                          registration_number: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className={premiumLabel}>Class</label>
-                    <input
-                      required
-                      className={premiumInput}
-                      placeholder="Section A"
-                      value={studentForm.student_class}
-                      onChange={(e) =>
-                        setStudentForm({
-                          ...studentForm,
-                          student_class: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="lg:col-span-2">
-                  <label className={premiumLabel}>Department</label>
-                  <select
-                    className={`${premiumInput} appearance-none cursor-pointer`}
-                    value={studentForm.department}
-                    onChange={(e) =>
-                      setStudentForm({
-                        ...studentForm,
-                        department: e.target.value,
-                      })
-                    }
-                  >
-                    {DEPARTMENTS.map((dept) => (
-                      <option key={dept} value={dept}>
-                        {dept}
-                      </option>
-                    ))}
-                  </select>
+                <div>
+                  <label className={premiumLabel} htmlFor="enroll-reg">Register number</label>
+                  <input
+                    id="enroll-reg"
+                    className={premiumInput}
+                    placeholder="e.g. 2025001"
+                    value={studentForm.registration_number}
+                    onChange={(e) => setStudentForm({ ...studentForm, registration_number: e.target.value })}
+                  />
                 </div>
                 <button
                   type="submit"
-                  className="w-full lg:col-span-2 bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-brand-blue/30 py-4 mt-2 rounded-xl font-bold text-lg transition-all hover:-translate-y-1"
+                  disabled={enrolling || (!studentForm.email.trim() && !studentForm.registration_number.trim())}
+                  className="w-full bg-brand-blue hover:bg-blue-700 disabled:opacity-50 text-white shadow-lg shadow-brand-blue/30 py-4 mt-2 rounded-xl font-bold text-lg transition-all"
                 >
-                  Add Student
+                  {enrolling ? "Enrolling..." : "Enroll student"}
                 </button>
               </form>
             ) : (
               <div className="space-y-6 py-4">
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 ">
                   <p className="text-sm font-semibold text-brand-blue mb-1">
-                    Supported Formats: CSV, XLSX, TXT
+                    Supported formats: CSV, XLSX, TXT
                   </p>
                   <code className="text-xs font-bold text-slate-600 block mt-1">
-                    Please ensure the file contains: Registration Number, Name,
-                    Email, Class, and Department. Our engine will automatically
-                    extract the details!
+                    One student per row with an Email column and, optionally, a Registration Number column.
+                    Students must be on the admitted-students list.
                   </code>
                 </div>
                 <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center hover:bg-slate-50 transition-colors">

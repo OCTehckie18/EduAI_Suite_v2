@@ -704,32 +704,53 @@ class LegacyBulkEnrollView(APIView):
             return Response({"detail": f"Error reading file: {str(exc)}"}, status=status.HTTP_400_BAD_REQUEST)
 
         enrolled = 0
+        already = 0
+        skipped = []
         seen = set()
         for row in rows:
             payload = _legacy_dict_data(row) if isinstance(row, dict) else _legacy_line_data(row)
             if not payload or not payload.get("email"):
+                label = str(row if not isinstance(row, dict) else next((v for v in row.values() if v), ""))[:40]
+                if label.strip():
+                    skipped.append({"who": label, "reason": "no email found"})
                 continue
-            if str(payload["email"]).lower() in seen:
+            key = str(payload["email"]).lower()
+            if key in seen:
                 continue
-            seen.add(str(payload["email"]).lower())
+            seen.add(key)
             try:
                 _enroll_student(classroom, payload)
                 enrolled += 1
             except ValueError as exc:
                 if "already enrolled" in str(exc):
-                    continue
-                continue
+                    already += 1
+                else:
+                    skipped.append({"who": payload["email"], "reason": str(exc).rstrip(".")})
 
-        if not enrolled:
-            return Response({"detail": "Could not extract student details using regex or table headers."}, status=status.HTTP_400_BAD_REQUEST)
+        if not enrolled and not already:
+            reasons = "; ".join(f"{x['who']} ({x['reason']})" for x in skipped[:3])
+            detail = "No student could be enrolled from this file."
+            if reasons:
+                detail += f" {reasons}."
+            detail += " Use one student per row with an Email column."
+            return Response({"detail": detail, "skipped": skipped}, status=status.HTTP_400_BAD_REQUEST)
 
-        ActionHistory.objects.create(
-            feature="student",
-            action="bulk_upload",
-            result=f"Bulk enrolled {enrolled} students into {classroom.name}",
-            metadata_json={"course_id": course_id, "enrolled_count": enrolled},
+        if enrolled:
+            ActionHistory.objects.create(
+                feature="student",
+                action="bulk_upload",
+                result=f"Bulk enrolled {enrolled} students into {classroom.name}",
+                metadata_json={"course_id": course_id, "enrolled_count": enrolled},
+            )
+        return Response(
+            {
+                "message": f"Successfully enrolled {enrolled} students",
+                "enrolled": enrolled,
+                "already_enrolled": already,
+                "skipped": skipped,
+            },
+            status=status.HTTP_201_CREATED if enrolled else status.HTTP_200_OK,
         )
-        return Response({"message": f"Successfully enrolled {enrolled} students"}, status=status.HTTP_201_CREATED)
 
 
 class LegacyEnrollByCodeView(APIView):
