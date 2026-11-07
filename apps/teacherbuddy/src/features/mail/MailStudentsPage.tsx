@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { 
   Mail, 
   Search, 
@@ -111,6 +112,34 @@ export const MailStudentsPage: React.FC = () => {
   const [dataSource, setDataSource] = useState<"platform" | "upload">("platform");
   const [uploadedData, setUploadedData] = useState<Student[]>([]);
 
+  // Arriving from the risk dashboard with students already chosen: show just those, selected.
+  const location = useLocation();
+  const presetIds = (location.state as { studentIds?: number[] } | null)?.studentIds;
+  useEffect(() => {
+    if (!presetIds || !presetIds.length) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_ENDPOINTS.MAIL}/filter`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conditions: [] }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) throw new Error();
+        const chosen = data.filter((st: Student) => presetIds.includes(st.id));
+        setDataSource("platform");
+        setStudents(chosen);
+        setSelectedStudents(chosen.map((st: Student) => st.id));
+        setStatus({ type: "success", message: `${chosen.length} student${chosen.length === 1 ? "" : "s"} chosen from the risk dashboard. Write your message below.` });
+      } catch {
+        setStatus({ type: "error", message: "Could not load the chosen students. Search for them below." });
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     fetchDrafts();
     fetchHistory();
