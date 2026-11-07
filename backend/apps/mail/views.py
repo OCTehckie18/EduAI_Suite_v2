@@ -93,9 +93,12 @@ class MailFilterView(APIView):
     never matches an attendance condition and the field is returned as ``None``."""
     permission_classes = [IsTeacher]
 
+    NUMBER_FIELDS = {"avg_score", "score", "attendance"}
+    TEXT_FIELDS = {"name", "registration_number", "email"}
     OPERATORS = {
         "<": lambda a, b: a < b, "<=": lambda a, b: a <= b, ">": lambda a, b: a > b,
-        ">=": lambda a, b: a >= b, "==": lambda a, b: a == b,
+        ">=": lambda a, b: a >= b, "==": lambda a, b: a == b, "!=": lambda a, b: a != b,
+        "contains": lambda a, b: str(b) in str(a),
     }
 
     def post(self, request):
@@ -103,6 +106,30 @@ class MailFilterView(APIView):
         from apps.core.access import managed_courses
 
         conditions = request.data.get("conditions", [])
+        if not isinstance(conditions, list):
+            return Response({"detail": "conditions must be a list."}, status=status.HTTP_400_BAD_REQUEST)
+        cleaned = []
+        for c in conditions:
+            if not isinstance(c, dict):
+                return Response({"detail": "A condition is not valid."}, status=status.HTTP_400_BAD_REQUEST)
+            field, operator, value = c.get("field", ""), c.get("operator", ""), c.get("value", "")
+            if operator not in self.OPERATORS:
+                return Response({"detail": f"Unknown operator '{operator}'."}, status=status.HTTP_400_BAD_REQUEST)
+            if field in self.NUMBER_FIELDS:
+                if operator == "contains":
+                    return Response({"detail": "Use a comparison, not 'contains', for marks."}, status=status.HTTP_400_BAD_REQUEST)
+                try:
+                    value = float(value)
+                except (TypeError, ValueError):
+                    return Response({"detail": "Marks conditions need a number."}, status=status.HTTP_400_BAD_REQUEST)
+            elif field in self.TEXT_FIELDS:
+                if operator not in ("==", "!=", "contains"):
+                    return Response({"detail": "Text can only be matched with equals, not equal to or contains."}, status=status.HTTP_400_BAD_REQUEST)
+                value = str(value or "").strip().casefold()
+            else:
+                return Response({"detail": f"Unknown column '{field}'."}, status=status.HTTP_400_BAD_REQUEST)
+            cleaned.append((field, self.OPERATORS[operator], value))
+
         courses = managed_courses(request.user)
         course_ids = list(courses.values_list("id", flat=True))
         students = User.objects.filter(
@@ -112,16 +139,16 @@ class MailFilterView(APIView):
         results = []
 
         for s in students:
-            values = {"avg_score": averages.get(s.id), "score": averages.get(s.id), "attendance": None}
+            values = {
+                "avg_score": averages.get(s.id), "score": averages.get(s.id), "attendance": None,
+                "name": (s.full_name or "").casefold(), "registration_number": (s.register_no or "").casefold(),
+                "email": (s.email or "").casefold(),
+            }
             match = True
-            for c in conditions:
-                compare = self.OPERATORS.get(c.get("operator", ""))
-                try:
-                    threshold = float(c.get("value", 0))
-                except (TypeError, ValueError):
-                    return Response({"detail": "Condition values must be numbers."}, status=status.HTTP_400_BAD_REQUEST)
-                current = values.get(c.get("field", ""))
-                if compare is None or current is None or not compare(current, threshold):
+            for field, compare, wanted in cleaned:
+                current = values.get(field)
+                # Attendance is not recorded and an ungraded student has no average: neither matches a number.
+                if current is None or not compare(current, wanted):
                     match = False
                     break
 
