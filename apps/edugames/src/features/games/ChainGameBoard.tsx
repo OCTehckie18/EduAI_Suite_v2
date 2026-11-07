@@ -160,7 +160,7 @@ export const ChainGameBoard: React.FC<ChainGameBoardProps> = ({ sessionId, myStu
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Players ({game.players.length})</p>
             {game.players.map((player) => (
               <div key={player.id} className="flex items-center gap-3 rounded-lg p-3" style={{ background: "var(--color-bg-tertiary)" }}>
-                <span className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white" style={{ background: "var(--color-brand-blue)" }}>{player.name.charAt(0).toUpperCase()}</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white" style={{ background: "var(--color-brand-blue-fill)" }}>{player.name.charAt(0).toUpperCase()}</span>
                 <span className="font-semibold" style={{ color: "var(--color-text-primary)" }}>{player.name}{player.id === me?.id ? " (you)" : ""}</span>
               </div>
             ))}

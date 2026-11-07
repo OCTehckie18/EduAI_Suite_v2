@@ -511,7 +511,7 @@ export const WellbeingPage: React.FC = () => {
                 ].map((tip, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>
                     <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[9px] font-bold text-white"
-                      style={{ background: "var(--color-brand-blue)" }}>{i + 1}</span>
+                      style={{ background: "var(--color-brand-blue-fill)" }}>{i + 1}</span>
                     {tip}
                   </li>
                 ))}

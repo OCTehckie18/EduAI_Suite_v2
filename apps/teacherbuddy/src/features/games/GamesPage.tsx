@@ -235,7 +235,7 @@ export const GamesPage: React.FC = () => {
           type="button"
           onClick={handleFullscreenToggle}
           className="shrink-0 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-transform hover:scale-105 active:scale-95"
-          style={{ background: "var(--color-brand-blue)" }}
+          style={{ background: "var(--color-brand-blue-fill)" }}
         >
           {isFullscreen ? "Exit full screen" : "Go full screen"}
         </button>
@@ -359,7 +359,7 @@ export const GamesPage: React.FC = () => {
                         className="px-6 py-2.5 rounded-xl font-semibold text-white transition-transform hover:scale-105 active:scale-95"
                         style={{
                           background:
-                            "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
+                            "linear-gradient(135deg, var(--color-brand-blue-fill), var(--color-brand-blue-fill-2))",
                           boxShadow: "0 4px 15px color-mix(in srgb, var(--color-brand-blue) 30%, transparent)",
                         }}
                       >

@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import "./index.css";
+import "./dark-theme.css";
+import "./dark-utilities.css";
+import { initTheme } from "./shared/theme";
 import { BrandingTitle } from "./shared/university";
 import { router } from "./router";
 import { installAuthFetch } from "./shared/utils/installAuthFetch";
@@ -24,6 +27,7 @@ if ("serviceWorker" in navigator) {
 }
 
 installAuthFetch();
+initTheme();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

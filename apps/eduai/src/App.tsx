@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, Menu, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
 import logo from "../../logo/eduai_logo.png";
 import { LoginScreen } from "./Login";
+import { ThemeToggle } from "./shared/ThemeToggle";
 import { RosterPanel } from "./RosterPanel";
 import { StructurePanel } from "./StructurePanel";
 import { UniversityPanel } from "./UniversityPanel";
@@ -136,7 +137,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-8">
           <button onClick={() => setMenuOpen(true)} className="rounded-lg border border-slate-300 p-2 text-slate-700 hover:text-slate-900 lg:hidden" aria-label="Open menu"><Menu className="h-5 w-5" /></button>
-          <div className="min-w-0 flex-1"><h2 className="truncate text-xl font-bold tracking-tight text-slate-900">{active.title}</h2><p className="hidden truncate text-sm text-slate-500 sm:block">{active.subtitle}</p></div>
+          <div className="min-w-[11rem] flex-1"><h2 className="truncate text-xl font-bold tracking-tight text-slate-900">{active.title}</h2><p className="hidden truncate text-sm text-slate-500 sm:block">{active.subtitle}</p></div>
           {active.search && (
             <div className="relative order-last w-full sm:order-none sm:w-64">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
@@ -144,6 +145,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
             </div>
           )}
           <button onClick={refresh} disabled={loading} className="rounded-xl border border-slate-300 p-2 text-slate-700 hover:text-slate-900 disabled:opacity-50" title="Refresh" aria-label="Refresh"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></button>
+          <ThemeToggle />
           <UniversityBadge labelClassName="text-slate-800" />
           <div className="flex items-center gap-2"><Avatar name={displayName} /><div className="hidden text-left leading-tight md:block"><p className="max-w-[10rem] truncate text-xs font-semibold text-slate-900">{displayName}</p><p className="text-[11px] text-slate-500">Master Admin</p></div></div>
           <button onClick={onSignOut} className="flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:text-slate-900"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">Sign out</span></button>

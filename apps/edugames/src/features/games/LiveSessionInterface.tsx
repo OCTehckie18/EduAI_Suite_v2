@@ -328,7 +328,7 @@ const LiveSessionInterface: React.FC<Props> = ({
             <button
               onClick={() => launchInteraction(pendingInteraction)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition"
-              style={{ background: "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))", boxShadow: "0 4px 12px color-mix(in srgb, var(--color-brand-blue) 40%, transparent)" }}
+              style={{ background: "linear-gradient(135deg, var(--color-brand-blue-fill), var(--color-brand-blue-fill-2))", boxShadow: "0 4px 12px color-mix(in srgb, var(--color-brand-blue) 40%, transparent)" }}
             >
               <Zap className="w-4 h-4" /> Launch
             </button>

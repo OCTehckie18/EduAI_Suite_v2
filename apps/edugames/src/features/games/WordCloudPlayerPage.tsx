@@ -124,7 +124,7 @@ export const WordCloudPlayerPage: React.FC = () => {
               type="submit"
               disabled={pin.length < 6}
               className="w-full py-4 rounded-xl font-bold text-white text-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
-              style={{ background: "var(--color-brand-blue)" }}
+              style={{ background: "var(--color-brand-blue-fill)" }}
             >
               Enter
             </button>
@@ -151,7 +151,7 @@ export const WordCloudPlayerPage: React.FC = () => {
               setPin("");
             }}
             className="w-full py-4 rounded-xl font-bold text-white text-lg transition-transform hover:scale-105 active:scale-95"
-            style={{ background: "var(--color-brand-blue)" }}
+            style={{ background: "var(--color-brand-blue-fill)" }}
           >
             Back to Home
           </button>
@@ -161,7 +161,7 @@ export const WordCloudPlayerPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(135deg, var(--color-brand-blue) 0%, var(--color-brand-blue-light) 100%)" }}>
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(135deg, var(--color-brand-blue-fill) 0%, var(--color-brand-blue-fill-2) 100%)" }}>
       <GlassCard className="w-full max-w-lg p-8">
         <div className="text-center mb-8">
           <p className="text-sm uppercase tracking-wider font-bold" style={{ color: "var(--color-brand-gold)" }}>Live Prompt</p>

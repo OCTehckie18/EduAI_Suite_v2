@@ -3,11 +3,12 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import "./index.css";
+import "./dark-theme.css";
+import "./dark-utilities.css";
+import { initTheme } from "./shared/theme";
 import { BrandingTitle } from "./shared/university";
 import { router } from "./router";
 import { installAuthFetch } from "./shared/utils/installAuthFetch";
-
-import { ThemeProvider } from "./shared/hooks/useTheme";
 
 // This is a public OAuth client identifier. Deployments can override it with
 // VITE_GOOGLE_CLIENT_ID, but the app remains functional if Vercel/Render does
@@ -25,14 +26,13 @@ if ("serviceWorker" in navigator) {
 }
 
 installAuthFetch();
+initTheme();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <BrandingTitle app="TeacherBuddy" />
-      <ThemeProvider>
-        <RouterProvider router={router} />
-      </ThemeProvider>
+      <RouterProvider router={router} />
     </GoogleOAuthProvider>
   </StrictMode>,
 );

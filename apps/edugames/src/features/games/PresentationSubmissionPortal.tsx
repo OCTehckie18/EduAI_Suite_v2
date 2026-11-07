@@ -366,7 +366,7 @@ const PresentationSubmissionPortal: React.FC = () => {
                 onClick={() => setLiveMode(true)}
                 className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white transition"
                 style={{
-                  background: "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
+                  background: "linear-gradient(135deg, var(--color-brand-blue-fill), var(--color-brand-blue-fill-2))",
                   boxShadow: "0 4px 16px color-mix(in srgb, var(--color-brand-blue) 30%, transparent)",
                 }}
               >
@@ -379,7 +379,7 @@ const PresentationSubmissionPortal: React.FC = () => {
                 onClick={() => setStudioMode(true)}
                 className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white transition"
                 style={{
-                  background: "var(--color-brand-blue)",
+                  background: "var(--color-brand-blue-fill)",
                   boxShadow: "0 4px 16px rgba(124,58,237,0.3)",
                 }}
               >

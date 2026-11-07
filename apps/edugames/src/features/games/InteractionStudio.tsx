@@ -318,7 +318,7 @@ const InteractionStudio: React.FC<Props> = ({
                         onClick={() => setFormType(t.value)}
                         className="flex items-center gap-2 px-2.5 py-2.5 rounded-xl text-xs font-bold transition border"
                         style={{
-                          borderColor: active ? t.color : "#e2e8f0",
+                          borderColor: active ? t.color : "var(--color-border)",
                           background: active ? `${t.color}08` : "#fff",
                           color: active ? t.color : "#64748b",
                         }}
