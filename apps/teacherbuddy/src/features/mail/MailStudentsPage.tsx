@@ -248,12 +248,16 @@ export const MailStudentsPage: React.FC = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ conditions: apiConditions })
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) {
+          setStatus({ type: 'error', message: data?.detail || "Could not search your students. Try again." });
+          return;
+        }
         setStudents(data);
         setSelectedStudents(data.map((s: Student) => s.id));
       }
     } catch (err) {
-        setStatus({ type: 'error', message: "Failed to filter students" });
+        setStatus({ type: 'error', message: "Could not reach the server. Check your connection and try again." });
     } finally {
       setLoading(false);
     }

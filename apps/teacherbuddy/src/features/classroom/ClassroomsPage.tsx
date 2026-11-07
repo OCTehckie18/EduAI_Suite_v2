@@ -808,8 +808,8 @@ export const ClassroomsPage: React.FC = () => {
                   background: `linear-gradient(135deg, ${selected.color || "var(--color-brand-blue)"}, #1a202c)`,
                 }}
               >
-                <div className="relative z-10 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
-                  <div className="text-white min-w-0">
+                <div className="relative z-10 flex flex-col xl:flex-row xl:justify-between xl:items-end gap-6">
+                  <div className="text-white min-w-0 flex-1">
                     <span className="text-xs font-bold tracking-widest uppercase text-white/50 mb-2 block">
                       Active Dashboard
                     </span>
