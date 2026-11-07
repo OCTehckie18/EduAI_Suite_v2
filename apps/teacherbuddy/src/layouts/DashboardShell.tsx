@@ -28,6 +28,7 @@ import logo from "../../../logo/eduai_logo.png";
 import { API_ENDPOINTS } from "../shared/utils/apiConfig";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { tokenIsFresh } from "../shared/utils/installAuthFetch";
+import { ThemeToggle } from "../shared/ThemeToggle";
 import { ProfileModal } from "../shared/components/ProfileModal";
 import { UniversityBadge } from "../shared/university";
 
@@ -423,6 +424,8 @@ export const DashboardShell: React.FC = () => {
             {(remainingTime % 60).toString().padStart(2, "0")}
           </div>
 
+          <ThemeToggle />
+
           {/* Notification Bell */}
           <div className="relative">
             <button
@@ -585,7 +588,7 @@ export const DashboardShell: React.FC = () => {
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow"
                 style={{
-                  background: "linear-gradient(135deg,var(--color-brand-blue),var(--color-brand-blue-light))",
+                  background: "linear-gradient(135deg,var(--color-brand-blue-fill),var(--color-brand-blue-fill-2))",
                 }}
               >
                 {user?.name?.charAt(0) || "U"}

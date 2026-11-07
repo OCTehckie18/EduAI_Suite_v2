@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800&display=swap");
 
 /* ─── Design Tokens ───────────────────────────────────────── */
@@ -196,7 +197,7 @@
 }
 
 @utility btn-primary {
-  background: linear-gradient(135deg, var(--color-brand-blue) 0%, var(--color-brand-blue-light) 100%);
+  background: linear-gradient(135deg, var(--color-brand-blue-fill) 0%, var(--color-brand-blue-fill-2) 100%);
   color: #fff;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--color-brand-blue) 25%, transparent);
 }
@@ -360,22 +361,22 @@
 @utility progress-fill {
   height: 100%;
   border-radius: 99px;
-  background: linear-gradient(90deg, var(--color-brand-blue), var(--color-brand-blue-light));
+  background: linear-gradient(90deg, var(--color-brand-blue-fill), var(--color-brand-blue-fill-2));
   transition: width 0.6s ease;
 }
 
 /* ─── Gradient Backgrounds ────────────────────────────────── */
 @utility gradient-blue {
-  background: linear-gradient(135deg, var(--color-brand-blue) 0%, var(--color-brand-blue-light) 100%);
+  background: linear-gradient(135deg, var(--color-brand-blue-fill) 0%, var(--color-brand-blue-fill-2) 100%);
 }
 @utility gradient-gold {
   background: linear-gradient(135deg, var(--color-brand-gold) 0%, var(--color-brand-gold-light) 100%);
 }
 @utility gradient-mixed {
-  background: linear-gradient(135deg, var(--color-brand-blue) 0%, var(--color-brand-blue-dark) 60%, var(--color-brand-gold-dark) 100%);
+  background: linear-gradient(135deg, var(--color-brand-blue-fill) 0%, var(--color-brand-blue-dark) 60%, var(--color-brand-gold-dark) 100%);
 }
 @utility gradient-header {
-  background: linear-gradient(135deg, var(--color-brand-blue-dark) 0%, var(--color-brand-blue) 50%, var(--color-brand-blue-mid) 100%);
+  background: linear-gradient(135deg, var(--color-brand-blue-dark) 0%, var(--color-brand-blue-fill) 50%, var(--color-brand-blue-fill-2) 100%);
 }
 
 /* ─── Animations ──────────────────────────────────────────── */
@@ -507,7 +508,7 @@
 
 /* ─── Chat Bubbles ────────────────────────────────────────── */
 @utility chat-bubble-user {
-  background: linear-gradient(135deg, var(--color-brand-blue) 0%, var(--color-brand-blue-light) 100%);
+  background: linear-gradient(135deg, var(--color-brand-blue-fill) 0%, var(--color-brand-blue-fill-2) 100%);
   color: #fff;
   border-radius: 18px 18px 4px 18px;
   padding: 0.75rem 1rem;

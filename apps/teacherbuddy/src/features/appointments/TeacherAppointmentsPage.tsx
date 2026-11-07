@@ -417,7 +417,7 @@ export const TeacherAppointmentsPage: React.FC = () => {
             onClick={() => setStatusTab(tab.id)}
             className="px-4 py-2 rounded-full text-sm font-semibold transition-all"
             style={{
-              background: statusTab === tab.id ? "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))" : "rgba(100,116,139,0.08)",
+              background: statusTab === tab.id ? "linear-gradient(135deg, var(--color-brand-blue-fill), var(--color-brand-blue-fill-2))" : "rgba(100,116,139,0.08)",
               color: statusTab === tab.id ? "white" : "var(--color-text-secondary)",
             }}
           >

@@ -342,7 +342,7 @@ export const AppointmentBookingPage: React.FC = () => {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold shrink-0"
-                          style={{ background: "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))" }}>
+                          style={{ background: "linear-gradient(135deg, var(--color-brand-blue-fill), var(--color-brand-blue-fill-2))" }}>
                           {teacher.teacher_name.split(" ").map((part) => part[0]).join("").slice(0, 2)}
                         </div>
                         {active && <ChevronRight size={16} style={{ color: "var(--color-brand-blue)" }} />}
@@ -388,7 +388,7 @@ export const AppointmentBookingPage: React.FC = () => {
                         onClick={() => setMode(item)}
                         className="rounded-xl px-4 py-3 text-sm font-semibold transition-all"
                         style={{
-                          background: mode === item ? "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))" : "rgba(100,116,139,0.08)",
+                          background: mode === item ? "linear-gradient(135deg, var(--color-brand-blue-fill), var(--color-brand-blue-fill-2))" : "rgba(100,116,139,0.08)",
                           color: mode === item ? "white" : "var(--color-text-secondary)",
                         }}
                       >
@@ -557,7 +557,7 @@ export const AppointmentBookingPage: React.FC = () => {
                         <button
                           onClick={() => handleReschedule(appointment)}
                           className="mt-3 w-full btn btn-primary text-[10px] font-black uppercase tracking-widest py-2 h-auto"
-                          style={{ background: "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))" }}
+                          style={{ background: "linear-gradient(135deg, var(--color-brand-blue-fill), var(--color-brand-blue-fill-2))" }}
                         >
                           <RefreshCw size={12} strokeWidth={3} /> Reschedule Meeting
                         </button>

@@ -199,7 +199,7 @@ const SplitViewGrading: React.FC = () => {
       <div
         className="px-6 py-3 flex items-center justify-between sticky top-0 z-30 border-b"
         style={{
-          background: "rgba(255,255,255,0.95)",
+          background: "var(--color-header-bg)",
           backdropFilter: "blur(12px)",
           borderColor: "color-mix(in srgb, var(--color-brand-blue) 8%, transparent)",
         }}

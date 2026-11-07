@@ -221,7 +221,7 @@ export const WordCloudHostComponent: React.FC<WordCloudHostProps> = ({ onBack, i
               onClick={startSession}
               disabled={!prompt.trim()}
               className="w-full py-3 rounded-xl font-bold text-white transition-all disabled:opacity-50"
-              style={{ background: "var(--color-brand-blue)" }}
+              style={{ background: "var(--color-brand-blue-fill)" }}
             >
               Start Word Cloud Session
             </button>

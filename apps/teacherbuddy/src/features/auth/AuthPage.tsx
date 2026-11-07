@@ -249,7 +249,7 @@ export const AuthPage: React.FC = () => {
                   <button
                     type="submit"
                     className="w-full rounded-xl px-4 py-3 text-sm font-bold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
-                    style={{ background: "var(--color-brand-blue)" }}
+                    style={{ background: "var(--color-brand-blue-fill)" }}
                     disabled={loading}
                   >
                     Sign in with password

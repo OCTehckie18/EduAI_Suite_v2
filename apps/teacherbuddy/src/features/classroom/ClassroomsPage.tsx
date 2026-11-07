@@ -805,7 +805,7 @@ export const ClassroomsPage: React.FC = () => {
               <div
                 className="p-8 rounded-3xl relative overflow-hidden shadow-2xl"
                 style={{
-                  background: `linear-gradient(135deg, ${selected.color || "var(--color-brand-blue)"}, #1a202c)`,
+                  background: `linear-gradient(135deg, ${selected.color || "var(--color-brand-blue-fill)"}, #1a202c)`,
                 }}
               >
                 <div className="relative z-10 flex flex-col xl:flex-row xl:justify-between xl:items-end gap-6">
@@ -1135,7 +1135,7 @@ export const ClassroomsPage: React.FC = () => {
                                 <div
                                   className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-extrabold text-lg shadow-md"
                                   style={{
-                                    background: "var(--color-brand-blue)",
+                                    background: "var(--color-brand-blue-fill)",
                                   }}
                                 >
                                   {s.name.charAt(0)}
@@ -2160,7 +2160,7 @@ export const ClassroomsPage: React.FC = () => {
                   <div
                     className="p-8 pb-6"
                     style={{
-                      background: "linear-gradient(135deg, var(--color-brand-blue), #1a202c)",
+                      background: "linear-gradient(135deg, var(--color-brand-blue-fill), #1a202c)",
                     }}
                   >
                     <button

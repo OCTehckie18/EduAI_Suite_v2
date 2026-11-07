@@ -265,7 +265,7 @@ export const ChainAnswerGameCreation: React.FC<
                 }}
                 className="p-2 rounded-lg transition-all"
                 style={{
-                  background: "var(--color-brand-blue)",
+                  background: "var(--color-brand-blue-fill)",
                   color: "white",
                 }}
               >
@@ -357,7 +357,7 @@ export const ChainAnswerGameCreation: React.FC<
               className="flex-1 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2"
               style={{
                 background:
-                  "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))",
+                  "linear-gradient(135deg, var(--color-brand-blue-fill), var(--color-brand-blue-fill-2))",
               }}
             >
               <Play size={20} />
@@ -512,7 +512,7 @@ export const ChainAnswerGameCreation: React.FC<
                       style={{
                         background:
                           gameConfig.difficulty === level
-                            ? "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-light))"
+                            ? "linear-gradient(135deg, var(--color-brand-blue-fill), var(--color-brand-blue-fill-2))"
                             : undefined,
                       }}
                     >

@@ -1,5 +1,10 @@
-/** Turns the university's three brand colours into the CSS variables every portal's styles use. */
+/** Turns the university's three brand colours into the CSS variables every portal's styles use.
+ *
+ * In dark mode the same colours are lightened just enough to stay readable on dark surfaces
+ * (and keep white button text readable), and the pale tints become dark tints. */
 const HEX = /^#[0-9a-f]{6}$/i;
+const DEFAULTS = { primary_color: "#264796", secondary_color: "#d0ae61", tertiary_color: "#0f766e" };
+const DARK_CARD = "#131c2e";
 
 const channels = (hex: string): [number, number, number] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
 const toHex = (rgb: number[]) => "#" + rgb.map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0")).join("");
@@ -11,30 +16,80 @@ const mix = (hex: string, other: string, amount: number) => {
 const lighten = (hex: string, amount: number) => mix(hex, "#ffffff", amount);
 const darken = (hex: string, amount: number) => mix(hex, "#000000", amount);
 
+const luminance = (hex: string) => {
+  const [r, g, b] = channels(hex).map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+/** The lightest step of `hex` that still keeps white text readable on it, while being as readable as possible on dark cards. */
+const forDark = (hex: string) => {
+  let best = hex;
+  for (let step = 0; step <= 0.6; step += 0.02) {
+    const candidate = lighten(hex, step);
+    if (contrast("#ffffff", candidate) < 4.5) break;
+    best = candidate;
+  }
+  return best;
+};
+
+/** The first step of `hex` that reads as text (WCAG AA, 4.5:1) on dark cards, including cards
+ * tinted with the brand colour itself (badges, selected rows). */
+const TINTED_CARD = "#1f2a44";
+const textOnDark = (hex: string) => {
+  for (let step = 0; step <= 1; step += 0.02) {
+    const candidate = lighten(hex, step);
+    if (contrast(candidate, TINTED_CARD) >= 4.6) return candidate;
+  }
+  return "#ffffff";
+};
+
 export interface BrandColors { primary_color?: string; secondary_color?: string; tertiary_color?: string }
 
+let last: BrandColors = {};
+
 export function applyBrand(colors: BrandColors) {
+  last = { ...last, ...colors };
+  const dark = document.documentElement.classList.contains("dark");
   const style = document.documentElement.style;
   const set = (name: string, value: string) => style.setProperty(name, value);
-  const { primary_color: p, secondary_color: s, tertiary_color: t } = colors;
-  if (p && HEX.test(p)) {
-    set("--color-brand-blue", p);
-    set("--color-brand-blue-mid", lighten(p, 0.06));
-    set("--color-brand-blue-light", lighten(p, 0.16));
-    set("--color-brand-blue-dark", darken(p, 0.28));
-    set("--color-brand-blue-pale", lighten(p, 0.92));
-  }
-  if (s && HEX.test(s)) {
-    set("--color-brand-gold", s);
-    set("--color-brand-gold-light", lighten(s, 0.12));
-    set("--color-brand-gold-bright", lighten(s, 0.28));
-    set("--color-brand-gold-dark", darken(s, 0.2));
-    set("--color-brand-gold-pale", lighten(s, 0.9));
-  }
-  if (t && HEX.test(t)) {
-    set("--color-brand-accent", t);
-    set("--color-brand-accent-light", lighten(t, 0.16));
-    set("--color-brand-accent-dark", darken(t, 0.25));
-    set("--color-brand-accent-pale", lighten(t, 0.9));
-  }
+  const pick = (value: string | undefined, fallback: string) => (value && HEX.test(value) ? value : fallback);
+  const p0 = pick(last.primary_color, DEFAULTS.primary_color);
+  const s0 = pick(last.secondary_color, DEFAULTS.secondary_color);
+  const t0 = pick(last.tertiary_color, DEFAULTS.tertiary_color);
+  // In dark mode one colour cannot be both readable text on a dark card and a button fill
+  // under white text, so the fill gets its own variable.
+  const p = dark ? textOnDark(p0) : p0;
+  const t = dark ? textOnDark(t0) : t0;
+  const s = s0;
+
+  set("--color-brand-blue", p);
+  const fill = dark ? forDark(p0) : p0;
+  set("--color-brand-blue-fill", fill);
+  set("--color-brand-blue-fill-2", dark ? darken(fill, 0.14) : lighten(p0, 0.16)); // second gradient stop
+  set("--color-brand-accent-fill", dark ? forDark(t0) : t0);
+  set("--color-brand-blue-mid", lighten(p, 0.06));
+  set("--color-brand-blue-light", lighten(p, 0.16));
+  set("--color-brand-blue-dark", darken(p0, 0.28)); // sidebars and gradients stay deep in both modes
+  set("--color-brand-blue-pale", dark ? mix(p0, DARK_CARD, 0.78) : lighten(p0, 0.92));
+
+  set("--color-brand-gold", s);
+  set("--color-brand-gold-light", lighten(s, 0.12));
+  set("--color-brand-gold-bright", lighten(s, 0.28));
+  set("--color-brand-gold-dark", dark ? lighten(s, 0.1) : darken(s, 0.2));
+  set("--color-brand-gold-pale", dark ? mix(s0, DARK_CARD, 0.82) : lighten(s, 0.9));
+
+  set("--color-brand-accent", t);
+  set("--color-brand-accent-light", lighten(t, 0.16));
+  set("--color-brand-accent-dark", darken(t0, 0.25));
+  set("--color-brand-accent-pale", dark ? mix(t0, DARK_CARD, 0.8) : lighten(t0, 0.9));
 }
+
+/** Re-run with the last colours, after switching between light and dark. */
+export const reapplyBrand = () => applyBrand({});

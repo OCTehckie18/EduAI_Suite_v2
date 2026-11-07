@@ -143,7 +143,7 @@ export const WaitingPage: React.FC = () => {
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
                   style={{
-                    background: "var(--color-brand-blue)",
+                    background: "var(--color-brand-blue-fill)",
                     color: "white",
                   }}
                 >

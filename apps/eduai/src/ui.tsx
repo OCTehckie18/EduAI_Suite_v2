@@ -138,7 +138,7 @@ export function Modal({ title, onClose, children, wide = false }: { title: strin
 
 const BADGE_TONES: Record<string, string> = {
   green: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  amber: "bg-amber-50 text-brand-blue border-amber-200",
+  amber: "bg-amber-50 text-amber-800 border-amber-200",
   red: "bg-rose-50 text-rose-700 border-rose-200",
   blue: "bg-sky-50 text-sky-700 border-sky-200",
   violet: "bg-amber-50 text-amber-800 border-amber-200",
