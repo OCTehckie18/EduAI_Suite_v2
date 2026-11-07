@@ -6,7 +6,6 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -187,6 +186,8 @@ class ChainAnswerGameListCreateView(APIView):
 class WordCloudSessionListCreateView(APIView):
 
     def post(self, request):
+        if getattr(request.user, "role", "") != "TEACHER":
+            return Response({"detail": "Only teachers can start a word cloud."}, status=status.HTTP_403_FORBIDDEN)
         prompt = str(request.data.get("prompt", "")).strip()
         if not prompt:
             return Response(
@@ -201,7 +202,7 @@ class WordCloudSessionListCreateView(APIView):
         session = WordCloudSession.objects.create(
             pin=pin,
             prompt=prompt,
-            teacher_id=request.data.get("teacher_id"),
+            teacher_id=request.user.pk,  # the host is the signed-in teacher, not a client-supplied id
         )
         return Response(
             {"pin": session.pin, "prompt": session.prompt, "session_id": session.id},
@@ -209,7 +210,9 @@ class WordCloudSessionListCreateView(APIView):
         )
 
     def get(self, request):
-        sessions = WordCloudSession.objects.all()
+        if getattr(request.user, "role", "") not in ("TEACHER", "MASTER_ADMIN"):
+            return Response({"detail": "Only teachers can list word clouds."}, status=status.HTTP_403_FORBIDDEN)
+        sessions = WordCloudSession.objects.all() if is_master_admin(request.user) else WordCloudSession.objects.filter(teacher_id=request.user.pk)
         return Response([
             {
                 "pin": session.pin,
@@ -223,8 +226,6 @@ class WordCloudSessionListCreateView(APIView):
 
 
 class WordCloudSessionDetailView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
     def get(self, request, pin):
         session = get_object_or_404(WordCloudSession, pin=pin)
         return Response({
@@ -235,6 +236,8 @@ class WordCloudSessionDetailView(APIView):
 
     def delete(self, request, pin):
         session = get_object_or_404(WordCloudSession, pin=pin)
+        if not (is_master_admin(request.user) or session.teacher_id == request.user.pk):
+            return Response({"detail": "Only the teacher who started this word cloud can delete it."}, status=status.HTTP_403_FORBIDDEN)
         session.delete()
         return Response({"status": "success", "message": "Deleted successfully"})
 

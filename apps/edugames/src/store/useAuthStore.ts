@@ -14,7 +14,6 @@ interface AuthState {
   status: 'pending' | 'approved' | 'denied' | null;
   user: UserInfo | null;
   token: string | null;
-  setRole: (role: 'teacher' | 'student') => void;
   googleLogin: (token: string, user: UserInfo, role: string, status: string) => void;
   logout: () => void;
 }
@@ -26,16 +25,6 @@ export const useAuthStore = create<AuthState>()(
       status: null,
       user: null,
       token: null,
-      setRole: (role) => {
-        set({ 
-          role,
-          status: 'approved',
-          user: {
-            email: role === 'teacher' ? 'teacher@eduai.com' : 'student@eduai.com',
-            name: role === 'teacher' ? 'Teacher' : 'Student'
-          }
-        });
-      },
       googleLogin: (token, user, role, status) => {
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
