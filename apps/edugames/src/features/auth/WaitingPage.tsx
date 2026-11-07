@@ -4,7 +4,7 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
 import logo from "../../../../logo/eduai_logo.png";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
-import { logoSrc, useUniversity } from "../../shared/university";
+import { logoSrc, logoVariant, useUniversity } from "../../shared/university";
 
 export const WaitingPage: React.FC = () => {
   const uni = useUniversity();
@@ -53,8 +53,8 @@ export const WaitingPage: React.FC = () => {
         <div className="glass-card p-5 sm:p-8 text-center">
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center p-1.5 shadow-lg">
-              <img src={logoSrc(uni) ?? logo} alt={uni.name || "EduAI Suite"} className="w-full h-full object-contain" />
+            <div className="w-12 h-12 rounded-xl logo-tile bg-white flex items-center justify-center p-1.5 shadow-lg">
+              <img src={logoSrc(uni) ?? logo} data-variant={logoVariant(uni)} alt={uni.name || "EduAI Suite"} className="w-full h-full object-contain" />
             </div>
             <div className="text-left">
               <p className="font-black text-sm" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-display)" }}>

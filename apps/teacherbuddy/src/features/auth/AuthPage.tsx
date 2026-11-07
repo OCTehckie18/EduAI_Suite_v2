@@ -4,7 +4,7 @@ import { GoogleLogin } from "@react-oauth/google";
 import logo from "../../../../logo/eduai_logo.png";
 import { useAuthStore } from "../../store/useAuthStore";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
-import { logoSrc, useUniversity } from "../../shared/university";
+import { logoSrc, logoVariant, useUniversity } from "../../shared/university";
 
 export const AuthPage: React.FC = () => {
   const uni = useUniversity();
@@ -121,8 +121,8 @@ export const AuthPage: React.FC = () => {
         {/* Logo */}
         <div>
           <div className="flex items-center gap-4 mb-12">
-            <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-xl p-1.5">
-              <img src={logoSrc(uni) ?? logo} alt={uni.name || "EduAI Suite"} className="w-full h-full object-contain" />
+            <div className="w-14 h-14 rounded-2xl logo-tile bg-white flex items-center justify-center shadow-xl p-1.5">
+              <img src={logoSrc(uni) ?? logo} data-variant={logoVariant(uni)} alt={uni.name || "EduAI Suite"} className="w-full h-full object-contain" />
             </div>
             <div>
               <p className="text-white font-black text-xl tracking-tight" style={{ fontFamily: "var(--font-display)" }}>TeacherBuddy</p>
@@ -173,8 +173,8 @@ export const AuthPage: React.FC = () => {
           <div className="glass-card p-5 sm:p-8">
             {/* Mobile Logo */}
             <div className="flex items-center gap-3 mb-8 lg:hidden">
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center p-1">
-                <img src={logoSrc(uni) ?? logo} alt={uni.name || "EduAI Suite"} className="w-full h-full object-contain" />
+              <div className="w-10 h-10 rounded-xl logo-tile bg-white flex items-center justify-center p-1">
+                <img src={logoSrc(uni) ?? logo} data-variant={logoVariant(uni)} alt={uni.name || "EduAI Suite"} className="w-full h-full object-contain" />
               </div>
               <div>
                 <p className="font-black text-sm" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-display)" }}>TeacherBuddy</p>

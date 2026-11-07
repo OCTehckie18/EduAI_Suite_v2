@@ -151,6 +151,13 @@ html.dark svg [fill="#16a34a"] { fill: #4ade80; }
 html.dark svg [fill="#7c3aed"] { fill: #a78bfa; }
 html.dark svg [stroke="#e2e8f0"] { stroke: rgba(148, 163, 184, 0.2); }
 
+/* The university logo. Most logos are drawn for white backgrounds, so in dark mode the normal
+   logo sits on a white tile; a dark-mode logo uploaded in Master Admin is shown without one. */
+html.dark .logo-chip[data-variant="light"] { background: #ffffff; border-radius: 6px; padding: 2px 5px; }
+html.dark .logo-tile.logo-tile { background-color: #ffffff; }
+html.dark .logo-tile.logo-tile:has(> img[data-variant="dark"]),
+html.dark img.logo-tile.logo-tile[data-variant="dark"] { background-color: var(--dk-raised); }
+
 /* Smooth the switch itself */
 html.theme-switching,
 html.theme-switching * {

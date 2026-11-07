@@ -167,6 +167,10 @@ class UniversityProfile(TimeStampedModel):
     logo_data = models.BinaryField(null=True, blank=True, editable=False)
     logo_content_type = models.CharField(max_length=50, blank=True)
     logo_updated_at = models.DateTimeField(null=True, blank=True)
+    # Optional second logo for dark mode (light artwork on a transparent background).
+    logo_dark_data = models.BinaryField(null=True, blank=True, editable=False)
+    logo_dark_content_type = models.CharField(max_length=50, blank=True)
+    logo_dark_updated_at = models.DateTimeField(null=True, blank=True)
     # Brand colours used across all three portals (#rrggbb).
     primary_color = models.CharField(max_length=7, default="#264796")
     secondary_color = models.CharField(max_length=7, default="#d0ae61")
@@ -178,7 +182,7 @@ class UniversityProfile(TimeStampedModel):
     @classmethod
     def load(cls):
         """The profile without the logo bytes (cheap); creates the empty row on first use."""
-        profile = cls.objects.defer("logo_data").filter(pk=1).first()
+        profile = cls.objects.defer("logo_data", "logo_dark_data").filter(pk=1).first()
         if profile is None:
             profile = cls.objects.create(pk=1)
         return profile

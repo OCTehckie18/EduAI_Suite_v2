@@ -36,16 +36,6 @@ def contrast_with_white(hex_color):
     return 1.05 / (luminance + 0.05)
 
 
-def contrast_with_white(hex_color):
-    """WCAG contrast ratio between white and ``#rrggbb``."""
-    channels = []
-    for i in (1, 3, 5):
-        c = int(hex_color[i:i + 2], 16) / 255
-        channels.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
-    luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-    return 1.05 / (luminance + 0.05)
-
-
 def university_payload(profile):
     return {
         "configured": bool(profile.name),
@@ -64,7 +54,22 @@ def university_payload(profile):
             f"/institution/university/logo/?v={int(profile.logo_updated_at.timestamp())}"
             if profile.logo_updated_at else None
         ),
+        "logo_dark_url": (
+            f"/institution/university/logo/?variant=dark&v={int(profile.logo_dark_updated_at.timestamp())}"
+            if profile.logo_dark_updated_at else None
+        ),
     }
+
+
+LOGO_VARIANTS = {"light": "logo", "dark": "logo_dark"}
+
+
+def logo_prefix(variant):
+    """The model field prefix for a logo variant; raises ValueError for anything unknown."""
+    try:
+        return LOGO_VARIANTS[(variant or "light").strip().lower()]
+    except KeyError:
+        raise ValueError("Choose the light or dark logo.")
 
 
 def clean_details(data):
@@ -134,19 +139,25 @@ def process_logo(uploaded):
     return buffer.getvalue(), "image/png"
 
 
-def save_logo(profile, uploaded):
+def _logo_fields(prefix):
+    return [f"{prefix}_data", f"{prefix}_content_type", f"{prefix}_updated_at"]
+
+
+def save_logo(profile, uploaded, variant="light"):
+    prefix = logo_prefix(variant)
     data, content_type = process_logo(uploaded)
-    profile.logo_data = data
-    profile.logo_content_type = content_type
-    profile.logo_updated_at = timezone.now()
-    profile.save(update_fields=["logo_data", "logo_content_type", "logo_updated_at", "updated_at"])
+    setattr(profile, f"{prefix}_data", data)
+    setattr(profile, f"{prefix}_content_type", content_type)
+    setattr(profile, f"{prefix}_updated_at", timezone.now())
+    profile.save(update_fields=[*_logo_fields(prefix), "updated_at"])
 
 
-def clear_logo(profile):
-    profile.logo_data = None
-    profile.logo_content_type = ""
-    profile.logo_updated_at = None
-    profile.save(update_fields=["logo_data", "logo_content_type", "logo_updated_at", "updated_at"])
+def clear_logo(profile, variant="light"):
+    prefix = logo_prefix(variant)
+    setattr(profile, f"{prefix}_data", None)
+    setattr(profile, f"{prefix}_content_type", "")
+    setattr(profile, f"{prefix}_updated_at", None)
+    profile.save(update_fields=[*_logo_fields(prefix), "updated_at"])
 
 
 class PublicUniversityView(APIView):
@@ -163,10 +174,15 @@ class UniversityLogoView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        try:
+            prefix = logo_prefix(request.query_params.get("variant"))
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
         profile = UniversityProfile.objects.first()
-        if profile is None or not profile.logo_data:
+        data = getattr(profile, f"{prefix}_data", None) if profile else None
+        if not data:
             return Response({"detail": "No logo has been uploaded."}, status=404)
-        response = HttpResponse(bytes(profile.logo_data), content_type=profile.logo_content_type or "image/png")
+        response = HttpResponse(bytes(data), content_type=getattr(profile, f"{prefix}_content_type") or "image/png")
         response["Cache-Control"] = "public, max-age=86400"
         response["Content-Security-Policy"] = "default-src 'none'; sandbox"
         response["X-Content-Type-Options"] = "nosniff"
