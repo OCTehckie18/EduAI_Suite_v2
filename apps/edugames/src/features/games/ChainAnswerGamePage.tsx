@@ -19,7 +19,11 @@ export const ChainAnswerGamePage: React.FC = () => {
   const { sessionId: urlSessionId } = useParams<{ sessionId?: string }>();
   const navigate = useNavigate();
   const role = useAuthStore((state) => state.role);
-  const [activeSession, setActiveSession] = useState<string | null>(loadChainAnswerSession());
+  // A link to a game wins over the game remembered from last time, so a new invite is never hidden behind an old one.
+  const [activeSession, setActiveSession] = useState<string | null>(() => {
+    const saved = loadChainAnswerSession();
+    return urlSessionId && urlSessionId !== saved ? null : saved;
+  });
 
   if (role !== "student") {
     return (

@@ -54,20 +54,6 @@ def _is_enrolled(user, classroom):
     return Enrollment.objects.filter(classroom=classroom, student=user, is_active=True).exists()
 
 
-def _visible_classrooms(user):
-    if not user or getattr(user, "is_anonymous", True) or _is_admin(user):
-        return Classroom.objects.all()
-    if getattr(user, "role", None) == User.Role.TEACHER:
-        qs = Classroom.objects.filter(teacher=user)
-        return qs if qs.exists() else Classroom.objects.all()
-    if getattr(user, "role", None) == User.Role.STUDENT:
-        return Classroom.objects.filter(
-            enrollments__student=user,
-            enrollments__is_active=True,
-        ).distinct()
-    return Classroom.objects.all()
-
-
 def _visible_classroom(user, course_id):
     try:
         return Classroom.objects.select_related(
@@ -75,6 +61,24 @@ def _visible_classroom(user, course_id):
         ).get(pk=course_id)
     except Classroom.DoesNotExist:
         return None
+
+
+def _progress(classroom, viewer):
+    """For a student, the share of this course's assignments they have handed in.
+    For the teacher, the share of handed-in work that has been marked. None when there is nothing to count."""
+    from apps.assignments.models import Assignment, Submission
+
+    if viewer is not None and getattr(viewer, "role", None) == User.Role.STUDENT:
+        total = Assignment.objects.filter(course=classroom).count()
+        if not total:
+            return None
+        done = Submission.objects.filter(assignment__course=classroom, student=viewer).values("assignment_id").distinct().count()
+        return round(100 * done / total, 1)
+    handed_in = Submission.objects.filter(assignment__course=classroom)
+    count = handed_in.count()
+    if not count:
+        return None
+    return round(100 * handed_in.filter(grade__isnull=False).count() / count)
 
 
 def _course_payload(classroom, viewer=None):
@@ -93,7 +97,7 @@ def _course_payload(classroom, viewer=None):
         "name": classroom.name,
         "batch": batch_name,
         "students": students_count,
-        "progress": None,
+        "progress": _progress(classroom, viewer),
         "color": classroom.color or "#264796",
         "description": classroom.description or "",
         # The join code is for the course's teacher; classmates have no use for it.
@@ -758,7 +762,7 @@ class LegacyEnrollByCodeView(APIView):
 
     def post(self, request):
         code = str(request.query_params.get("enrollment_code") or request.data.get("enrollment_code") or "").strip()
-        classroom = Classroom.objects.filter(enrollment_code=code).first()
+        classroom = Classroom.objects.filter(enrollment_code__iexact=code).first() if code else None
         if classroom is None:
             return Response({"detail": "Invalid enrollment code"}, status=status.HTTP_404_NOT_FOUND)
 

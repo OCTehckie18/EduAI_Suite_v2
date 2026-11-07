@@ -9,6 +9,7 @@ from apps.accounts.models import User
 from apps.core.access import is_master_admin
 from apps.core.models import ActionHistory
 from apps.core.permissions import IsStudent
+from apps.core.services import notify
 from .models import Appointment
 from .serializers import AppointmentSerializer
 
@@ -93,6 +94,10 @@ class AppointmentListCreateView(APIView):
             },
         )
 
+        notify(
+            [candidates[0]], "appointment", f"{student_name} asked for an appointment",
+            f"{appointment.agenda or 'No agenda given'} · {appointment.time_slot or 'time not given'}", "/appointments",
+        )
         return Response(AppointmentSerializer(appointment).data, status=status.HTTP_201_CREATED)
 
 
@@ -134,6 +139,7 @@ class AppointmentStatusUpdateView(APIView):
         notes = data.get("notes", appointment.notes)
 
         reviewer = user.full_name
+        previous_status = appointment.status
 
         appointment.status = new_status
         appointment.reviewed_by = reviewer
@@ -156,4 +162,12 @@ class AppointmentStatusUpdateView(APIView):
             },
         )
 
+        if new_status != previous_status and new_status in ("approved", "rejected"):
+            student = User.objects.filter(email__iexact=appointment.student_email).first()
+            if student:
+                verdict = "accepted" if new_status == "approved" else "declined"
+                body = appointment.time_slot or ""
+                if new_status == "rejected" and rejection_reason:
+                    body = f"Reason: {rejection_reason}"
+                notify([student], "appointment", f"{reviewer} {verdict} your appointment", body, "/appointments")
         return Response(AppointmentSerializer(appointment).data)

@@ -25,7 +25,7 @@ const gameCategories = [
     id: "word-cloud-battle",
     title: "Live Word Cloud Battle",
     description:
-      "Ask open-ended questions and watch words appear live in an interactive word cloud powered by Mentimeter.",
+      "Ask open-ended questions and watch words appear live in an live word cloud on the class screen.",
     icon: BarChart,
     color: "from-emerald-400 to-teal-500",
   },

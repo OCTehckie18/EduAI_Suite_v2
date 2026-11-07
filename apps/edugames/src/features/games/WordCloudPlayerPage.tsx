@@ -109,9 +109,10 @@ export const WordCloudPlayerPage: React.FC = () => {
             Join Word Cloud
           </h1>
           {error && <p className="text-red-500 text-sm">{error}</p>}
-          <div className="space-y-4">
+          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (pin.length >= 6) void joinSession(); }}>
             <input
               type="text"
+              aria-label="Game PIN"
               value={pin}
               onChange={(e) => setPin(e.target.value.toUpperCase())}
               placeholder="Game PIN"
@@ -120,14 +121,14 @@ export const WordCloudPlayerPage: React.FC = () => {
               maxLength={6}
             />
             <button
-              onClick={joinSession}
+              type="submit"
               disabled={pin.length < 6}
               className="w-full py-4 rounded-xl font-bold text-white text-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
               style={{ background: "var(--color-brand-blue)" }}
             >
               Enter
             </button>
-          </div>
+          </form>
         </GlassCard>
       </div>
     );

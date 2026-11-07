@@ -311,7 +311,7 @@ export const StudentCalendar: React.FC = () => {
             </span>
             {dayEvents.length > 0 && (
               <span className="text-[10px] font-bold text-slate-500">
-                {dayEvents.length} events
+                {dayEvents.length} {dayEvents.length === 1 ? "event" : "events"}
               </span>
             )}
           </div>
@@ -480,7 +480,7 @@ export const StudentCalendar: React.FC = () => {
                   {selectedDate ? selectedDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) : "Select a date"}
                 </h3>
                 <p className="text-xs mt-0.5 text-slate-500">
-                  {selectedDayEvents.length} events scheduled
+                  {selectedDayEvents.length} {selectedDayEvents.length === 1 ? "event" : "events"} scheduled
                 </p>
               </div>
             </div>

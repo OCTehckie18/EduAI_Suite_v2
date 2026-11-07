@@ -9,6 +9,9 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
 from services.word_service import WordService
 from . import engine
 from apps.accounts.models import User
@@ -314,7 +317,33 @@ class ChainAnswerGameJoinView(APIView):
             player, created = engine.join(session_id, user)
         except engine.GameError as exc:
             return Response({"detail": exc.message}, status=exc.status)
+        if created:
+            _announce(session_id, "player_joined")
         return Response(GamePlayerSerializer(player).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+OWNER_EVENTS = {"start": "started", "pause": "paused", "resume": "resumed", "skip_turn": "turn_skipped", "end": "ended"}
+
+
+def _announce(session_id, event, detail=None):
+    """Tell everyone watching this game live that it changed.
+
+    The REST endpoints and the WebSocket share one engine, so a change made over REST (the
+    teacher's buttons) must reach the live screens too, or players keep waiting. Never raises:
+    a missing channel layer must not undo the action itself.
+    """
+    try:
+        layer = get_channel_layer()
+        if layer is None:
+            return
+        async_to_sync(layer.group_send)(
+            f"chain_{session_id}",
+            {"type": "game.changed", "event": event, "detail": detail or {}, "sender": None},
+        )
+    except Exception:  # pragma: no cover - defensive
+        import logging
+
+        logging.getLogger(__name__).exception("Could not announce a chain answer change")
 
 
 def _owner_action(request, session_id, action, denied_message):
@@ -326,6 +355,7 @@ def _owner_action(request, session_id, action, denied_message):
         engine.__dict__[action](session_id)
     except engine.GameError as exc:
         return Response({"detail": exc.message}, status=exc.status)
+    _announce(session_id, OWNER_EVENTS.get(action, action))
     return Response(_game_payload(_get_game(session_id), request.user))
 
 
@@ -367,6 +397,8 @@ class ChainAnswerGameSubmitWordView(APIView):
             game, entry, result = engine.submit_word(session_id, request.user, request.data.get("word"))
         except engine.GameError as exc:
             return Response({"detail": exc.message}, status=exc.status)
+        if result.get("is_valid"):
+            _announce(session_id, "word_accepted", {"word": entry.word, "by": entry.submitted_by, "is_valid": True})
         return Response({
             "word": GameWordSerializer(entry).data,
             "validation": result,

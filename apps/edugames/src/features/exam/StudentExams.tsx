@@ -80,7 +80,7 @@ export const StudentExams: React.FC = () => {
     <div className="space-y-6 animate-fade-in-up">
       <div>
         <h1 className="text-2xl font-bold font-display" style={{ color: "var(--color-text-primary)" }}>My Exams & Quizzes</h1>
-        <p className="text-sm mt-1" style={{ color: "var(--color-text-secondary)" }}>Take online exams and view your AI-evaluated results.</p>
+        <p className="text-sm mt-1" style={{ color: "var(--color-text-secondary)" }}>Take your online exams and see your marks.</p>
       </div>
 
       {error && (
