@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'apps.calendar_app',
     'apps.mail',
     'apps.trello_app',
+    'apps.forms_app',
     'apps.reports',
     'apps.analytics',
     'apps.ai_chat',

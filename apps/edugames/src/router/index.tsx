@@ -9,6 +9,7 @@ import { GamesPage } from "../features/games/GamesPage";
 import { ChainAnswerGamePage } from "../features/games/ChainAnswerGamePage";
 import { QuizController } from "../features/games/QuizController";
 import { AppointmentBookingPage } from "../features/appointments/AppointmentBookingPage";
+import { StudentForms } from "../features/forms/StudentForms";
 import { TrelloBoardsPage } from "../features/trello/TrelloBoardsPage";
 import { TrelloBoardView } from "../features/trello/TrelloBoardView";
 import { ConstructionPage } from "../shared/components/ConstructionPage";
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
       { path: "games/trello/:boardId", element: <TrelloBoardView /> },
       { path: "trello", element: <TrelloBoardsPage /> },
       { path: "trello/:boardId", element: <TrelloBoardView /> },
+      { path: "forms", element: <StudentForms /> },
       { path: "calendar", element: <StudentCalendar /> },
       { path: "appointments", element: <AppointmentBookingPage /> },
       { path: "*", element: <ConstructionPage /> },
