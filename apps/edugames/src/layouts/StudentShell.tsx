@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, Gamepad2, LayoutDashboard, ClipboardList, CalendarClock, LogOut, ChevronRight, Menu, Calendar, FileSignature } from "lucide-react";
+import { BookOpen, Gamepad2, LayoutDashboard, ClipboardList, CalendarClock, LogOut, ChevronRight, Menu, Calendar, FileSignature, TrendingUp } from "lucide-react";
 import logo from "../../../logo/eduai_logo.png";
 import { useAuthStore } from "../store/useAuthStore";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
@@ -12,6 +12,7 @@ import { NotificationBell } from "../shared/components/NotificationBell";
 const studentNavItems = [
   { icon: LayoutDashboard, label: "My Dashboard", href: "/", end: true },
   { icon: BookOpen, label: "My Classrooms", href: "/classroom" },
+  { icon: TrendingUp, label: "My Progress", href: "/progress" },
   { icon: ClipboardList, label: "Exams", href: "/exams" },
   { icon: Gamepad2, label: "EduGames", href: "/games" },
   { icon: Calendar, label: "My Calendar", href: "/calendar" },

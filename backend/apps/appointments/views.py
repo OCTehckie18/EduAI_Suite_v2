@@ -200,7 +200,7 @@ class TeacherInviteView(APIView):
         appointment = Appointment.objects.create(
             student_name=student.full_name, student_email=student.email, teacher_name=user.full_name,
             meeting_mode=mode, time_slot=time_slot[:100], agenda=str(request.data.get("agenda") or "Progress check")[:500],
-            details=str(request.data.get("details") or ""), status="approved", requested_at=now_iso,
+            details=str(request.data.get("details") or ""), status="approved", booked_by_teacher=True, requested_at=now_iso,
             reviewed_at=now_iso, reviewed_by=user.full_name,
         )
         notify([student], "appointment", f"{user.full_name} booked a meeting with you",

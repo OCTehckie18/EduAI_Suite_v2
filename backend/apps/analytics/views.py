@@ -455,7 +455,9 @@ def _student_extras(student, course_ids):
         if info["flagged"] or (left == 0 and not info["running"]):
             continue  # nothing more this student can do with it
         exams.append({"id": exam.id, "title": exam.title or "Untitled exam", "courseCode": exam.course.subject_code, "courseId": exam.course_id,
-                      "timeLimit": exam.time_limit, "attemptsLeft": left, "inProgress": info["running"]})
+                      "timeLimit": exam.time_limit, "attemptsLeft": left, "inProgress": info["running"],
+                      "opensAt": exam.opens_at.isoformat() if exam.opens_at else None,
+                      "closesAt": exam.closes_at.isoformat() if exam.closes_at else None})
     exams = exams[:5]
 
     announcements = [
@@ -477,7 +479,41 @@ def _student_extras(student, course_ids):
         if start.date() in (today, tomorrow) and (event.get("is_all_day") or start >= timezone.localtime() - timedelta(minutes=30)):
             upcoming.append({"title": event["title"], "start": start.isoformat(), "kind": event["source"], "location": event.get("location") or "",
                              "allDay": bool(event.get("is_all_day")), "day": "today" if start.date() == today else "tomorrow", "courseId": event.get("course_id")})
-    return {"recentResults": results, "exams": exams, "announcements": announcements, "comingUp": upcoming[:6]}
+    return {"recentResults": results, "exams": exams, "announcements": announcements, "comingUp": upcoming[:6],
+            **_student_follow_ups(student, course_ids)}
+
+
+def _student_follow_ups(student, course_ids):
+    """What teachers have set up that the student still has to act on, or should read."""
+    from apps.appointments.models import Appointment
+    from apps.assignments.models import SubmissionEvaluation
+    from apps.forms_app.models import Form, FormResponse
+
+    answered = set(FormResponse.objects.filter(student=student).values_list("form_id", flat=True))
+    forms = [
+        {"id": f.id, "title": f.title, "courseCode": f.classroom.subject_code, "courseId": f.classroom_id}
+        for f in Form.objects.filter(classroom_id__in=course_ids, status=Form.Status.PUBLISHED).select_related("classroom").order_by("-created_at")
+        if f.id not in answered
+    ][:5]
+
+    today = timezone.localdate().isoformat()
+    meetings = [
+        {"id": a.id, "teacher": a.teacher_name, "when": a.time_slot, "mode": a.meeting_mode, "agenda": a.agenda,
+         "bookedByTeacher": a.booked_by_teacher}
+        for a in Appointment.objects.filter(student_email__iexact=student.email, status="approved").order_by("time_slot")
+        if (a.time_slot or "")[:10] >= today
+    ][:5]
+
+    since = timezone.now() - timedelta(days=21)
+    feedback = [
+        {"submissionId": e.submission_id, "assignment": e.submission.assignment.title or "Assignment",
+         "courseId": e.submission.assignment.course_id, "courseCode": e.submission.assignment.course.subject_code,
+         "total": e.total, "max": e.submission.assignment.max_points, "feedback": (e.feedback or "")[:200],
+         "markedAt": timezone.localtime(e.updated_at).isoformat()}
+        for e in SubmissionEvaluation.objects.filter(submission__student=student, updated_at__gte=since)
+        .select_related("submission__assignment__course").order_by("-updated_at")[:5]
+    ]
+    return {"formsToFill": forms, "meetings": meetings, "newFeedback": feedback}
 
 
 class StudentDashboardSummaryView(APIView):
