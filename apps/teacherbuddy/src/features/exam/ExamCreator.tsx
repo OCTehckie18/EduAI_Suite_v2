@@ -28,6 +28,15 @@ interface ExamCreatorProps {
 
 
 
+// A stored instant as the local "YYYY-MM-DDTHH:mm" a datetime-local input wants.
+const toLocalInput = (iso?: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initialData }) => {
   const [title, setTitle] = useState(initialData?.title || "");
   const [description, setDescription] = useState(initialData?.description || "");
@@ -35,6 +44,8 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
   const [courses, setCourses] = useState<any[]>([]);
   const [timeLimit, setTimeLimit] = useState(initialData?.time_limit || 60);
   const [attempts, setAttempts] = useState(initialData?.attempts_allowed || 1);
+  const [opensAt, setOpensAt] = useState(toLocalInput(initialData?.opens_at));
+  const [closesAt, setClosesAt] = useState(toLocalInput(initialData?.closes_at));
   const [randomize, setRandomize] = useState(initialData?.randomize_questions || false);
   const [questions, setQuestions] = useState<Question[]>(initialData?.questions || []);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -265,6 +276,10 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
         return;
     }
     
+    if (opensAt && closesAt && new Date(closesAt) <= new Date(opensAt)) {
+      setError("The exam must close after it opens.");
+      return;
+    }
     if (Number.isNaN(timeLimit) || timeLimit < 1 || timeLimit > 600) {
         setError("The time limit must be between 1 and 600 minutes.");
         return;
@@ -300,6 +315,8 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
       description,
       course_id: courseId,
       time_limit: timeLimit,
+      opens_at: opensAt ? new Date(opensAt).toISOString() : null,
+      closes_at: closesAt ? new Date(closesAt).toISOString() : null,
       attempts_allowed: attempts,
       randomize_questions: randomize,
       status: status,
@@ -389,6 +406,17 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                       onChange={(e) => setTimeLimit(e.target.value === "" ? NaN : parseInt(e.target.value))}
                     />
                     <span className="text-xs text-slate-400 shrink-0">mins</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block text-slate-600" htmlFor="exam-opens">Opens (optional)</label>
+                    <input id="exam-opens" type="datetime-local" className="form-input text-sm" value={opensAt} onChange={(e) => setOpensAt(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block text-slate-600" htmlFor="exam-closes">Closes (optional)</label>
+                    <input id="exam-closes" type="datetime-local" className="form-input text-sm" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} />
                   </div>
                 </div>
 

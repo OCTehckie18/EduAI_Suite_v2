@@ -14,6 +14,8 @@ class Exam(models.Model):
     time_limit = models.IntegerField(default=60)
     attempts_allowed = models.IntegerField(default=1)
     randomize_questions = models.BooleanField(default=False)
+    opens_at = models.DateTimeField(null=True, blank=True)  # students cannot start before this
+    closes_at = models.DateTimeField(null=True, blank=True)  # nor after this
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.DRAFT)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
@@ -75,3 +77,15 @@ class ExamAnswer(models.Model):
 
     def __str__(self):
         return f"Answer for Q{self.question_id}: {self.selected_choice_id}"
+
+
+def exam_availability(exam, now=None):
+    """"upcoming" before the window opens, "ended" after it closes, otherwise "open"."""
+    from django.utils import timezone
+
+    now = now or timezone.now()
+    if exam.opens_at and now < exam.opens_at:
+        return "upcoming"
+    if exam.closes_at and now > exam.closes_at:
+        return "ended"
+    return "open"
