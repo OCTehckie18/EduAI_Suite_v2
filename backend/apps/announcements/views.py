@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from apps.classrooms.models import Classroom
 from apps.core.access import can_manage_course, can_view_course
 from apps.core.permissions import IsTeacher
+from apps.core.services import course_student_ids, notify
 from apps.core.utils.file_uploads import save_optional_upload
 from .models import Announcement
 from .serializers import AnnouncementSerializer
@@ -55,6 +56,7 @@ class AnnouncementListCreateView(APIView):
             attachment_path=attachment_path,
         )
 
+        notify(course_student_ids(classroom), "announcement", f"New announcement in {classroom.name}", title or body[:100], "/classroom")
         serializer = AnnouncementSerializer(announcement)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

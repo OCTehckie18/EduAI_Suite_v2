@@ -114,27 +114,6 @@ const formatRelativeTime = (date: string | Date) => {
   return `${days}d ago`;
 };
 
-const getNotifHref = (feature: string) => {
-  switch (feature.toLowerCase()) {
-    case "appointment":
-      return "/appointments";
-    case "mail":
-      return "/mail";
-    case "calendar":
-      return "/calendar";
-    case "exam":
-      return "/exams";
-    case "student":
-      return "/classrooms";
-    case "classroom":
-      return "/classrooms";
-    case "omr":
-      return "/exams";
-    default:
-      return "/";
-  }
-};
-
 export const DashboardShell: React.FC = () => {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   // Open by default on desktop; a closed drawer on phones and half-width windows.
@@ -172,45 +151,30 @@ export const DashboardShell: React.FC = () => {
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const response = await fetch(`${API_ENDPOINTS.HISTORY}/`);
-      if (response.ok) {
-        const data = await response.json();
-        const lastRead = localStorage.getItem("last_notif_read") || "0";
-        const lastReadTime = new Date(lastRead).getTime();
+      const response = await fetch(`${API_ENDPOINTS.BASE}/notifications`);
+      if (!response.ok) return;
+      const data = await response.json();
+      const formatted = (data.results || []).slice(0, 10).map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        desc: n.body,
+        time: formatRelativeTime(n.created_at),
+        unread: !n.read,
+        href: n.link || "/",
+      }));
+      setNotifications(formatted);
+      setUnreadCount(data.unread || 0);
 
-        const formatted = data.slice(0, 10).map((h: any) => ({
-          id: h.id,
-          title: h.feature.charAt(0).toUpperCase() + h.feature.slice(1),
-          desc: h.action.replace(/_/g, " "),
-          time: formatRelativeTime(h.timestamp),
-          timestamp: new Date(h.timestamp).getTime(),
-          unread: new Date(h.timestamp).getTime() > lastReadTime,
-          href: getNotifHref(h.feature),
-        }));
-
-        setNotifications(formatted);
-        const newUnread = formatted.filter((n: any) => n.unread);
-        setUnreadCount(newUnread.length);
-
-        if (formatted.length > 0) {
-          const newest = formatted[0];
-          if (
-            lastNotifIdRef.current !== null &&
-            newest.id > lastNotifIdRef.current &&
-            newest.unread
-          ) {
-            setToast({
-              title: newest.title,
-              desc: newest.desc,
-              href: newest.href,
-            });
-            setTimeout(() => setToast(null), 6000);
-          }
-          lastNotifIdRef.current = newest.id;
+      const newest = formatted[0];
+      if (newest) {
+        if (lastNotifIdRef.current !== null && newest.id > lastNotifIdRef.current && newest.unread) {
+          setToast({ title: newest.title, desc: newest.desc, href: newest.href });
+          setTimeout(() => setToast(null), 6000);
         }
+        lastNotifIdRef.current = newest.id;
       }
-    } catch (err) {
-      console.error("Failed to fetch notifications:", err);
+    } catch {
+      /* the bell just keeps what it had; the next poll tries again */
     }
   }, []); // stable — no deps that change
 
@@ -251,9 +215,8 @@ export const DashboardShell: React.FC = () => {
     if (!notifOpen) {
       setNotifOpen(true);
       setProfileOpen(false);
-      // Mark as read
-      const now = new Date().toISOString();
-      localStorage.setItem("last_notif_read", now);
+      // Mark as read on the server, so it stays read on every device.
+      fetch(`${API_ENDPOINTS.BASE}/notifications/read`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => undefined);
       setUnreadCount(0);
       setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
     } else {

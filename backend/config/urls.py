@@ -3,7 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-from apps.core.views import HealthCheckView, legacy_health_view, root_view, ActionHistoryListCreateView
+from apps.core.views import HealthCheckView, legacy_health_view, root_view, ActionHistoryListCreateView, NotificationListView, NotificationReadView
 from apps.classrooms.legacy_urls import student_urlpatterns, resource_urlpatterns
 from apps.assignments.urls import assignment_urlpatterns, submission_urlpatterns
 
@@ -18,6 +18,10 @@ urlpatterns = [
 
     # History & Action Log Endpoints
     path('history/', ActionHistoryListCreateView.as_view(), name='legacy-history'),
+    path('notifications', NotificationListView.as_view(), name='legacy-notifications'),
+    path('notifications/read', NotificationReadView.as_view(), name='legacy-notifications-read'),
+    path('api/v1/notifications', NotificationListView.as_view(), name='api-notifications'),
+    path('api/v1/notifications/read', NotificationReadView.as_view(), name='api-notifications-read'),
     path('api/v1/history/', ActionHistoryListCreateView.as_view(), name='api-history'),
 
     # Auth & Accounts

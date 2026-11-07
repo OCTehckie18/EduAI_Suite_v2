@@ -98,3 +98,40 @@ class ActionHistoryListCreateView(APIView):
             metadata_json=data.get("metadata_json"),
         )
         return Response(_history_payload(history), status=status.HTTP_201_CREATED)
+
+
+class NotificationListView(APIView):
+    """The signed-in user's own notifications, newest first."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.core.models import Notification
+
+        mine = Notification.objects.filter(user=request.user)
+        return Response({
+            "unread": mine.filter(read_at__isnull=True).count(),
+            "results": [
+                {"id": n.pk, "kind": n.kind, "title": n.title, "body": n.body, "link": n.link,
+                 "created_at": n.created_at.isoformat(), "read": n.read_at is not None}
+                for n in mine[:30]
+            ],
+        })
+
+
+class NotificationReadView(APIView):
+    """Mark some (`ids`) or all of the user's notifications as read."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from apps.core.models import Notification
+
+        mine = Notification.objects.filter(user=request.user, read_at__isnull=True)
+        ids = request.data.get("ids")
+        if ids is not None:
+            if not isinstance(ids, list) or not all(isinstance(i, int) for i in ids):
+                return Response({"detail": "ids must be a list of notification ids."}, status=status.HTTP_400_BAD_REQUEST)
+            mine = mine.filter(pk__in=ids)
+        marked = mine.update(read_at=timezone.now())
+        return Response({"marked": marked})

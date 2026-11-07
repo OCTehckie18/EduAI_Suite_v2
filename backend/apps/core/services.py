@@ -48,3 +48,29 @@ def record_student_activity(
         },
     )
     return activity
+
+
+def notify(users, kind, title, body="", link=""):
+    """Tell each of `users` (accounts or ids) about something. Never raises: a failed
+    notification must not undo the action that caused it."""
+    from apps.core.models import Notification
+
+    try:
+        from django.contrib.auth import get_user_model
+
+        wanted = {getattr(u, "pk", u) for u in users if u}
+        ids = set(get_user_model().objects.filter(pk__in=wanted, is_active=True).values_list("pk", flat=True))
+        Notification.objects.bulk_create([
+            Notification(user_id=pk, kind=kind[:30], title=title[:200], body=body[:500], link=link[:200]) for pk in ids
+        ])
+    except Exception:  # pragma: no cover - defensive
+        import logging
+
+        logging.getLogger(__name__).exception("Could not create notifications")
+
+
+def course_student_ids(classroom):
+    """Ids of the students actively enrolled in a classroom."""
+    from apps.classrooms.models import Enrollment
+
+    return list(Enrollment.objects.filter(classroom=classroom, is_active=True).values_list("student_id", flat=True))

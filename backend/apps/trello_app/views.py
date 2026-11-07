@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 
 from apps.classrooms.models import Classroom, Enrollment
 from apps.core.access import is_master_admin
+from apps.core.services import notify
 
 from .models import Board, BoardCard, BoardColumn, BoardMember
 
@@ -223,6 +224,7 @@ class BoardJoinView(APIView):
         if membership:
             return Response({"detail": "You have already asked to join. Wait for the owner to answer."}, status=status.HTTP_409_CONFLICT)
         BoardMember.objects.create(board=board, user=request.user, status=BoardMember.Status.PENDING)
+        notify([board.owner_id], "board", f"{_name(request.user)} asked to join {board.name}", "Approve or reject the request on the board.", "/games/trello")
         return Response({"detail": "Request sent.", "board_name": board.name}, status=status.HTTP_201_CREATED)
 
 
@@ -240,6 +242,7 @@ class BoardApproveView(_MemberAction):
             raise NotFound("That person has no pending request.")
         membership.status = BoardMember.Status.ACTIVE
         membership.save(update_fields=["status"])
+        notify([target.pk], "board", f"You can now open {board.name}", "", f"/games/trello/{board.pk}")
         return Response({"detail": "Approved."})
 
 
@@ -259,10 +262,13 @@ class BoardAddMemberView(_MemberAction):
             raise ValidationError({"detail": "That person already owns this board."})
         if not is_master_admin(request.user) and not classmates_of(request.user).filter(pk=target.pk).exists():
             raise PermissionDenied("You can only add people you share a classroom with.")
-        membership, _ = BoardMember.objects.get_or_create(board=board, user=target)
+        membership, created = BoardMember.objects.get_or_create(board=board, user=target)
+        newly_in = created or membership.status != BoardMember.Status.ACTIVE
         if membership.status != BoardMember.Status.ACTIVE:
             membership.status = BoardMember.Status.ACTIVE
             membership.save(update_fields=["status"])
+        if newly_in:
+            notify([target.pk], "board", f"{_name(request.user)} added you to {board.name}", "", f"/games/trello/{board.pk}")
         return Response({"detail": "Added."}, status=status.HTTP_201_CREATED)
 
 

@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 
 from apps.classrooms.models import Classroom, Enrollment
 from apps.core.permissions import IsTeacher
-from apps.core.services import record_student_activity
+from apps.core.services import course_student_ids, notify, record_student_activity
 from .models import Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer
 from .serializers import ExamSerializer, ExamAttemptSerializer
 
@@ -105,6 +105,10 @@ def _clean_questions(raw):
             "choices": clean_choices,
         })
     return cleaned, None
+
+
+def _announce_exam(exam):
+    notify(course_student_ids(exam.course), "exam", f"New exam in {exam.course.name}", exam.title or "Exam", "/exams")
 
 
 def _clean_settings(data, partial):
@@ -268,6 +272,8 @@ class ExamListCreateView(APIView):
         with transaction.atomic():
             exam = Exam.objects.create(course=classroom, **settings)
             _save_questions(exam, questions)
+        if exam.status == Exam.Status.PUBLISHED:
+            _announce_exam(exam)
         return Response(ExamSerializer(exam).data, status=status.HTTP_201_CREATED)
 
 
@@ -316,6 +322,7 @@ class ExamDetailView(APIView):
         if publishing and not (questions if questions is not None else exam.questions.exists()):
             return _bad("Add at least one question before publishing the exam.")
 
+        was_published = exam.status == Exam.Status.PUBLISHED
         with transaction.atomic():
             for field, value in settings.items():
                 setattr(exam, field, value)
@@ -323,6 +330,8 @@ class ExamDetailView(APIView):
             if questions is not None:
                 exam.questions.all().delete()
                 _save_questions(exam, questions)
+        if publishing and not was_published:
+            _announce_exam(exam)
         return Response(ExamSerializer(exam).data)
 
     def patch(self, request, exam_id):
@@ -337,8 +346,11 @@ class ExamDetailView(APIView):
             return _bad(error)
         if settings["status"] == Exam.Status.PUBLISHED and not exam.questions.exists():
             return _bad("Add at least one question before publishing the exam.")
+        was_published = exam.status == Exam.Status.PUBLISHED
         exam.status = settings["status"]
         exam.save(update_fields=["status"])
+        if exam.status == Exam.Status.PUBLISHED and not was_published:
+            _announce_exam(exam)
         return Response(ExamSerializer(exam).data)
 
     def delete(self, request, exam_id):

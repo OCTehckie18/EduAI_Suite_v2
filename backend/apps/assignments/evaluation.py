@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 
 from apps.core.access import can_manage_course, can_view_course
 from apps.core.permissions import IsTeacher
-from apps.core.services import record_student_activity
+from apps.core.services import notify, record_student_activity
 
 from .models import Assignment, AssignmentCriterion, CriterionScore, Submission, SubmissionEvaluation
 
@@ -213,6 +213,7 @@ class SubmissionEvaluationView(APIView):
                     score=round(100 * total / assignment.max_points, 1) if assignment.max_points else None,
                     status="graded",
                 )
+                notify([submission.student_id], "grade", f"{assignment.title or 'Assignment'} was marked", f"{total} of {assignment.max_points}", "/classroom")
         submission = self._submission(submission_id)
         return Response(_evaluation_json(submission))
 
