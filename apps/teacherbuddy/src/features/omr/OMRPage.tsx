@@ -1,548 +1,333 @@
-
-import React, { useState, useEffect, useRef } from "react";
-import { Upload, Plus, CheckSquare, AlertTriangle, FileImage, ArrowLeft, ChevronRight, CheckCircle2, Save, X, Trash2, Edit, Download, BarChart3, Files } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { FileImage } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
+import { apiCall } from "../../shared/utils/apiCall";
+import { API_BASE_URL } from "../../shared/utils/apiConfig";
 
-import { API_ENDPOINTS, API_BASE_URL } from "../../shared/utils/apiConfig";
+const LETTERS = ["A", "B", "C", "D"];
+const field = "rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2";
+const border = { borderColor: "var(--color-border)" };
 
-const API_URL = API_ENDPOINTS.OMR;
+interface Course { id: number; name: string; subject_code?: string }
+interface Job { id: number; title: string; num_questions: number; answer_key: Record<string, string>; classroom_id: number | null; classroom_name: string | null; sheet_count?: number; needs_review?: number }
+interface Sheet {
+  id: number; student_id: number | null; student_name: string | null; register_read: string; image_url: string | null;
+  detected_answers: Record<string, string | null>; issues: { questions?: Record<string, string>; notes?: string[] };
+  score: number; status: "needs_review" | "verified";
+}
+interface Student { id: number; name: string }
+
+const fileUrl = (p: string) => (p.startsWith("http") ? p : `${API_BASE_URL}${p.startsWith("/") ? p : `/${p}`}`);
+
+async function download(path: string, filename: string, onError: (m: string) => void) {
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`);
+    if (!res.ok) throw new Error();
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    onError("The download failed. Try again.");
+  }
+}
 
 export const OMRPage: React.FC = () => {
-  const [view, setView] = useState<'list' | 'create' | 'detail'>('list');
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [selectedJob, setSelectedJob] = useState<any>(null);
-  const [submissions, setSubmissions] = useState<any[]>([]);
-  const [selectedSub, setSelectedSub] = useState<any>(null);
-  const [batchUploading, setBatchUploading] = useState(false);
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [view, setView] = useState<"list" | "create" | "detail">("list");
+  const [job, setJob] = useState<Job | null>(null);
+  const [sheets, setSheets] = useState<Sheet[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [openSheet, setOpenSheet] = useState<Sheet | null>(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  // Form states
-  const [newJobTitle, setNewJobTitle] = useState("");
-  const [newAnswerKeyStr, setNewAnswerKeyStr] = useState("{\n  \"1\": \"A\",\n  \"2\": \"B\",\n  \"3\": \"C\",\n  \"4\": \"D\"\n}");
-  const [creationMode, setCreationMode] = useState<'image' | 'manual'>('image');
-  const [keyImageFile, setKeyImageFile] = useState<File | null>(null);
+  // create form
+  const [title, setTitle] = useState("");
+  const [count, setCount] = useState(20);
+  const [classroomId, setClassroomId] = useState("");
+  const [key, setKey] = useState<Record<string, string>>({});
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const keyImageRef = useRef<HTMLInputElement>(null);
-  const batchInputRef = useRef<HTMLInputElement>(null);
-  const [uploadStudentId, setUploadStudentId] = useState("");
+  const loadJobs = useCallback(async () => {
+    const r = await apiCall<Job[]>("GET", "/omr/jobs");
+    if (r.ok) setJobs(r.data); else setError(r.error || "");
+  }, []);
 
   useEffect(() => {
-    if (view === 'list') {
-      fetchJobs();
-    }
-  }, [view]);
+    loadJobs();
+    apiCall<Course[]>("GET", "/courses/").then((r) => r.ok && Array.isArray(r.data) && setCourses(r.data));
+  }, [loadJobs]);
 
-  const fetchJobs = async () => {
-    try {
-      const res = await fetch(`${API_URL}/jobs`);
-      if (res.ok) setJobs(await res.json());
-    } catch (e) {
-      console.error(e);
+  const loadSheets = useCallback(async (id: number) => {
+    const r = await apiCall<Sheet[]>("GET", `/omr/jobs/${id}/submissions`);
+    if (r.ok) setSheets(r.data); else setError(r.error || "");
+  }, []);
+
+  const openJob = async (j: Job) => {
+    setError(""); setNotice(""); setJob(j); setOpenSheet(null); setView("detail");
+    loadSheets(j.id);
+    setStudents([]);
+    if (j.classroom_id) {
+      const r = await apiCall<any>("GET", `/students/${j.classroom_id}`);
+      const list = r.ok ? (Array.isArray(r.data) ? r.data : r.data?.results || r.data?.students || []) : [];
+      setStudents(list.map((s: any) => ({ id: s.student_id ?? s.id, name: s.name || s.full_name || s.email })).filter((s: Student) => s.id));
     }
   };
 
-  const fetchSubmissions = async (jobId: number) => {
+  const create = async () => {
+    setBusy(true); setError("");
+    const r = await apiCall<Job>("POST", "/omr/jobs", { title, num_questions: count, answer_key: key, classroom_id: classroomId ? Number(classroomId) : null });
+    setBusy(false);
+    if (!r.ok) { setError(r.error || ""); return; }
+    setNotice("Exam created. Print the answer sheet, then scan the filled sheets here.");
+    await loadJobs();
+    openJob(r.data);
+  };
+
+  const upload = async (files: FileList | null) => {
+    if (!files?.length || !job) return;
+    setBusy(true); setError(""); setNotice("");
+    const body = new FormData();
+    Array.from(files).forEach((f) => body.append("files", f));
     try {
-      const res = await fetch(`${API_URL}/jobs/${jobId}/submissions`);
-      if (res.ok) {
-        const subs = await res.json();
-        setSubmissions(subs);
-        if (selectedSub) {
-          const updated = subs.find((s: any) => s.id === selectedSub.id);
-          setSelectedSub(updated);
-        }
+      const res = await fetch(`${API_BASE_URL}/omr/jobs/${job.id}/submissions`, { method: "POST", body });
+      const data = await res.json().catch(() => null);
+      const results: { filename: string; error?: string }[] = data?.results || [];
+      const failed = results.filter((x) => x.error);
+      if (!res.ok && !results.length) setError(data?.detail || "The upload failed.");
+      else {
+        setNotice(`${results.length - failed.length} of ${results.length} sheets read.`);
+        if (failed.length) setError(failed.map((f) => `${f.filename}: ${f.error}`).join(" "));
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setError("Could not reach the server. Check your connection and try again.");
     }
+    setBusy(false);
+    if (fileRef.current) fileRef.current.value = "";
+    loadSheets(job.id); loadJobs();
   };
 
-  const createJob = async () => {
-    if (!newJobTitle.trim()) {
-      alert("Please provide a job title");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('title', newJobTitle);
-
-    if (creationMode === 'manual') {
-      formData.append('answer_key', newAnswerKeyStr);
-    } else {
-      if (!keyImageFile) {
-        alert("Please select an answer key image");
-        return;
-      }
-      formData.append('file', keyImageFile);
-    }
-
-    try {
-      const url = selectedJob ? `${API_URL}/jobs/${selectedJob.id}` : `${API_URL}/jobs`;
-      const method = selectedJob ? "PUT" : "POST";
-      
-      const res = await fetch(url, {
-        method: method,
-        body: formData
-      });
-      if (res.ok) {
-        setView('list');
-        setNewJobTitle("");
-        setKeyImageFile(null);
-        setSelectedJob(null);
-      } else {
-        alert("Error creating job. Please check your inputs.");
-      }
-    } catch (e) {
-      console.error(e);
-    }
+  const patchSheet = async (sheet: Sheet, body: Record<string, unknown>) => {
+    setError(""); setNotice("");
+    const r = await apiCall<Sheet>("PATCH", `/omr/submissions/${sheet.id}`, body);
+    if (!r.ok) { setError(r.error || ""); return; }
+    setOpenSheet(r.data);
+    if (job) loadSheets(job.id);
+    loadJobs();
   };
 
-  const deleteJob = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this job and all its submissions?")) return;
-    try {
-      const res = await fetch(`${API_URL}/jobs/${id}`, { method: "DELETE" });
-      if (res.ok) fetchJobs();
-    } catch (e) {
-      console.error(e);
-    }
+  const removeSheet = async (sheet: Sheet) => {
+    if (!window.confirm("Delete this sheet and its mark? This cannot be undone.")) return;
+    const r = await apiCall("DELETE", `/omr/submissions/${sheet.id}`);
+    if (!r.ok) { setError(r.error || ""); return; }
+    setOpenSheet(null);
+    if (job) loadSheets(job.id);
+    loadJobs();
   };
 
-  const editJob = (job: any) => {
-    setSelectedJob(job);
-    setNewJobTitle(job.title);
-    setNewAnswerKeyStr(JSON.stringify(job.answer_key, null, 2));
-    setCreationMode('manual');
-    setView('create');
+  const removeJob = async (j: Job) => {
+    if (!window.confirm(`Delete "${j.title}" and all its sheets? This cannot be undone.`)) return;
+    const r = await apiCall("DELETE", `/omr/jobs/${j.id}`);
+    if (!r.ok) { setError(r.error || ""); return; }
+    setView("list"); setNotice("Exam deleted."); loadJobs();
   };
 
-  const handleUploadSheet = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    if (!uploadStudentId) {
-      alert("Please enter a student ID first");
-      return;
-    }
-
-    const file = e.target.files[0];
-    const formData = new FormData();
-    formData.append("student_id", uploadStudentId);
-    formData.append("file", file);
-
-    // Reset file input so the same file can be selected again if needed
-    if (fileInputRef.current) fileInputRef.current.value = '';
-
-    try {
-      const res = await fetch(`${API_URL}/jobs/${selectedJob.id}/upload`, {
-        method: "POST",
-        body: formData
-      });
-      if (res.ok) {
-        alert("Uploaded and processed successfully!");
-        setUploadStudentId("");
-        fetchSubmissions(selectedJob.id);
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Error uploading sheet");
-    }
+  const saveKey = async (next: Record<string, string>) => {
+    if (!job) return;
+    setError(""); setNotice("");
+    const r = await apiCall<Job>("PATCH", `/omr/jobs/${job.id}`, { answer_key: next });
+    if (!r.ok) { setError(r.error || ""); return; }
+    setJob({ ...job, ...r.data }); setNotice("Answer key saved. Every scanned sheet was re-marked.");
+    loadSheets(job.id);
   };
 
-  const verifyAndSave = async () => {
-    if (!selectedSub) return;
+  const messages = (
+    <>
+      {error && <p role="alert" className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
+      {notice && <p role="status" className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm font-medium text-green-700">{notice}</p>}
+    </>
+  );
 
-    const formData = new FormData();
-    formData.append("score", selectedSub.score);
-    formData.append("detected_answers", JSON.stringify(selectedSub.detected_answers));
-
-    try {
-      const res = await fetch(`${API_URL}/submissions/${selectedSub.id}`, {
-        method: "PUT",
-        body: formData
-      });
-      if (res.ok) {
-        alert("Marks verified and saved!");
-        fetchSubmissions(selectedJob.id);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleBatchUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0 || !selectedJob) return;
-    setBatchUploading(true);
-    const formData = new FormData();
-    formData.append("student_ids", "");
-    Array.from(e.target.files).forEach(f => formData.append("files", f));
-    try {
-      const res = await fetch(`${API_URL}/jobs/${selectedJob.id}/upload-batch`, { method: "POST", body: formData });
-      if (res.ok) {
-        const data = await res.json();
-        alert(`Batch uploaded: ${data.count} sheets processed`);
-        fetchSubmissions(selectedJob.id);
-      }
-    } catch (err) { console.error(err); }
-    setBatchUploading(false);
-    if (batchInputRef.current) batchInputRef.current.value = '';
-  };
-
-  const downloadExport = (format: 'excel' | 'csv') => {
-    if (!selectedJob) return;
-    const url = `${API_URL}/jobs/${selectedJob.id}/export/${format}`;
-    window.open(url, '_blank');
-  };
-
-  const fetchAnalytics = async () => {
-    if (!selectedJob) return;
-    try {
-      const res = await fetch(`${API_URL}/jobs/${selectedJob.id}/analytics`);
-      if (res.ok) { setAnalytics(await res.json()); setShowAnalytics(true); }
-    } catch (e) { console.error(e); }
-  };
-
-  const renderList = () => (
-    <div className="space-y-6 animate-fade-in-up">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold font-display" style={{ color: "var(--color-text-primary)" }}>OMR Evaluation</h1>
-          <p className="mt-1" style={{ color: "var(--color-text-secondary)" }}>Bulk grading of physical answer sheets.</p>
-        </div>
-        <button onClick={() => setView('create')} className="btn btn-primary shadow-lg flex items-center gap-2">
-          <Plus size={16} /> New Job
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {jobs.map(job => (
-          <GlassCard key={job.id} className="p-6 cursor-pointer hover:scale-[1.02] transition-transform relative group" onClick={() => { setSelectedJob(job); setView('detail'); fetchSubmissions(job.id); }}>
-            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
-                onClick={(e) => { e.stopPropagation(); editJob(job); }}
-                className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"
-              >
-                <Edit size={14} />
-              </button>
-              <button 
-                onClick={(e) => { e.stopPropagation(); deleteJob(job.id); }}
-                className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-            <h3 className="font-bold text-lg mb-2" style={{ color: "var(--color-text-primary)" }}>{job.title}</h3>
-            <p className="text-sm mb-4" style={{ color: "var(--color-text-secondary)" }}>Questions: {Object.keys(job.answer_key).length}</p>
-            <div className="text-sm font-medium text-blue-600 flex items-center justify-between">
-              Open Dashboard <ChevronRight size={16} />
-            </div>
-          </GlassCard>
-        ))}
-        {jobs.length === 0 && (
-          <div className="col-span-full p-8 text-center" style={{ color: "var(--color-text-muted)" }}>
-            No evaluation jobs found. Create one to get started.
-          </div>
-        )}
-      </div>
+  const keyGrid = (value: Record<string, string>, n: number, onChange: (k: Record<string, string>) => void) => (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {Array.from({ length: n }, (_, i) => String(i + 1)).map((q) => (
+        <label key={q} className="flex items-center gap-2 text-sm">
+          <span className="w-7 text-right font-bold">{q}</span>
+          <select aria-label={`Correct answer for question ${q}`} className={`${field} flex-1`} style={border} value={value[q] || ""} onChange={(e) => onChange({ ...value, [q]: e.target.value })}>
+            <option value="">Choose</option>
+            {LETTERS.map((l) => <option key={l} value={l}>{l}</option>)}
+          </select>
+        </label>
+      ))}
     </div>
   );
 
-  const renderCreate = () => (
-    <div className="max-w-2xl mx-auto space-y-6 animate-fade-in-up">
-      <button onClick={() => setView('list')} className="flex items-center gap-2 text-sm hover:underline" style={{ color: "var(--color-text-secondary)" }}>
-        <ArrowLeft size={16} /> Back
-      </button>
-      <GlassCard className="p-8 space-y-6">
+  // ---- create ----
+  if (view === "create") {
+    return (
+      <div className="space-y-6 animate-fade-in-up max-w-3xl">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: "var(--color-text-primary)" }}>Create OMR Job</h2>
-          <p className="text-sm mt-1" style={{ color: "var(--color-text-secondary)" }}>Provide a title and the master answer key (JSON format).</p>
+          <button className="text-sm font-bold text-blue-700 hover:underline" onClick={() => setView("list")}>Back to OMR exams</button>
+          <h1 className="text-2xl font-bold font-display">New OMR exam</h1>
         </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-text-primary)" }}>Job Title</label>
-            <input
-              type="text"
-              value={newJobTitle}
-              onChange={e => setNewJobTitle(e.target.value)}
-              className="w-full px-4 py-2 rounded-xl border focus:ring-2 outline-none"
-              style={{ background: "var(--color-surface-base)", borderColor: "var(--color-border)", color: "var(--color-text-primary)" }}
-              placeholder="e.g. Midterm Computer Science"
-            />
+        {messages}
+        <GlassCard className="p-5 space-y-3">
+          <label className="block text-sm font-semibold">Title
+            <input className={`${field} w-full mt-1`} style={border} maxLength={255} value={title} onChange={(e) => setTitle(e.target.value)} />
+          </label>
+          <div className="flex flex-wrap gap-3">
+            <label className="block text-sm font-semibold">Questions (1 to 100)
+              <input type="number" min={1} max={100} className={`${field} block mt-1 w-28`} style={border} value={count} onChange={(e) => setCount(Math.max(1, Math.min(100, Number(e.target.value) || 1)))} />
+            </label>
+            <label className="block text-sm font-semibold flex-1 min-w-48">Classroom (optional)
+              <select className={`${field} w-full mt-1`} style={border} value={classroomId} onChange={(e) => setClassroomId(e.target.value)}>
+                <option value="">No classroom</option>
+                {courses.map((c) => <option key={c.id} value={c.id}>{c.subject_code ? `${c.subject_code}: ` : ""}{c.name}</option>)}
+              </select>
+            </label>
           </div>
-
-          <div className="flex gap-4 border-b pb-2 mb-4" style={{ borderColor: 'var(--color-border)' }}>
-            <button
-              className={`text-sm font-bold pb-2 border-b-2 ${creationMode === 'image' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'}`}
-              onClick={() => setCreationMode('image')}
-            >
-              Upload Image (Extract)
-            </button>
-            <button
-              className={`text-sm font-bold pb-2 border-b-2 ${creationMode === 'manual' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'}`}
-              onClick={() => setCreationMode('manual')}
-            >
-              Manual JSON Entry
-            </button>
-          </div>
-
-          {creationMode === 'manual' ? (
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-text-primary)" }}>Answer Key (JSON)</label>
-              <textarea
-                rows={8}
-                value={newAnswerKeyStr}
-                onChange={e => setNewAnswerKeyStr(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border focus:ring-2 outline-none font-mono text-sm"
-                style={{ background: "var(--color-surface-base)", borderColor: "var(--color-border)", color: "var(--color-text-primary)" }}
-              />
-            </div>
-          ) : (
-            <div className="border-2 border-dashed rounded-xl p-8 text-center" style={{ borderColor: "var(--color-border)" }}>
-              <input
-                type="file"
-                ref={keyImageRef}
-                className="hidden"
-                accept="image/*"
-                onChange={e => setKeyImageFile(e.target.files?.[0] || null)}
-              />
-              <FileImage size={40} className="mx-auto mb-3" style={{ color: "var(--color-brand-blue)" }} />
-              {keyImageFile ? (
-                <p className="font-bold text-sm" style={{ color: "var(--color-text-primary)" }}>{keyImageFile.name}</p>
-              ) : (
-                <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Select the master answer key image</p>
-              )}
-              <button
-                onClick={() => keyImageRef.current?.click()}
-                className="btn btn-secondary mt-4 text-sm shadow-sm"
-              >
-                Browse Image
-              </button>
-            </div>
-          )}
-
-          <button onClick={createJob} className="btn btn-primary w-full py-3 shadow-md mt-4">Create Job</button>
-        </div>
-      </GlassCard>
-    </div>
-  );
-
-  const renderDetail = () => (
-    <div className="space-y-6 animate-fade-in-up flex flex-col h-full">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={() => setView('list')} className="p-2 rounded-full hover:bg-black/5">
-            <ArrowLeft size={20} style={{ color: "var(--color-text-primary)" }} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold font-display" style={{ color: "var(--color-text-primary)" }}>{selectedJob?.title}</h1>
-            <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Manage answer sheets and verifications.</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 bg-white/50 p-2 rounded-xl border border-white/20 shadow-sm flex-wrap">
-          <input
-            type="text"
-            placeholder="Student ID (Reg No)"
-            value={uploadStudentId}
-            onChange={e => setUploadStudentId(e.target.value)}
-            className="px-3 py-1.5 rounded-lg text-sm border outline-none"
-            style={{ borderColor: "var(--color-border)", background: "var(--color-surface-base)", color: "var(--color-text-primary)" }}
-          />
-          <button onClick={() => fileInputRef.current?.click()} className="btn btn-primary text-sm py-1.5 px-4 shadow flex items-center gap-2">
-            <Upload size={14} /> Upload Sheet
-          </button>
-          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleUploadSheet} />
-          <button onClick={() => batchInputRef.current?.click()} disabled={batchUploading} className="btn btn-secondary text-sm py-1.5 px-4 shadow flex items-center gap-2">
-            <Files size={14} /> {batchUploading ? 'Uploading...' : 'Batch Upload'}
-          </button>
-          <input type="file" ref={batchInputRef} className="hidden" accept="image/*,application/pdf" multiple onChange={handleBatchUpload} />
-          <button onClick={() => downloadExport('excel')} className="btn btn-secondary text-sm py-1.5 px-3 shadow flex items-center gap-1" title="Download Excel">
-            <Download size={14} /> Excel
-          </button>
-          <button onClick={() => downloadExport('csv')} className="btn btn-secondary text-sm py-1.5 px-3 shadow flex items-center gap-1" title="Download CSV">
-            <Download size={14} /> CSV
-          </button>
-          <button onClick={fetchAnalytics} className="btn btn-secondary text-sm py-1.5 px-3 shadow flex items-center gap-1" title="Question Analytics">
-            <BarChart3 size={14} /> Analytics
-          </button>
-        </div>
+          <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>With a classroom, marks are matched to its students by register number and added to their record once a sheet is verified.</p>
+        </GlassCard>
+        <GlassCard className="p-5 space-y-3">
+          <p className="font-semibold text-sm">Answer key</p>
+          {keyGrid(key, count, setKey)}
+        </GlassCard>
+        <button className="btn btn-primary" disabled={busy || !title.trim()} onClick={create}>{busy ? "Creating..." : "Create exam"}</button>
       </div>
+    );
+  }
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden min-h-[500px]">
-        {/* Left Submissions List */}
-        <div className="lg:col-span-1 space-y-4 overflow-y-auto pr-2">
-          {submissions.length === 0 && (
-            <div className="p-6 text-center text-sm border-2 border-dashed rounded-xl" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
-              No submissions yet. Upload an answer sheet image.
-            </div>
-          )}
-          {submissions.map(sub => (
-            <GlassCard
-              key={sub.id}
-              className={`p-4 cursor-pointer transition-all ${selectedSub?.id === sub.id ? 'ring-2 ring-blue-500' : 'hover:scale-[1.02]'}`}
-              onClick={() => setSelectedSub(sub)}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <p className="font-bold text-sm" style={{ color: "var(--color-text-primary)" }}>{sub.student_id}</p>
-                </div>
-                {sub.status === 'verified' ? (
-                  <span className="badge badge-green bg-green-50 text-green-600 flex items-center gap-1 text-[10px]"><CheckCircle2 size={12} /> Verified</span>
-                ) : (
-                  <span className="badge badge-orange bg-orange-50 text-orange-600 flex items-center gap-1 text-[10px]"><AlertTriangle size={12} /> Pending</span>
-                )}
-              </div>
-              <div className="flex justify-between items-end mt-4">
-                <p className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>OMR Score: <strong className="text-lg" style={{ color: "var(--color-brand-blue)" }}>{sub.score?.toFixed(1)}</strong>%</p>
-                <ChevronRight size={16} style={{ color: "var(--color-text-muted)" }} />
-              </div>
-            </GlassCard>
-          ))}
+  // ---- detail ----
+  if (view === "detail" && job) {
+    const review = openSheet;
+    return (
+      <div className="space-y-6 animate-fade-in-up">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <button className="text-sm font-bold text-blue-700 hover:underline" onClick={() => { setView("list"); loadJobs(); }}>Back to OMR exams</button>
+            <h1 className="text-2xl font-bold font-display">{job.title}</h1>
+            <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{job.num_questions} questions{job.classroom_name ? ` · ${job.classroom_name}` : ""}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn bg-white border" style={border} onClick={() => download(`/omr/jobs/${job.id}/template`, `omr_sheet_${job.id}.pdf`, setError)}>Print answer sheet</button>
+            <button className="btn bg-white border" style={border} disabled={sheets.length === 0} onClick={() => download(`/omr/jobs/${job.id}/submissions?export=csv`, `omr_results_${job.id}.csv`, setError)}>Download CSV</button>
+            <button className="btn btn-primary" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? "Reading..." : "Scan sheets"}</button>
+            <input ref={fileRef} type="file" multiple accept=".jpg,.jpeg,.png,.pdf" className="hidden" onChange={(e) => upload(e.target.files)} />
+          </div>
         </div>
+        {messages}
 
-        {/* Right Editor */}
-        <div className="lg:col-span-2">
-          {selectedSub ? (
-            <GlassCard className="h-full flex flex-col overflow-hidden">
-              <div className="p-4 border-b flex justify-between items-center" style={{ borderColor: "var(--color-border)" }}>
-                <div>
-                  <h2 className="text-lg font-bold" style={{ color: "var(--color-text-primary)" }}>Submission: {selectedSub.student_id}</h2>
-                  <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>Review and correct OMR evaluation.</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right flex items-center gap-2">
-                    <p className="text-xs font-bold" style={{ color: "var(--color-text-muted)" }}>FINAL SCORE</p>
-                    <input
-                      type="number"
-                      value={selectedSub.score}
-                      onChange={e => setSelectedSub({ ...selectedSub, score: parseFloat(e.target.value) })}
-                      className="w-20 text-center font-bold text-xl py-1 rounded-lg border focus:ring-2 outline-none"
-                      style={{ color: "var(--color-brand-blue)", borderColor: "var(--color-border)", background: "var(--color-surface-base)" }}
-                    />
-                  </div>
-                  <button onClick={verifyAndSave} className="btn btn-primary py-1.5 px-4 shadow flex items-center gap-2 text-sm">
-                    <CheckSquare size={16} /> Confirm Marks
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-3">
+            <h2 className="font-bold text-sm">Sheets ({sheets.length})</h2>
+            {sheets.length === 0 ? (
+              <GlassCard className="p-10 text-center space-y-2">
+                <FileImage className="mx-auto" style={{ color: "var(--color-text-muted)" }} />
+                <p className="font-semibold">No sheets scanned yet.</p>
+                <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Print the answer sheet, hand it out, then photograph or scan each filled sheet flat, with all four black corner squares in view.</p>
+              </GlassCard>
+            ) : (
+              <GlassCard className="divide-y" style={border}>
+                {sheets.map((s) => (
+                  <button key={s.id} onClick={() => setOpenSheet(s)} className={`w-full text-left flex flex-wrap items-center gap-3 p-4 ${review?.id === s.id ? "bg-blue-50" : ""}`}>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold truncate">{s.student_name || "Student not chosen"}</p>
+                      <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>Register read: {s.register_read || "not readable"}</p>
+                    </div>
+                    <span className="font-bold">{s.score}%</span>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${s.status === "verified" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+                      {s.status === "verified" ? "Verified" : "Needs review"}
+                    </span>
                   </button>
-                </div>
-              </div>
+                ))}
+              </GlassCard>
+            )}
+          </div>
 
-              <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-                {/* Image Viewer */}
-                <div className="w-full md:w-1/2 p-4 border-r" style={{ borderColor: "var(--color-border)" }}>
-                  <div className="w-full h-full bg-black/5 rounded-xl border flex items-center justify-center overflow-hidden relative group" style={{ borderColor: "var(--color-border)" }}>
-                    {selectedSub.image_url ? (
-                      <img src={`${API_BASE_URL}${selectedSub.image_url}`} alt="Answer Sheet" className="max-w-full max-h-full object-contain" />
-                    ) : (
-                      <div className="text-center text-gray-400">
-                        <FileImage size={48} className="mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No Image</p>
-                      </div>
-                    )}
-                  </div>
+          <div className="space-y-4">
+            {review ? (
+              <GlassCard className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-bold">Review sheet</h2>
+                  <button className="text-sm text-red-600 font-bold hover:underline" onClick={() => removeSheet(review)}>Delete</button>
                 </div>
-
-                {/* Questions List */}
-                <div className="w-full md:w-1/2 p-4 overflow-y-auto space-y-3">
-                  <h3 className="font-bold text-sm mb-3 uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>Detected Answers vs Key</h3>
-                  {Object.entries(selectedJob?.answer_key || {}).map(([qNo, correctAns]: [string, any]) => {
-                    const detected = selectedSub.detected_answers?.[qNo] || "-";
-                    const isCorrect = detected === correctAns;
-                    const isUncertain = detected === "?" || detected === "-";
-                    const bgClass = isUncertain ? 'bg-yellow-50/50 border-yellow-200' : isCorrect ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100';
+                {review.image_url && <a href={fileUrl(review.image_url)} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-700 hover:underline">Open the scan</a>}
+                {(review.issues.notes || []).map((n) => <p key={n} className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">{n}</p>)}
+                <label className="block text-sm font-semibold">Student
+                  <select className={`${field} w-full mt-1`} style={border} value={review.student_id ?? ""} onChange={(e) => patchSheet(review, { student_id: e.target.value ? Number(e.target.value) : null })}>
+                    <option value="">Not chosen</option>
+                    {review.student_id && !students.some((s) => s.id === review.student_id) && <option value={review.student_id}>{review.student_name}</option>}
+                    {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </label>
+                {!job.classroom_id && <p className="text-xs text-amber-700">This exam has no classroom, so students cannot be matched. Create it with a classroom to record marks.</p>}
+                <div className="max-h-72 overflow-y-auto space-y-1">
+                  {Array.from({ length: job.num_questions }, (_, i) => String(i + 1)).map((q) => {
+                    const state = review.issues.questions?.[q];
+                    const got = review.detected_answers[q] || "";
                     return (
-                      <div key={qNo} className={`p-3 rounded-xl border flex items-center justify-between ${bgClass}`}>
-                        <div className="flex items-center gap-4">
-                          <span className="font-bold w-6 text-right" style={{ color: "var(--color-text-primary)" }}>Q{qNo}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">Detected:</span>
-                            <input
-                              className="w-8 text-center font-bold text-sm py-0.5 rounded border focus:ring-1 outline-none uppercase"
-                              value={detected}
-                              onChange={(e) => {
-                                const val = e.target.value.toUpperCase().slice(0, 1);
-                                setSelectedSub({
-                                  ...selectedSub,
-                                  detected_answers: { ...selectedSub.detected_answers, [qNo]: val }
-                                });
-                              }}
-                            />
-                          </div>
-                          {isUncertain && <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-bold">UNCERTAIN</span>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500">Key:</span>
-                          <span className="font-bold text-sm w-6 text-center">{correctAns}</span>
-                          {isUncertain ? <AlertTriangle size={16} className="text-yellow-500 ml-2" /> : isCorrect ? <CheckCircle2 size={16} className="text-green-500 ml-2" /> : <X size={16} className="text-red-500 ml-2" />}
-                        </div>
-                      </div>
+                      <label key={q} className={`flex items-center gap-2 text-sm rounded px-1 ${state ? "bg-amber-50" : ""}`}>
+                        <span className="w-7 text-right font-bold">{q}</span>
+                        <select aria-label={`Answer read for question ${q}`} className={`${field} flex-1 py-1`} style={border} value={got} onChange={(e) => patchSheet(review, { answers: { [q]: e.target.value } })}>
+                          <option value="">{state === "multiple" ? "Two marks" : "Blank"}</option>
+                          {LETTERS.map((l) => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                        <span className={`w-14 text-xs font-bold ${got && got === job.answer_key[q] ? "text-green-700" : "text-red-600"}`}>{got && got === job.answer_key[q] ? "Right" : `Key ${job.answer_key[q]}`}</span>
+                      </label>
                     );
                   })}
                 </div>
-              </div>
+                <button className="btn btn-primary w-full" disabled={review.status === "verified" || !review.student_id} onClick={() => patchSheet(review, { confirm: true })}>
+                  {review.status === "verified" ? "Verified" : "Confirm this sheet"}
+                </button>
+              </GlassCard>
+            ) : (
+              <GlassCard className="p-4 text-sm" style={{ color: "var(--color-text-secondary)" }}>Select a sheet to check the answers read from it, choose its student and confirm it.</GlassCard>
+            )}
+            <GlassCard className="p-4 space-y-3">
+              <h2 className="font-bold text-sm">Answer key</h2>
+              {keyGrid(job.answer_key, job.num_questions, (k) => setJob({ ...job, answer_key: k }))}
+              <button className="btn bg-white border w-full" style={border} onClick={() => saveKey(job.answer_key)}>Save key and re-mark</button>
             </GlassCard>
-          ) : (
-            <GlassCard className="h-full flex flex-col overflow-hidden p-6">
-              <h2 className="text-xl font-bold mb-2" style={{ color: "var(--color-text-primary)" }}>Master Answer Key</h2>
-              <p className="text-sm mb-6" style={{ color: "var(--color-text-secondary)" }}>Correct answers expected for this evaluation batch.</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 overflow-y-auto pr-2 pb-4 content-start">
-                {Object.entries(selectedJob?.answer_key || {}).map(([qNo, ans]: [string, any]) => (
-                  <div key={qNo} className="p-3 rounded-xl border flex items-center justify-between shadow-sm" style={{ borderColor: "var(--color-border)", background: "var(--color-surface-base)" }}>
-                    <span className="font-bold text-sm text-gray-500">Q{qNo}</span>
-                    <span className="font-bold text-lg" style={{ color: "var(--color-brand-blue)" }}>{ans}</span>
-                  </div>
-                ))}
-              </div>
-              {Object.keys(selectedJob?.answer_key || {}).length === 0 && (
-                <div className="text-center p-8 border-2 border-dashed rounded-xl mt-4" style={{ borderColor: "var(--color-border)", color: "var(--color-text-muted)" }}>
-                  No answer key mapped.
-                </div>
-              )}
-            </GlassCard>
-          )}
+            <button className="text-sm text-red-600 font-bold hover:underline" onClick={() => removeJob(job)}>Delete this exam</button>
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Analytics Modal */}
-      {showAnalytics && analytics && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowAnalytics(false)}>
-          <GlassCard className="max-w-3xl w-full max-h-[80vh] overflow-y-auto p-6" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>Question Analytics ({analytics.total_students} students)</h2>
-              <button onClick={() => setShowAnalytics(false)} className="p-1 rounded hover:bg-black/10"><X size={20} /></button>
-            </div>
-            <div className="space-y-3">
-              {(analytics.analysis || []).map((q: any) => {
-                const pct = q.correct_percentage;
-                const barColor = pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
-                return (
-                  <div key={q.question} className="p-3 rounded-xl border" style={{ borderColor: 'var(--color-border)' }}>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-bold text-sm">Q{q.question} (Key: {q.correct_answer})</span>
-                      <span className="text-xs px-2 py-0.5 rounded" style={{ background: barColor + '22', color: barColor }}>{q.difficulty}</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2 mb-1">
-                      <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: barColor }} />
-                    </div>
-                    <div className="flex gap-4 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
-                      <span className="text-green-600"> {q.correct_count}</span>
-                      <span className="text-red-600"> {q.wrong_count}</span>
-                      <span className="text-yellow-600">? {q.uncertain_count}</span>
-                      <span>{pct}% correct</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </GlassCard>
-        </div>
-      )}
-    </div>
-  );
-
+  // ---- list ----
   return (
-    <div className="h-full">
-      {view === 'list' && renderList()}
-      {view === 'create' && renderCreate()}
-      {view === 'detail' && renderDetail()}
+    <div className="space-y-6 animate-fade-in-up">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="max-w-2xl">
+          <h1 className="text-2xl font-bold font-display">OMR</h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--color-text-secondary)" }}>
+            Print a bubble sheet, scan the filled sheets with a phone or scanner, and get marks without grading by hand.
+          </p>
+        </div>
+        <button className="btn btn-primary" onClick={() => { setTitle(""); setCount(20); setKey({}); setClassroomId(""); setError(""); setNotice(""); setView("create"); }}>New OMR exam</button>
+      </div>
+      {messages}
+      {jobs.length === 0 ? (
+        <GlassCard className="p-10 text-center"><p className="font-semibold">No OMR exams yet.</p></GlassCard>
+      ) : (
+        <GlassCard className="divide-y" style={border}>
+          {jobs.map((j) => (
+            <button key={j.id} onClick={() => openJob(j)} className="w-full text-left flex flex-wrap items-center gap-3 p-4">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold truncate">{j.title}</p>
+                <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>{j.num_questions} questions{j.classroom_name ? ` · ${j.classroom_name}` : ""}</p>
+              </div>
+              <span className="text-sm">{j.sheet_count ?? 0} sheets</span>
+              {(j.needs_review ?? 0) > 0 && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">{j.needs_review} to review</span>}
+            </button>
+          ))}
+        </GlassCard>
+      )}
     </div>
   );
 };
