@@ -167,3 +167,37 @@ class UniversityColorTests(APITestCase):
         teacher = User.objects.create_user(email="t@x.com", password="pw", role="TEACHER")
         self.client.force_authenticate(teacher)
         self.assertEqual(self.client.put(DETAILS, {"primary_color": "#7a1f2b"}, format="json").status_code, 403)
+
+
+class DarkModeLogoTests(APITestCase):
+    def setUp(self):
+        self.master = User.objects.create_user(email="m@x.com", password="pw", role="MASTER_ADMIN")
+        self.client.force_authenticate(self.master)
+
+    def test_a_dark_logo_is_stored_separately_and_served_publicly(self):
+        self.client.post(LOGO, {"file": image_file()}, format="multipart")
+        body = self.client.post(LOGO, {"file": image_file(), "variant": "dark"}, format="multipart").json()
+        self.assertIn("variant=dark", body["logo_dark_url"])
+        self.assertIsNotNone(body["logo_url"])
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(PUBLIC).json()["logo_dark_url"], body["logo_dark_url"])
+        served = self.client.get(PUBLIC_LOGO + "?variant=dark")
+        self.assertEqual((served.status_code, served["Content-Type"]), (200, "image/png"))
+
+    def test_removing_the_dark_logo_keeps_the_light_one(self):
+        self.client.post(LOGO, {"file": image_file()}, format="multipart")
+        self.client.post(LOGO, {"file": image_file(), "variant": "dark"}, format="multipart")
+        body = self.client.delete(LOGO + "?variant=dark").json()
+        self.assertIsNone(body["logo_dark_url"])
+        self.assertIsNotNone(body["logo_url"])
+        self.assertEqual(self.client.get(PUBLIC_LOGO + "?variant=dark").status_code, 404)
+        self.assertEqual(self.client.get(PUBLIC_LOGO).status_code, 200)
+
+    def test_unknown_variants_are_refused(self):
+        self.assertEqual(self.client.post(LOGO, {"file": image_file(), "variant": "blue"}, format="multipart").status_code, 400)
+        self.assertEqual(self.client.get(PUBLIC_LOGO + "?variant=blue").status_code, 400)
+
+    def test_only_a_master_admin_uploads_the_dark_logo(self):
+        teacher = User.objects.create_user(email="t@x.com", password="pw", role="TEACHER")
+        self.client.force_authenticate(teacher)
+        self.assertEqual(self.client.post(LOGO, {"file": image_file(), "variant": "dark"}, format="multipart").status_code, 403)

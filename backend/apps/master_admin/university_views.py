@@ -39,16 +39,21 @@ class UniversityLogoUploadView(APIView):
         uploaded = request.FILES.get("file")
         if not uploaded:
             return Response({"detail": "Choose an image file to upload."}, status=400)
+        variant = request.data.get("variant") or request.query_params.get("variant") or "light"
         profile = UniversityProfile.load()
         try:
-            save_logo(profile, uploaded)
+            save_logo(profile, uploaded, variant)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=400)
-        _record_admin_action(request, "upload_university_logo", "institution.universityprofile:1")
+        _record_admin_action(request, "upload_university_logo", "institution.universityprofile:1", {"variant": variant})
         return Response(university_payload(profile))
 
     def delete(self, request):
+        variant = request.query_params.get("variant") or "light"
         profile = UniversityProfile.load()
-        clear_logo(profile)
-        _record_admin_action(request, "remove_university_logo", "institution.universityprofile:1")
+        try:
+            clear_logo(profile, variant)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        _record_admin_action(request, "remove_university_logo", "institution.universityprofile:1", {"variant": variant})
         return Response(university_payload(profile))

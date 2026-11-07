@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import logo from "../../logo/eduai_logo.png";
 import { API_ENDPOINTS } from "./shared/apiConfig";
 import { requestJson } from "./shared/request";
-import { logoSrc, useUniversity } from "./shared/university";
+import { logoSrc, logoVariant, useUniversity } from "./shared/university";
 import { AdminUser } from "./types";
 import { inputClass } from "./ui";
 
@@ -46,7 +46,7 @@ export function LoginScreen({ onLogin }: { onLogin: (user: AdminUser) => void })
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 text-slate-900">
       <form onSubmit={submit} className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
         <div className="mb-8 flex items-center gap-4">
-          <img src={universityLogo ?? logo} alt={university.name || "EduAI Suite"} className="h-14 w-14 shrink-0 rounded-xl bg-white object-contain p-1.5" />
+          <img src={universityLogo ?? logo} data-variant={logoVariant(university)} alt={university.name || "EduAI Suite"} className="logo-tile h-14 w-14 shrink-0 rounded-xl bg-white object-contain p-1.5" />
           <div className="min-w-0">
             <h1 className="truncate text-xl font-bold">{university.name || "EduAI Suite"}</h1>
             <p className="text-sm text-slate-500">Master Admin · sign in to continue</p>

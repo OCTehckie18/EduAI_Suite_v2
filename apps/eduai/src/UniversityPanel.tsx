@@ -1,8 +1,9 @@
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
-import { ImagePlus, Trash2 } from "lucide-react";
+import { ChangeEvent, CSSProperties, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { ImagePlus, Moon, Sun, Trash2 } from "lucide-react";
 import { API_BASE_URL, authHeaders } from "./shared/apiConfig";
+import { brandPalette, contrastRatio } from "./shared/brand";
 import { requestJson } from "./shared/request";
-import { University, logoSrc, setUniversity } from "./shared/university";
+import { University, setUniversity } from "./shared/university";
 import { PanelCard, useConfirm, useToast } from "./ui";
 
 const ENDPOINT = `${API_BASE_URL}/master-admin/university`;
@@ -27,6 +28,77 @@ const FIELDS: { key: keyof Details; label: string; placeholder: string; multilin
 
 const inputClass = "mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900";
 
+type Variant = "light" | "dark";
+const fullUrl = (path: string | null) => (path ? `${API_BASE_URL}${path}` : null);
+
+/** Fixed surfaces for each mode, so the preview looks the same whichever mode this portal is in. */
+const SURFACES: Record<Variant, { page: string; card: string; text: string; sub: string; line: string }> = {
+  light: { page: "#f8fafc", card: "#ffffff", text: "#0f172a", sub: "#475569", line: "#e2e8f0" },
+  dark: { page: "#0b1220", card: "#131c2e", text: "#e5e9f0", sub: "#a7b1c2", line: "rgba(148,163,184,0.2)" },
+};
+
+const ratio = (value: number) => `${value.toFixed(1)}:1`;
+
+/** How the portals will look in one mode with the colours and logos on this page (before saving). */
+function ModePreview({ mode, colors, lightLogo, darkLogo, label }: { mode: Variant; colors: Details; lightLogo: string | null; darkLogo: string | null; label: string }) {
+  const palette = brandPalette(colors, mode === "dark");
+  const surface = SURFACES[mode];
+  const fill = palette["--color-brand-blue-fill"];
+  const text = palette["--color-brand-blue"];
+  const accent = palette["--color-brand-accent"];
+  const gold = palette["--color-brand-gold"];
+  const logo = mode === "dark" ? darkLogo ?? lightLogo : lightLogo;
+  const onTile = mode === "dark" && !darkLogo;
+  const vars = { "--pv-page": surface.page, "--pv-card": surface.card, "--pv-text": surface.text, "--pv-sub": surface.sub, "--pv-line": surface.line, "--pv-fill": fill, "--pv-brand": text, "--pv-accent": accent, "--pv-gold": gold } as CSSProperties;
+  const buttonContrast = contrastRatio("#ffffff", fill);
+  const textContrast = contrastRatio(text, surface.card);
+  const ok = (value: number) => value >= 4.5;
+  return <figure className="min-w-0 flex-1 overflow-hidden rounded-xl border" style={{ ...vars, background: "var(--pv-page)", borderColor: "var(--pv-line)" }}>
+    <div className="flex items-center gap-2 border-b px-3 py-2" style={{ background: "var(--pv-card)", borderColor: "var(--pv-line)" }}>
+      {logo
+        ? <img src={logo} alt="" className="h-7 max-w-[96px] object-contain" style={onTile ? { background: "#ffffff", borderRadius: 6, padding: "2px 5px" } : undefined} />
+        : <span className="text-xs" style={{ color: "var(--pv-sub)" }}>No logo</span>}
+      <span className="truncate text-xs font-semibold" style={{ color: "var(--pv-text)" }}>{label}</span>
+      <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--pv-sub)" }}>{mode === "dark" ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}{mode} mode</span>
+    </div>
+    <div className="space-y-3 p-3">
+      <div className="rounded-lg border p-3" style={{ background: "var(--pv-card)", borderColor: "var(--pv-line)" }}>
+        <p className="text-sm font-bold" style={{ color: "var(--pv-text)" }}>Data Structures</p>
+        <p className="text-xs" style={{ color: "var(--pv-sub)" }}>12 of 13 graded · <span className="font-semibold" style={{ color: "var(--pv-brand)" }}>Open class</span></p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ background: "var(--pv-fill)", color: "#ffffff" }}>Primary button</span>
+          <span className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ background: "var(--pv-gold)", color: "#1f2937" }}>Highlight</span>
+          <span className="rounded-lg border-2 px-3 py-1.5 text-xs font-semibold" style={{ borderColor: "var(--pv-accent)", color: "var(--pv-text)", background: "var(--pv-card)" }}>Focused field</span>
+        </div>
+      </div>
+      <figcaption className="text-[11px]" style={{ color: "var(--pv-sub)" }}>
+        Button text {ratio(buttonContrast)}{ok(buttonContrast) ? "" : " (too low)"} · brand text on cards {ratio(textContrast)}{ok(textContrast) ? "" : " (too low)"}
+      </figcaption>
+    </div>
+  </figure>;
+}
+
+/** One logo slot: upload, replace or remove, previewed on the background it will sit on. */
+function LogoSlot({ variant, src, fallback, busy, onPick, onRemove, title, hint, children }: { variant: Variant; src: string | null; fallback: string | null; busy: boolean; onPick: () => void; onRemove: () => void; title: string; hint: string; children?: ReactNode }) {
+  const surface = SURFACES[variant];
+  const shown = src ?? (variant === "dark" ? fallback : null);
+  const onTile = variant === "dark" && !src && !!fallback;
+  return <div className="space-y-2">
+    <div><h4 className="flex items-center gap-1.5 text-sm font-semibold">{variant === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}{title}</h4><p className="mt-0.5 text-xs text-slate-500">{hint}</p></div>
+    <div className="flex h-32 items-center justify-center rounded-xl border border-dashed p-4" style={{ background: surface.card, borderColor: surface.line }}>
+      {shown
+        ? <img src={shown} alt={`${variant} mode logo`} className="max-h-full max-w-full object-contain" style={onTile ? { background: "#ffffff", borderRadius: 8, padding: "6px 10px" } : undefined} />
+        : <p className="text-center text-sm" style={{ color: surface.sub }}>No logo uploaded yet</p>}
+    </div>
+    {onTile && <p className="text-xs text-slate-500">Until you add a dark-mode logo, dark mode shows your logo on a white tile, as above.</p>}
+    <div className="flex gap-2">
+      <button type="button" onClick={onPick} disabled={busy} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"><ImagePlus className="h-4 w-4" />{busy ? "Uploading..." : src ? "Replace" : "Upload"}</button>
+      {src && <button type="button" onClick={onRemove} className="rounded-xl border border-rose-200 px-3 py-2 text-rose-700 hover:bg-rose-50" title={`Remove the ${variant} mode logo`} aria-label={`Remove the ${variant} mode logo`}><Trash2 className="h-4 w-4" /></button>}
+    </div>
+    {children}
+  </div>;
+}
+
 export function UniversityPanel() {
   const confirm = useConfirm();
   const toast = useToast();
@@ -34,9 +106,10 @@ export function UniversityPanel() {
   const [form, setForm] = useState<Details | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState<Variant | null>(null);
   const [error, setError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
+  const darkFileInput = useRef<HTMLInputElement>(null);
 
   const apply = (data: University) => {
     setLocal(data);
@@ -73,33 +146,36 @@ export function UniversityPanel() {
     }
   };
 
-  const upload = async (event: ChangeEvent<HTMLInputElement>) => {
+  const upload = async (event: ChangeEvent<HTMLInputElement>, variant: Variant) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    setUploading(true);
+    setUploading(variant);
     setError("");
     try {
       const body = new FormData();
       body.append("file", file);
+      body.append("variant", variant);
       const response = await fetch(`${ENDPOINT}/logo/`, { method: "POST", headers: authHeaders(), body });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || "The logo could not be uploaded.");
       apply(data);
-      toast.success("Logo updated. It now appears in the top bar of every portal.");
+      toast.success(variant === "dark" ? "Dark-mode logo updated. Every portal shows it in dark mode." : "Logo updated. It now appears in the top bar of every portal.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "The logo could not be uploaded.");
     } finally {
-      setUploading(false);
+      setUploading(null);
     }
   };
 
-  const removeLogo = async () => {
-    const ok = await confirm({ title: "Remove the university logo?", message: "It will disappear from every portal until you upload a new one.", confirmLabel: "Remove logo", tone: "danger" });
+  const removeLogo = async (variant: Variant) => {
+    const ok = await confirm(variant === "dark"
+      ? { title: "Remove the dark-mode logo?", message: "Dark mode will show your main logo on a white tile instead.", confirmLabel: "Remove logo", tone: "danger" }
+      : { title: "Remove the university logo?", message: "It will disappear from every portal until you upload a new one.", confirmLabel: "Remove logo", tone: "danger" });
     if (!ok) return;
     setError("");
     try {
-      apply(await requestJson<University>(`${ENDPOINT}/logo/`, { method: "DELETE" }));
+      apply(await requestJson<University>(`${ENDPOINT}/logo/?variant=${variant}`, { method: "DELETE" }));
       toast.success("Logo removed.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not remove the logo.");
@@ -109,19 +185,17 @@ export function UniversityPanel() {
   if (loading) return <p className="text-slate-500">Loading university details...</p>;
   if (!university || !form) return <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error || "Could not load the university details."} <button onClick={() => void load()} className="ml-2 underline">Retry</button></div>;
 
-  const logo = logoSrc(university);
+  const lightLogo = fullUrl(university.logo_url);
+  const darkLogo = fullUrl(university.logo_dark_url);
+  const label = form.short_name || form.name;
 
   return <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-    <PanelCard className="space-y-4">
+    <PanelCard className="space-y-5">
       <div><h3 className="text-base font-semibold">University logo</h3><p className="mt-1 text-xs text-slate-500">Appears at the top of TeacherBuddy, EduGames and this portal, just left of the signed-in account.</p></div>
-      <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/90 p-4">
-        {logo ? <img src={logo} alt="University logo" className="max-h-full max-w-full object-contain" /> : <p className="text-center text-sm text-slate-500">No logo uploaded yet</p>}
-      </div>
-      <div className="flex gap-2">
-        <button onClick={() => fileInput.current?.click()} disabled={uploading} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"><ImagePlus className="h-4 w-4" />{uploading ? "Uploading..." : logo ? "Replace logo" : "Upload logo"}</button>
-        {logo && <button onClick={() => void removeLogo()} className="rounded-xl border border-rose-200 px-3 py-2 text-rose-700 hover:bg-rose-50" title="Remove logo"><Trash2 className="h-4 w-4" /></button>}
-        <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={upload} className="hidden" />
-      </div>
+      <LogoSlot variant="light" title="Light mode" hint="Your usual logo, for white backgrounds." src={lightLogo} fallback={null} busy={uploading === "light"} onPick={() => fileInput.current?.click()} onRemove={() => void removeLogo("light")} />
+      <LogoSlot variant="dark" title="Dark mode (optional)" hint="A version with light artwork on a transparent background, for dark screens." src={darkLogo} fallback={lightLogo} busy={uploading === "dark"} onPick={() => darkFileInput.current?.click()} onRemove={() => void removeLogo("dark")} />
+      <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => void upload(e, "light")} className="hidden" />
+      <input ref={darkFileInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => void upload(e, "dark")} className="hidden" />
       <p className="text-xs text-slate-500">PNG, JPEG or WebP, up to 2 MB, at least 32×32 pixels. A square or wide logo on a transparent background works best.</p>
     </PanelCard>
 
@@ -138,7 +212,7 @@ export function UniversityPanel() {
       </div>
       <div className="border-t border-slate-200 pt-4">
         <h3 className="text-base font-semibold">Brand colours</h3>
-        <p className="mt-1 text-xs text-slate-500">Used across TeacherBuddy, EduGames and this portal so every screen matches your institution. Lighter and darker shades are worked out automatically.</p>
+        <p className="mt-1 text-xs text-slate-500">Used across TeacherBuddy, EduGames and this portal, in light and dark mode. You choose the light-mode colours; dark mode uses lighter shades of them, worked out automatically so text stays readable on dark screens.</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-3">
           {COLOR_FIELDS.map((field) => <label key={field.key} className="block text-sm text-slate-700">{field.label}
             <span className="mt-1 flex items-center gap-2">
@@ -148,11 +222,12 @@ export function UniversityPanel() {
             <span className="mt-1 block text-xs text-slate-500">{field.hint}</span>
           </label>)}
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3" aria-label="Colour preview">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preview</span>
-          <span className="rounded-lg px-4 py-2 text-sm font-semibold text-white" style={{ background: form.primary_color }}>Primary button</span>
-          <span className="rounded-lg px-4 py-2 text-sm font-semibold" style={{ background: form.secondary_color, color: "#1f2937" }}>Highlight</span>
-          <span className="rounded-lg border-2 bg-white px-4 py-2 text-sm font-semibold text-slate-800" style={{ borderColor: form.tertiary_color }}>Focused field</span>
+        <div className="mt-4" aria-label="Colour preview">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Preview, before saving</p>
+          <div className="flex flex-col gap-3 xl:flex-row">
+            <ModePreview mode="light" colors={form} lightLogo={lightLogo} darkLogo={darkLogo} label={label} />
+            <ModePreview mode="dark" colors={form} lightLogo={lightLogo} darkLogo={darkLogo} label={label} />
+          </div>
         </div>
       </div>
       <div className="flex justify-end"><button type="submit" disabled={saving} className="rounded-lg bg-brand-blue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Save details"}</button></div>
