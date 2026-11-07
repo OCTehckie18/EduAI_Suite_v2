@@ -115,6 +115,9 @@ export const StudentExams: React.FC = () => {
             const bestScore = scores.length ? Math.max(...scores) : null;
             const flagged = myAttempts.some((a) => a.status === "flagged");
             const outOfAttempts = flagged || (!inProgress && finished.length >= (exam.attempts_allowed ?? 1));
+            const notOpen = !inProgress && exam.availability === "upcoming";
+            const ended = !inProgress && exam.availability === "ended";
+            const fmt = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
             return (
               <GlassCard key={exam.id} className="p-0 overflow-hidden flex flex-col justify-between hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
@@ -123,7 +126,7 @@ export const StudentExams: React.FC = () => {
                         <p className="text-xs font-bold uppercase tracking-widest text-blue-500">
                             {exam.course_code || `COURSE-${exam.course_id}`}
                         </p>
-                        <span className="badge badge-blue text-[10px]">{flagged ? "Flagged" : inProgress ? "In progress" : outOfAttempts ? "Done" : "Open"}</span>
+                        <span className="badge badge-blue text-[10px]">{flagged ? "Flagged" : inProgress ? "In progress" : outOfAttempts ? "Done" : notOpen ? "Not open yet" : ended ? "Closed" : "Open"}</span>
                     </div>
                     <h2 className="text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>{exam.title}</h2>
                     {exam.course_name && (
@@ -139,6 +142,13 @@ export const StudentExams: React.FC = () => {
                         Attempts: {finished.length} of {exam.attempts_allowed ?? 1}
                         {bestScore != null && <> · Best score: <strong>{bestScore}%</strong></>}
                       </p>
+                      {(exam.opens_at || exam.closes_at) && (
+                        <p className="mt-1 text-xs">
+                          {exam.opens_at && <>Opens {fmt(exam.opens_at)}</>}
+                          {exam.opens_at && exam.closes_at && " · "}
+                          {exam.closes_at && <>Closes {fmt(exam.closes_at)}</>}
+                        </p>
+                      )}
                       {flagged && (
                         <p className="mt-1 text-xs font-semibold text-red-600">
                           Flagged for leaving the exam: recorded as failed (0%). You cannot retake it.
@@ -149,10 +159,10 @@ export const StudentExams: React.FC = () => {
                     <div className="text-right">
                       <button 
                         onClick={() => startExam(exam.id)}
-                        disabled={outOfAttempts}
+                        disabled={outOfAttempts || notOpen || ended}
                         className="btn btn-primary text-xs px-5 shadow-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <PlayCircle size={16} className="mr-1"/> {flagged ? "Not allowed" : inProgress ? "Resume Exam" : outOfAttempts ? "No attempts left" : "Take Exam"}
+                        <PlayCircle size={16} className="mr-1"/> {flagged ? "Not allowed" : inProgress ? "Resume Exam" : outOfAttempts ? "No attempts left" : notOpen ? "Not open yet" : ended ? "Closed" : "Take Exam"}
                       </button>
                     </div>
                 </div>

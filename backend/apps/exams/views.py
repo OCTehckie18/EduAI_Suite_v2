@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -130,6 +131,20 @@ def _clean_settings(data, partial):
         cleaned["attempts_allowed"] = value
     if "randomize_questions" in data or not partial:
         cleaned["randomize_questions"] = bool(data.get("randomize_questions", False))
+    for field, label in (("opens_at", "The opening time"), ("closes_at", "The closing time")):
+        if field in data:
+            raw = data.get(field)
+            if raw in (None, ""):
+                cleaned[field] = None
+                continue
+            parsed = parse_datetime(str(raw)) if isinstance(raw, str) else None
+            if parsed is None:
+                return None, f"{label} is not a valid date and time."
+            if timezone.is_naive(parsed):
+                parsed = timezone.make_aware(parsed)
+            cleaned[field] = parsed
+    if cleaned.get("opens_at") and cleaned.get("closes_at") and cleaned["closes_at"] <= cleaned["opens_at"]:
+        return None, "The exam must close after it opens."
     if "status" in data or not partial:
         value = data.get("status", Exam.Status.DRAFT)
         if value not in Exam.Status.values:
@@ -361,10 +376,15 @@ class ExamAttemptStartView(APIView):
             if len(previous) >= exam.attempts_allowed:
                 return Response({"detail": "No attempts remaining for this exam."}, status=status.HTTP_403_FORBIDDEN)
 
-            attempt = ExamAttempt.objects.create(
-                exam=exam, student_id=user.pk, status="in_progress",
-                expires_at=timezone.now() + timedelta(minutes=exam.time_limit),
-            )
+            now = timezone.now()
+            if exam.opens_at and now < exam.opens_at:
+                return Response({"detail": f"This exam opens on {timezone.localtime(exam.opens_at):%d %b %Y, %H:%M}."}, status=status.HTTP_409_CONFLICT)
+            if exam.closes_at and now > exam.closes_at:
+                return Response({"detail": "This exam has closed."}, status=status.HTTP_409_CONFLICT)
+            expires = now + timedelta(minutes=exam.time_limit)
+            if exam.closes_at:
+                expires = min(expires, exam.closes_at)  # a late starter gets only the time left in the window
+            attempt = ExamAttempt.objects.create(exam=exam, student_id=user.pk, status="in_progress", expires_at=expires)
         return Response(ExamAttemptSerializer(attempt).data, status=status.HTTP_201_CREATED)
 
 

@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer
+from .models import Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer, exam_availability
 
 
 class ExamChoiceSerializer(serializers.ModelSerializer):
@@ -100,6 +100,10 @@ class ExamSerializer(serializers.ModelSerializer):
     course_name = serializers.CharField(source="course.name", read_only=True)
     questions = ExamQuestionSerializer(many=True, required=False)
     attempts = serializers.SerializerMethodField()
+    availability = serializers.SerializerMethodField()
+
+    def get_availability(self, exam):
+        return exam_availability(exam)
 
     def get_attempts(self, exam):
         attempts = exam.attempts.all()
@@ -120,6 +124,9 @@ class ExamSerializer(serializers.ModelSerializer):
             "time_limit",
             "attempts_allowed",
             "randomize_questions",
+            "opens_at",
+            "closes_at",
+            "availability",
             "status",
             "created_at",
             "questions",
