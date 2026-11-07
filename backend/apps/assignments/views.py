@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from apps.classrooms.models import Classroom
 from apps.core.access import can_manage_course, can_view_course
-from apps.core.services import record_student_activity
+from apps.core.services import notify, record_student_activity
 from apps.core.permissions import IsTeacher
 from apps.announcements.models import Announcement
 from rest_framework.exceptions import ValidationError
@@ -263,6 +263,7 @@ class GradeSubmissionView(APIView):
                 score=round(100 * value / sub.assignment.max_points, 1) if sub.assignment.max_points else None,
                 status="graded",
             )
+            notify([sub.student_id], "grade", f"{sub.assignment.title or 'Assignment'} was graded", f"{value:g} of {sub.assignment.max_points}", "/classroom")
         return Response(SubmissionSerializer(sub).data)
 
 

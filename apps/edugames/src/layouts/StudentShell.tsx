@@ -7,6 +7,7 @@ import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { DESKTOP_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import { ProfileModal } from "../shared/components/ProfileModal";
 import { UniversityBadge } from "../shared/university";
+import { NotificationBell } from "../shared/components/NotificationBell";
 
 const studentNavItems = [
   { icon: LayoutDashboard, label: "My Dashboard", href: "/", end: true },
@@ -118,6 +119,7 @@ export const StudentShell: React.FC = () => {
             </div>
 
             <UniversityBadge className="mr-1" labelClassName="text-[color:var(--color-text-primary)]" />
+            <NotificationBell />
             {/* Profile */}
             <div className="relative">
               <button

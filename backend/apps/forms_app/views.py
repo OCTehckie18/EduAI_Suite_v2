@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from apps.classrooms.models import Classroom
 from apps.core.access import can_manage_course, can_view_course, visible_courses
 from apps.core.permissions import IsTeacher
+from apps.core.services import course_student_ids, notify
 
 from .models import Form, FormAnswer, FormQuestion, FormResponse
 
@@ -211,8 +212,11 @@ class FormStatusView(APIView):
             return _bad("Add at least one question before publishing.")
         if target == Form.Status.DRAFT and form.responses.exists():
             return _bad("Students have already answered, so this form cannot go back to draft. Close it instead.", status.HTTP_409_CONFLICT)
+        was_published = form.status == Form.Status.PUBLISHED
         form.status = target
         form.save(update_fields=["status", "updated_at"])
+        if target == Form.Status.PUBLISHED and not was_published:
+            notify(course_student_ids(form.classroom), "form", f"New form in {form.classroom.name}", form.title, "/forms")
         return Response(_form_json(form, response_count=form.responses.count()))
 
 

@@ -247,7 +247,7 @@ export const StudentDashboard: React.FC = () => {
                 </h2>
                 <p className="opacity-80 text-sm max-w-sm">
                   {summary?.liveGame?.active 
-                    ? `Join ${summary?.liveGame?.teacher}'s live session. Earn XP and climb the leaderboard!`
+                    ? `Join ${summary?.liveGame?.teacher}'s live session.`
                     : "No live sessions are currently active. You can browse through available educational games or check your performance history."}
                 </p>
               </div>
@@ -485,7 +485,7 @@ export const StudentDashboard: React.FC = () => {
                   <div key={`${result.title}-${index}`} className="flex items-center justify-between gap-2 text-sm">
                     <span className="min-w-0 truncate" style={{ color: "var(--color-text-primary)" }}>{result.title}<span className="block text-[10px] text-slate-400">{result.type} · {new Date(result.at).toLocaleDateString()}</span></span>
                     <span className={`shrink-0 text-xs font-bold ${result.status === "flagged" ? "text-red-600" : ""}`} style={result.status === "flagged" ? undefined : { color: "var(--color-brand-blue)" }}>
-                      {result.status === "flagged" ? "Flagged" : result.score == null ? result.status : result.type === "exam" ? `${result.score}%` : `${result.score} pts`}
+                      {result.status === "flagged" ? "Flagged" : result.score == null ? result.status : `${result.score}%`}
                     </span>
                   </div>
                 ))}
