@@ -4,9 +4,11 @@ from .views import (
     TeacherAppointmentListView,
     StudentAppointmentListView,
     AppointmentStatusUpdateView,
+    TeacherInviteView,
 )
 
 urlpatterns = [
+    path("invite", TeacherInviteView.as_view(), name="appointment-invite"),
     path("", AppointmentListCreateView.as_view(), name="appointment-list-create"),
     path("teacher/<str:teacher_name>", TeacherAppointmentListView.as_view(), name="appointment-teacher"),
     path("student/<str:student_name>", StudentAppointmentListView.as_view(), name="appointment-student"),

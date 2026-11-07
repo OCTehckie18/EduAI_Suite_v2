@@ -171,3 +171,38 @@ class AppointmentStatusUpdateView(APIView):
                     body = f"Reason: {rejection_reason}"
                 notify([student], "appointment", f"{reviewer} {verdict} your appointment", body, "/appointments")
         return Response(AppointmentSerializer(appointment).data)
+
+
+class TeacherInviteView(APIView):
+    """A teacher books a meeting with one of their own students. It is confirmed straight away
+    and the student is told; the student can see it with their other appointments."""
+
+    def post(self, request):
+        from apps.core.access import managed_courses
+
+        user = request.user
+        if user.role != User.Role.TEACHER:
+            return Response({"detail": "Only teachers can book a meeting with a student."}, status=status.HTTP_403_FORBIDDEN)
+        sid = request.data.get("student_id")
+        student = User.objects.filter(
+            pk=sid if str(sid).isdigit() else None, role=User.Role.STUDENT, is_active=True,
+            enrollments__classroom__in=managed_courses(user), enrollments__is_active=True,
+        ).first()
+        if student is None:
+            return Response({"detail": "Choose a student from your own classrooms."}, status=status.HTTP_400_BAD_REQUEST)
+        time_slot = str(request.data.get("time_slot") or "").strip()
+        if not time_slot:
+            return Response({"detail": "Choose a date and time for the meeting."}, status=status.HTTP_400_BAD_REQUEST)
+        mode = request.data.get("meeting_mode") or "In-person"
+        if mode not in ("In-person", "Online"):
+            return Response({"detail": "The meeting is either In-person or Online."}, status=status.HTTP_400_BAD_REQUEST)
+        now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M")
+        appointment = Appointment.objects.create(
+            student_name=student.full_name, student_email=student.email, teacher_name=user.full_name,
+            meeting_mode=mode, time_slot=time_slot[:100], agenda=str(request.data.get("agenda") or "Progress check")[:500],
+            details=str(request.data.get("details") or ""), status="approved", requested_at=now_iso,
+            reviewed_at=now_iso, reviewed_by=user.full_name,
+        )
+        notify([student], "appointment", f"{user.full_name} booked a meeting with you",
+               f"{appointment.agenda} · {time_slot}", "/appointments")
+        return Response(AppointmentSerializer(appointment).data, status=status.HTTP_201_CREATED)

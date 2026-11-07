@@ -556,9 +556,9 @@ export const AnalyticsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-blue-900 to-blue-600 bg-clip-text text-transparent" style={{ fontFamily: "var(--font-display)" }}>
-            Risk Intelligence Dashboard
+            Performance analysis
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Real-time performance monitoring and predictive risk analytics.</p>
+          <p className="text-sm text-slate-500 mt-1">Per-class figures, or analyse marks from a spreadsheet you upload.</p>
         </div>
 
         <div className="flex items-center gap-2 bg-white p-1 rounded-2xl border border-slate-100 shadow-sm self-start">
