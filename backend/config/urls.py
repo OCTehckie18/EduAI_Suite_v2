@@ -1,5 +1,7 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, re_path, include
+from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.views.static import serve as serve_file
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -117,6 +119,12 @@ urlpatterns = [
     path('trello/', include('apps.trello_app.urls')),
     path('api/v1/', include('apps.forms_app.urls')),
     path('', include('apps.forms_app.urls')),
+
+    # Uploaded files (submissions, announcements, OMR scans). Stored paths look like /uploads/...
+    # and the apps prefix them with the API base, so both spellings are served. Names are random
+    # and unguessable. Framing is allowed from the same origin so a PDF can preview in a page.
+    re_path(r'^api/v1/uploads/(?P<path>.*)$', xframe_options_sameorigin(serve_file), {'document_root': settings.UPLOADS_ROOT}),
+    re_path(r'^uploads/(?P<path>.*)$', xframe_options_sameorigin(serve_file), {'document_root': settings.UPLOADS_ROOT}),
 
     # AI Chat
     path('api/v1/ai/', include('apps.ai_chat.urls')),
