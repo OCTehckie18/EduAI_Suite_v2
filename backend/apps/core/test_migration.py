@@ -278,6 +278,7 @@ class MigrationSmokeTestCase(TestCase):
     def test_omr(self):
         res = self.client.post("/omr/jobs", {
             "title": "Final OMR Exam",
+            "num_questions": 3,
             "answer_key": {"1": "A", "2": "C", "3": "D"},
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
