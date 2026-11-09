@@ -106,6 +106,7 @@ export const AnalyticsPage: React.FC = () => {
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const imputeMethod = "blank";
   const [fileName, setFileName] = useState(persisted?.fileName || "");
   
@@ -213,16 +214,16 @@ export const AnalyticsPage: React.FC = () => {
         body: formData,
       });
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || "Upload failed");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "The file could not be read.");
       }
+      setUploadError("");
       const data = await res.json();
       setUploadedData(data);
       setDataSource("upload");
       setActiveTab("overview");
     } catch (err) {
-      console.error("Upload failed:", err);
-      alert(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setUploadError(err instanceof Error && err.message !== "Failed to fetch" ? err.message : "Could not reach the server. Check your connection and try again.");
     } finally {
       setUploading(false);
     }
@@ -672,6 +673,9 @@ export const AnalyticsPage: React.FC = () => {
           </button>
         </div>
       </div>
+      {uploadError && (
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{uploadError}</p>
+      )}
 
       <input 
         type="file" 

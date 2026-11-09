@@ -193,7 +193,7 @@ export const QuizCreator: React.FC = () => {
 
   const handleSave = async (asDraft: boolean = false, startPlaying: boolean = false) => {
     if (!title) {
-      alert("Please enter a quiz title");
+      setSaveError("Give the quiz a title before saving.");
       return;
     }
     

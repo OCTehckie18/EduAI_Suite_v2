@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -34,14 +35,17 @@ class CalendarEventListCreateView(APIView):
         if role == "STUDENT" or (allowed is not None and course_id not in allowed):
             course_id = None
 
-        start_str = data.get("start_time")
-        end_str = data.get("end_time")
+        if not str(data.get("title") or "").strip():
+            return Response({"detail": "Give the event a title."}, status=status.HTTP_400_BAD_REQUEST)
+        start, end, error = _clean_times(data.get("start_time"), data.get("end_time"))
+        if error:
+            return Response({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
         ev = CalendarEvent.objects.create(
             created_by=user,
             title=data.get("title", ""),
             description=data.get("description"),
-            start_time=parse_datetime(start_str) if start_str else None,
-            end_time=parse_datetime(end_str) if end_str else None,
+            start_time=start,
+            end_time=end,
             event_type=data.get("event_type", "custom"),
             color=data.get("color", "#264796"),
             location=data.get("location"),
@@ -52,6 +56,29 @@ class CalendarEventListCreateView(APIView):
             course_id=course_id,
         )
         return Response(CalendarEventSerializer(ev).data, status=status.HTTP_201_CREATED)
+
+
+def _clean_times(start_value, end_value):
+    """(start, end, error). Text that is not a date is refused, and an event cannot end before it starts."""
+    def parse(value, label):
+        if value in (None, ""):
+            return None, None
+        parsed = parse_datetime(str(value)) if isinstance(value, str) else None
+        if parsed is None:
+            return None, f"{label} is not a valid date and time."
+        if timezone.is_naive(parsed):
+            parsed = timezone.make_aware(parsed)  # read in the server's time zone, as Django would
+        return parsed, None
+
+    start, error = parse(start_value, "The start time")
+    if error:
+        return None, None, error
+    end, error = parse(end_value, "The end time")
+    if error:
+        return None, None, error
+    if start and end and end < start:
+        return None, None, "The event must end after it starts."
+    return start, end, None
 
 
 class CalendarEventDetailView(APIView):
@@ -72,9 +99,13 @@ class CalendarEventDetailView(APIView):
         for field in ("title", "description", "event_type", "color", "location"):
             if field in data:
                 setattr(ev, field, data[field])
-        for field in ("start_time", "end_time"):
-            if data.get(field):
-                setattr(ev, field, parse_datetime(data[field]))
+        start, end, error = _clean_times(
+            data.get("start_time") or (ev.start_time.isoformat() if ev.start_time else None),
+            data.get("end_time") or (ev.end_time.isoformat() if ev.end_time else None),
+        )
+        if error:
+            return Response({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
+        ev.start_time, ev.end_time = start, end
         if "is_all_day" in data:
             ev.is_all_day = bool(data["is_all_day"])
 

@@ -132,6 +132,7 @@ export const ClassroomsPage: React.FC = () => {
       batches: { id: number; name: string; academic_year: string; sections: { id: number; name: string }[] }[];
     }[];
   } | null>(null);
+  const [extractError, setExtractError] = useState("");
   const [classOptionsError, setClassOptionsError] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [coursePlanFile, setCoursePlanFile] = useState<File | null>(null);
@@ -371,19 +372,23 @@ export const ClassroomsPage: React.FC = () => {
     try {
       const res = await action();
       if (!res.ok) {
-        // Only try to read body for non-204 error responses
-        let errorDetail = `HTTP ${res.status}`;
+        // Show the server's own reason, not the raw response body.
+        let errorDetail = `The request failed (${res.status}).`;
         try {
           const text = await res.text();
-          if (text) errorDetail = text;
+          try {
+            const body = JSON.parse(text);
+            errorDetail = body.detail || body.error?.message || errorDetail;
+          } catch {
+            if (text && text.length < 200) errorDetail = text;
+          }
         } catch {}
         throw new Error(errorDetail);
       }
       onSuccess();
       setErrorMsg(null);
     } catch (err: any) {
-      console.error("API call failed:", err);
-      setErrorMsg("Something went wrong: " + err.message);
+      setErrorMsg(err instanceof TypeError ? "Could not reach the server. Check your connection and try again." : err.message);
     }
   };
 
@@ -427,29 +432,24 @@ export const ClassroomsPage: React.FC = () => {
 
   const handleExtractDetails = async (file: File) => {
     setIsExtracting(true);
+    setExtractError("");
     const formData = new FormData();
     formData.append("file", file);
-
     try {
-      const res = await fetch(`${API_URL}/courses/extract_details`, {
-        method: "POST",
-        body: formData,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        console.log("Raw Extracted Data:", data);
-        setCourseForm((prev) => ({
-          ...prev,
-          code: (data.code && data.code.trim()) || prev.code,
-          name: (data.name && data.name.trim()) || prev.name,
-          description:
-            data.description || data.programmes
-              ? `${data.description || data.programmes}`
-              : prev.description,
-        }));
-      }
-    } catch (err) {
-      console.error("Extraction failed", err);
+      const res = await fetch(`${API_URL}/courses/extract_details`, { method: "POST", body: formData });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setCourseForm((prev) => ({
+        ...prev,
+        code: (data.code && data.code.trim()) || prev.code,
+        name: (data.name && data.name.trim()) || prev.name,
+        description:
+          data.description || data.programmes
+            ? `${data.description || data.programmes}`
+            : prev.description,
+      }));
+    } catch {
+      setExtractError("Could not read details from that file. Fill them in by hand.");
     } finally {
       setIsExtracting(false);
     }
@@ -726,6 +726,8 @@ export const ClassroomsPage: React.FC = () => {
           </h1>
           <button
             onClick={() => {
+              setErrorMsg(null);
+              setExtractError("");
               setShowCourseModal(true);
             }}
             className="btn bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 btn-sm flex items-center gap-2 rounded-xl transition-all hover:-translate-y-0.5"
@@ -1440,6 +1442,8 @@ export const ClassroomsPage: React.FC = () => {
                                         </td>
                                         <td className="text-center px-3 py-3.5">
                                           <button
+                                            type="button"
+                                            aria-label={`View ${s.name}'s profile`}
                                             className="text-brand-blue hover:bg-blue-50 p-1.5 rounded-lg transition-all"
                                             title="View Profile"
                                           >
@@ -1704,7 +1708,7 @@ export const ClassroomsPage: React.FC = () => {
                   </div>
                 )}
                 <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">
-                  AI Detail Extraction (PDF/DOCX)
+                  Fill in from a course plan (PDF/DOCX)
                 </p>
                 <input
                   type="file"
@@ -1716,12 +1720,16 @@ export const ClassroomsPage: React.FC = () => {
                   }}
                   className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:font-bold file:bg-brand-blue/10 file:text-brand-blue hover:file:bg-brand-blue/20 cursor-pointer mx-auto"
                 />
+                {extractError && <p role="alert" className="mt-2 text-xs font-medium text-red-600">{extractError}</p>}
               </div>
+              {errorMsg && (
+                <p role="alert" className="lg:col-span-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{errorMsg}</p>
+              )}
               <button
                 type="submit"
                 className="w-full lg:col-span-2 bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-brand-blue/30 py-4 rounded-xl font-bold text-lg transition-all hover:-translate-y-1"
               >
-                Initialize Course
+                Create class
               </button>
             </form>
           </div>

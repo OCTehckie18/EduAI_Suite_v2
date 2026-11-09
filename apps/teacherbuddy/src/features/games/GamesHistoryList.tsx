@@ -154,17 +154,14 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
   };
 
   const handlePlayTemplate = async (quizId: number) => {
+    setNotice("");
     try {
-      const res = await fetch(`${API_BASE_URL}/quizzes/${quizId}/session`, {
-        method: "POST",
-        headers: authHeaders(),
-      });
-      if (res.ok) {
-        const session = await res.json();
-        onRejoinGame("quiz", quizId, session.pin);
-      }
-    } catch (err) {
-      console.error("Failed to start session", err);
+      const res = await fetch(`${API_BASE_URL}/quizzes/${quizId}/session`, { method: "POST", headers: authHeaders() });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.pin) onRejoinGame("quiz", quizId, data.pin);
+      else setNotice(data?.detail || "The game could not be started.");
+    } catch {
+      setNotice("Could not reach the server. Check your connection and try again.");
     }
   };
 
@@ -227,7 +224,7 @@ export const GamesHistoryList: React.FC<GamesHistoryListProps> = ({ onRejoinGame
                 {session.created_at && ` • Created ${new Date(session.created_at).toLocaleDateString()}`}
               </p>
             </div>
-            
+
             <div className="flex items-center gap-2 ml-4">
               {session.type === "quiz-template" ? (
                 <>
