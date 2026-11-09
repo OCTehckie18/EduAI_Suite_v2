@@ -88,6 +88,8 @@ export const StudentCalendar: React.FC = () => {
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(["custom", "deadline", "exam", "appointment", "class"]));
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [eventError, setEventError] = useState("");
+  const [pageError, setPageError] = useState("");
   const [editEventId, setEditEventId] = useState<number | null>(null);
   const [newEvent, setNewEvent] = useState({
     title: "",
@@ -109,12 +111,12 @@ export const StudentCalendar: React.FC = () => {
         fetch(`${API_BASE_URL}/calendar/events`, { headers }),
         fetch(`${API_BASE_URL}/calendar/notifications`, { headers })
       ]);
-      
+
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json();
         setEvents(eventsData);
       }
-      
+
       if (notificationsRes.ok) {
         const notifData = await notificationsRes.json();
         setNotifications(notifData.notifications || []);
@@ -168,15 +170,15 @@ export const StudentCalendar: React.FC = () => {
 
   const filteredEvents = useMemo(() => {
     let filtered = events.filter(e => activeFilters.has(FILTER_TYPES.includes(e.type) ? e.type : "custom"));
-    
+
     if (search) {
       const q = search.toLowerCase();
-      filtered = filtered.filter(e => 
-        e.title.toLowerCase().includes(q) || 
+      filtered = filtered.filter(e =>
+        e.title.toLowerCase().includes(q) ||
         e.description.toLowerCase().includes(q)
       );
     }
-    
+
     return filtered;
   }, [events, activeFilters, search]);
 
@@ -202,13 +204,14 @@ export const StudentCalendar: React.FC = () => {
       type: "custom",
       location: ""
     });
+    setEventError("");
     setIsModalOpen(true);
   };
 
   const openEditModal = (event: CalendarEvent) => {
     const startDate = new Date(event.start);
     const endDate = new Date(event.end);
-    
+
     setEditEventId(event.raw_id);
     setNewEvent({
       title: event.title,
@@ -219,6 +222,7 @@ export const StudentCalendar: React.FC = () => {
       type: event.type,
       location: event.location || ""
     });
+    setEventError("");
     setIsModalOpen(true);
   };
 
@@ -230,8 +234,15 @@ export const StudentCalendar: React.FC = () => {
         method: "DELETE",
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
+      setPageError("");
       if (res.ok) fetchEventsAndNotifications();
-    } catch (err) { console.error("Failed to delete event:", err); }
+      else {
+        const body = await res.json().catch(() => null);
+        setPageError(body?.detail || body?.error?.message || "The event could not be deleted.");
+      }
+    } catch {
+      setPageError("Could not reach the server. Check your connection and try again.");
+    }
   };
 
   const handleSaveEvent = async (e: React.FormEvent) => {
@@ -239,7 +250,7 @@ export const StudentCalendar: React.FC = () => {
     try {
       const startDT = `${newEvent.date}T${newEvent.startTime}:00`;
       const endDT = `${newEvent.date}T${newEvent.endTime}:00`;
-      
+
       let studentEmail = "";
       const storedUser = localStorage.getItem("user");
       if (storedUser) {
@@ -260,7 +271,7 @@ export const StudentCalendar: React.FC = () => {
 
       const url = editEventId ? `${API_BASE_URL}/calendar/events/${editEventId}` : `${API_BASE_URL}/calendar/events`;
       const method = editEventId ? "PUT" : "POST";
-      
+
       const token = localStorage.getItem("token");
       const res = await fetch(url, {
         method,
@@ -270,36 +281,41 @@ export const StudentCalendar: React.FC = () => {
         },
         body: JSON.stringify(payload),
       });
-      
+
       if (res.ok) {
         setIsModalOpen(false);
         fetchEventsAndNotifications();
+      } else {
+        const body = await res.json().catch(() => null);
+        setEventError(body?.detail || body?.error?.message || "The event could not be saved.");
       }
-    } catch (err) { console.error("Failed to save event:", err); }
+    } catch {
+      setEventError("Could not reach the server. Check your connection and try again.");
+    }
   };
 
   const renderCalendarDays = () => {
     const days = [];
     const todayDate = new Date();
-    
+
     for (let i = 0; i < firstDayOfMonth; i++) {
       days.push(<div key={`empty-${i}`} className="h-24 sm:h-32 p-1 border border-transparent bg-slate-100/50 rounded-xl" />);
     }
-    
+
     for (let i = 1; i <= daysInMonth; i++) {
       const date = new Date(year, month, i);
       const dateStr = toLocalISODate(date);
       const dayEvents = eventsByDate.get(dateStr) || [];
       const isToday = i === todayDate.getDate() && month === todayDate.getMonth() && year === todayDate.getFullYear();
       const isSelected = selectedDate ? toLocalISODate(selectedDate) === dateStr : false;
-      
+
       days.push(
-        <div 
-          key={i} 
+        <div
+          key={i}
           onClick={() => setSelectedDate(date)}
           className={`h-24 sm:h-32 p-2 border rounded-xl overflow-hidden cursor-pointer transition-all ${
-            isToday ? 'border-blue-500 bg-blue-50' : 
-            isSelected ? 'border-slate-300 bg-blue-50/50' : 
+            isToday ? 'border-blue-500 bg-blue-50' :
+            isSelected ? 'border-slate-300 bg-blue-50/50' :
             'border-slate-200/80 bg-white/60 hover:bg-slate-100 hover:shadow-sm'
           }`}
         >
@@ -315,14 +331,14 @@ export const StudentCalendar: React.FC = () => {
               </span>
             )}
           </div>
-          
+
           <div className="space-y-1 overflow-y-auto max-h-[calc(100%-1.75rem)] scrollbar-hide">
             {dayEvents.slice(0, 3).map((ev: CalendarEvent, idx: number) => (
-              <div 
-                key={idx} 
+              <div
+                key={idx}
                 className="text-[10px] px-1.5 py-0.5 rounded truncate border"
-                style={{ 
-                  backgroundColor: `${eventTypeColors[ev.type.toLowerCase()] || ev.color}15`, 
+                style={{
+                  backgroundColor: `${eventTypeColors[ev.type.toLowerCase()] || ev.color}15`,
                   color: eventTypeColors[ev.type.toLowerCase()] || ev.color,
                   borderColor: `${eventTypeColors[ev.type.toLowerCase()] || ev.color}30`
                 }}
@@ -340,11 +356,11 @@ export const StudentCalendar: React.FC = () => {
         </div>
       );
     }
-    
+
     return days;
   };
 
-  const selectedDayEvents = selectedDate 
+  const selectedDayEvents = selectedDate
     ? (eventsByDate.get(toLocalISODate(selectedDate)) || [])
     : [];
 
@@ -388,10 +404,10 @@ export const StudentCalendar: React.FC = () => {
             <div className="mt-1 flex flex-wrap gap-2">
               {notifications.map((notif, i) => (
                 <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border"
-                      style={{ 
-                        backgroundColor: `${eventTypeColors[notif.type.toLowerCase()] || notif.color}15`, 
-                        color: eventTypeColors[notif.type.toLowerCase()] || notif.color, 
-                        borderColor: `${eventTypeColors[notif.type.toLowerCase()] || notif.color}30` 
+                      style={{
+                        backgroundColor: `${eventTypeColors[notif.type.toLowerCase()] || notif.color}15`,
+                        color: eventTypeColors[notif.type.toLowerCase()] || notif.color,
+                        borderColor: `${eventTypeColors[notif.type.toLowerCase()] || notif.color}30`
                       }}>
                   {notif.message}
                 </span>
@@ -416,7 +432,7 @@ export const StudentCalendar: React.FC = () => {
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
               activeFilters.has(filter.id) ? 'shadow-sm' : 'opacity-60 bg-transparent border-slate-200'
             }`}
-            style={{ 
+            style={{
               backgroundColor: activeFilters.has(filter.id) ? `${filter.color}15` : 'transparent',
               color: activeFilters.has(filter.id) ? filter.color : '#94a3b8',
               borderColor: activeFilters.has(filter.id) ? `${filter.color}40` : '',
@@ -449,7 +465,7 @@ export const StudentCalendar: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-4">
               <div className="grid grid-cols-7 gap-2 mb-2">
                 {dayNames.map(day => (
@@ -458,7 +474,7 @@ export const StudentCalendar: React.FC = () => {
                   </div>
                 ))}
               </div>
-              
+
               {loading ? (
                 <div className="h-96 flex items-center justify-center">
                   <Loader2 className="animate-spin text-blue-500" size={32} />
@@ -484,7 +500,7 @@ export const StudentCalendar: React.FC = () => {
                 </p>
               </div>
             </div>
-            
+
             <div className="p-4 flex-1 overflow-y-auto space-y-3">
               {!selectedDate ? (
                 <div className="text-center py-10 text-slate-600">
@@ -517,17 +533,17 @@ export const StudentCalendar: React.FC = () => {
                           <MapPin size={12} /> {ev.location}
                         </div>
                       )}
-                      
+
                       {ev.source === "custom" && (
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
+                          <button
                             onClick={(e) => { e.stopPropagation(); openEditModal(ev); }}
                             className="p-1.5 bg-slate-100 text-blue-600 rounded-md hover:bg-slate-200 transition-colors"
                             title="Edit Event"
                           >
                             <Edit2 size={14} />
                           </button>
-                          <button 
+                          <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev.raw_id); }}
                             className="p-1.5 bg-slate-100 text-red-600 rounded-md hover:bg-slate-200 transition-colors"
                             title="Delete Event"
@@ -546,6 +562,13 @@ export const StudentCalendar: React.FC = () => {
       </div>
 
       {/* Edit/Create Modal */}
+      {pageError && (
+        <div role="alert" className="fixed bottom-4 right-4 z-50 flex max-w-sm items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 shadow-lg">
+          <span>{pageError}</span>
+          <button type="button" onClick={() => setPageError("")} className="font-bold hover:underline">Dismiss</button>
+        </div>
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm">
           <GlassCard className="w-full max-w-md animate-fade-in-up p-0 overflow-hidden bg-white border-slate-200">
@@ -558,11 +581,11 @@ export const StudentCalendar: React.FC = () => {
                 <X size={18} />
               </button>
             </div>
-            
+
             <form onSubmit={handleSaveEvent} className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Event Title *</label>
-                <input 
+                <input
                   required
                   value={newEvent.title}
                   onChange={e => setNewEvent({...newEvent, title: e.target.value})}
@@ -570,11 +593,11 @@ export const StudentCalendar: React.FC = () => {
                   placeholder="e.g. Study Session"
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Type</label>
-                  <select 
+                  <select
                     value={newEvent.type}
                     onChange={e => setNewEvent({...newEvent, type: e.target.value})}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-500"
@@ -586,7 +609,7 @@ export const StudentCalendar: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Date *</label>
-                  <input 
+                  <input
                     required
                     type="date"
                     value={newEvent.date}
@@ -595,11 +618,11 @@ export const StudentCalendar: React.FC = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Start Time *</label>
-                  <input 
+                  <input
                     required
                     type="time"
                     value={newEvent.startTime}
@@ -609,7 +632,7 @@ export const StudentCalendar: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">End Time *</label>
-                  <input 
+                  <input
                     required
                     type="time"
                     value={newEvent.endTime}
@@ -618,36 +641,39 @@ export const StudentCalendar: React.FC = () => {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Location / Link</label>
-                <input 
+                <input
                   value={newEvent.location}
                   onChange={e => setNewEvent({...newEvent, location: e.target.value})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-500"
                   placeholder="e.g. Library Room 3 or Zoom Link"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Description</label>
-                <textarea 
+                <textarea
                   value={newEvent.description}
                   onChange={e => setNewEvent({...newEvent, description: e.target.value})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-500 min-h-[80px]"
                   placeholder="Optional details..."
                 />
               </div>
-              
+
+              {eventError && (
+                <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{eventError}</p>
+              )}
               <div className="pt-4 flex justify-end gap-3 border-t border-slate-200">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 rounded-lg font-bold text-slate-500 hover:bg-slate-100 transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-lg shadow-blue-500/20 transition-all"
                 >

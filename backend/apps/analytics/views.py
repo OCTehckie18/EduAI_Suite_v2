@@ -572,7 +572,7 @@ class StudentDashboardSummaryView(APIView):
         overdue_deadlines = [item(*w) for w in overdue_items[:5]]
 
         live_games = ChainAnswerGame.objects.filter(status="active", players__student=student).distinct()
-        live_game_info = {"title": "", "teacher": "", "active": False}
+        live_game_info = {"title": "", "teacher": "", "active": False, "session_id": None}
         game = live_games.first()
         if game:
             teacher = User.objects.filter(pk=game.teacher_id).first() if game.teacher_id else None
@@ -580,6 +580,7 @@ class StudentDashboardSummaryView(APIView):
                 "title": game.name or "Live game",
                 "teacher": teacher.full_name if teacher else "",
                 "active": True,
+                "session_id": game.session_id,  # so the dashboard can open this game directly
             }
 
         assignment_counts = {

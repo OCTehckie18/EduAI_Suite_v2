@@ -38,7 +38,7 @@ export const ExamsPage: React.FC = () => {
   const [loadingAttempts, setLoadingAttempts] = useState(false);
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [stats, setStats] = useState<any>({ total_exams: 0, submissions_today: 0, avg_completion_rate: null });
+  const [stats, setStats] = useState<any>({ total_exams: null, submissions_today: null, avg_completion_rate: null });
 
   useEffect(() => {
     fetchExams();
@@ -51,12 +51,10 @@ export const ExamsPage: React.FC = () => {
       const response = await fetch(`${API_ENDPOINTS.EXAMS}/stats`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
-    } catch (err) {
-      console.error("Error fetching stats:", err);
+      // On failure the cards say "Not available" rather than showing made-up zeros.
+      setStats(response.ok ? await response.json() : { total_exams: null, submissions_today: null, avg_completion_rate: null });
+    } catch {
+      setStats({ total_exams: null, submissions_today: null, avg_completion_rate: null });
     }
   };
 
@@ -299,8 +297,8 @@ export const ExamsPage: React.FC = () => {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
-          { label: "Total Exams", value: String(stats.total_exams), icon: ClipboardList, color: "var(--color-brand-blue)" },
-          { label: "Submissions Today", value: String(stats.submissions_today), icon: CheckCircle2, color: "#16a34a" },
+          { label: "Total Exams", value: stats.total_exams == null ? "Not available" : String(stats.total_exams), icon: ClipboardList, color: "var(--color-brand-blue)" },
+          { label: "Submissions Today", value: stats.submissions_today == null ? "Not available" : String(stats.submissions_today), icon: CheckCircle2, color: "#16a34a" },
           { label: "Completion Rate", value: stats.avg_completion_rate == null ? "—" : `${stats.avg_completion_rate}%`, icon: Users, color: "#264796" },
         ].map(s => (
           <GlassCard key={s.label} padding="sm" className="flex items-center gap-3">

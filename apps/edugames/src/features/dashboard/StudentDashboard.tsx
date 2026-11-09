@@ -223,9 +223,14 @@ export const StudentDashboard: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 space-y-6">
           {/* Active Live Game CTA */}
+          <Link
+            to={summary?.liveGame?.active && summary?.liveGame?.session_id ? `/games/chain-answer/${summary.liveGame.session_id}` : "/games"}
+            className="block rounded-3xl focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300"
+            aria-label={summary?.liveGame?.active ? `Join ${summary?.liveGame?.title || "the live game"}` : "Open EduGames"}
+          >
           <GlassCard
             className="p-6 overflow-hidden relative cursor-pointer group"
-            style={{ background: "linear-gradient(135deg, #1e3a8a, #312e81)" }}
+            style={{ background: "linear-gradient(135deg, var(--color-brand-blue), var(--color-brand-blue-dark))" }}
           >
             <div className="absolute right-0 top-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
             <div className="relative z-10 flex flex-col sm:flex-row justify-between items-center sm:items-end gap-4">
@@ -244,7 +249,7 @@ export const StudentDashboard: React.FC = () => {
                 <h2 className="text-2xl font-black font-display mb-1">
                   {summary?.liveGame?.active 
                     ? (summary?.liveGame?.title || "Active Game Session")
-                    : "Level Up Your Skills"}
+                    : "No live session right now"}
                 </h2>
                 <p className="opacity-80 text-sm max-w-sm">
                   {summary?.liveGame?.active 
@@ -252,14 +257,14 @@ export const StudentDashboard: React.FC = () => {
                     : "No live sessions are currently active. You can browse through available educational games or check your performance history."}
                 </p>
               </div>
-              <Link
-                to="/games"
+              <span
                 className={`btn ${summary?.liveGame?.active ? 'bg-white text-blue-900' : 'bg-slate-700 text-slate-300'} border-none font-black px-6 hover:scale-105 active:scale-95 transition-transform flex gap-2 items-center w-full sm:w-auto mt-4 sm:mt-0`}
               >
                 <PlayCircle size={18} /> {summary?.liveGame?.active ? 'Join Now' : 'View Games'}
-              </Link>
+              </span>
             </div>
           </GlassCard>
+          </Link>
 
           {/* Posted Lessons */}
           {visibleLessons.length > 0 && (

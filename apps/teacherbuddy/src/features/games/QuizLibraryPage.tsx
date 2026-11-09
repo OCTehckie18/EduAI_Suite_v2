@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  MoreVertical, 
-  Play, 
-  Edit3, 
+import {
+  Plus,
+  Search,
+  Filter,
+  MoreVertical,
+  Play,
+  Edit3,
   Trash2,
   Calendar,
   Gamepad2,
@@ -21,7 +21,9 @@ import { TeacherTestRuns } from "./TeacherTestRuns";
 
 
 
-import { API_BASE_URL, authHeaders } from "../../shared/utils/apiConfig";
+import { apiCall } from "../../shared/utils/apiCall";
+
+type QuizFilter = "all" | "live" | "draft" | "public" | "private";
 interface QuizTemplate {
   id: number;
   title: string;
@@ -39,6 +41,8 @@ export const QuizLibraryPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [tab, setTab] = useState<"mine" | "library">("mine");
+  const [filter, setFilter] = useState<QuizFilter>("all");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -46,98 +50,55 @@ export const QuizLibraryPage: React.FC = () => {
   }, [tab]);
 
   const fetchQuizzes = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/quizzes/${tab === "library" ? "?scope=library" : ""}`, { headers: authHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setQuizzes(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch quizzes", err);
-    } finally {
-      setLoading(false);
-    }
+    const r = await apiCall<QuizTemplate[]>("GET", `/quizzes/${tab === "library" ? "?scope=library" : ""}`);
+    if (r.ok && Array.isArray(r.data)) setQuizzes(r.data);
+    else setError(r.error || "Could not load the quizzes.");
+    setLoading(false);
   };
 
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this quiz?")) return;
-    try {
-      const res = await fetch(`${API_BASE_URL}/quizzes/${id}`, {
-        method: "DELETE",
-        headers: authHeaders(),
-      });
-      if (res.ok) {
-        setQuizzes(prev => prev.filter(q => q.id !== id));
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    setError("");
+    const r = await apiCall("DELETE", `/quizzes/${id}`);
+    if (r.ok) setQuizzes(prev => prev.filter(q => q.id !== id));
+    else setError(r.error || "The quiz could not be deleted.");
   };
 
-  const handlePlay = async (id: number) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/quizzes/${id}/session`, {
-        method: "POST",
-        headers: authHeaders(),
-      });
-      if (res.ok) {
-        const session = await res.json();
-        navigate(`/games/quiz/session/${session.pin}`);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+  const startSession = async (id: number, testRun: boolean) => {
+    setError("");
+    const r = await apiCall<{ pin: string }>("POST", `/quizzes/${id}/session`, testRun ? { is_test_run: true } : undefined);
+    if (r.ok && r.data?.pin) navigate(`/games/quiz/session/${r.data.pin}`);
+    else setError(r.error || "The game could not be started.");
   };
-
-  const handleStartTestRun = async (id: number) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/quizzes/${id}/session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ is_test_run: true }),
-      });
-      if (res.ok) {
-        const session = await res.json();
-        navigate(`/games/quiz/session/${session.pin}`);
-      }
-    } catch (err) {
-      console.error("Failed to start teacher test run", err);
-    }
-  };
+  const handlePlay = (id: number) => startSession(id, false);
+  const handleStartTestRun = (id: number) => startSession(id, true);
 
   const handleTogglePublic = async (quiz: QuizTemplate) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/quizzes/${quiz.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ is_public: !quiz.is_public }),
-      });
-      if (res.ok) {
-        setQuizzes(prev => prev.map(q => (q.id === quiz.id ? { ...q, is_public: !quiz.is_public } : q)));
-      }
-    } catch (err) {
-      console.error("Failed to update quiz visibility", err);
-    }
+    setError("");
+    const r = await apiCall("PUT", `/quizzes/${quiz.id}`, { is_public: !quiz.is_public });
+    if (r.ok) setQuizzes(prev => prev.map(q => (q.id === quiz.id ? { ...q, is_public: !quiz.is_public } : q)));
+    else setError(r.error || "The quiz visibility could not be changed.");
   };
 
   const handleClone = async (id: number) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/quizzes/${id}/clone`, {
-        method: "POST",
-        headers: authHeaders(),
-      });
-      if (res.ok) {
-        const copy = await res.json();
-        navigate(`/games/quiz/edit/${copy.id}`);
-      }
-    } catch (err) {
-      console.error("Failed to clone quiz", err);
-    }
+    setError("");
+    const r = await apiCall<{ id: number }>("POST", `/quizzes/${id}/clone`);
+    if (r.ok && r.data?.id) navigate(`/games/quiz/edit/${r.data.id}`);
+    else setError(r.error || "The quiz could not be copied.");
   };
 
-  const filteredQuizzes = quizzes.filter(q => 
-    (q.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (q.description && q.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  const matchesFilter = (q: QuizTemplate) =>
+    filter === "all" ||
+    (filter === "live" && !q.is_draft) ||
+    (filter === "draft" && q.is_draft) ||
+    (filter === "public" && q.is_public) ||
+    (filter === "private" && !q.is_public);
+
+  const filteredQuizzes = quizzes.filter(q =>
+    matchesFilter(q) && (
+      (q.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (q.description && q.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
   );
 
   return (
@@ -154,7 +115,7 @@ export const QuizLibraryPage: React.FC = () => {
           <p className="text-gray-500 mt-1 font-medium">Manage your quiz templates, drafts, and start live battles.</p>
         </div>
 
-        <button 
+        <button
           onClick={() => navigate('/games/quiz/create')}
           className="flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-200 hover:scale-[1.02] active:scale-[0.98] transition-all"
         >
@@ -181,8 +142,8 @@ export const QuizLibraryPage: React.FC = () => {
       <GlassCard className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="relative w-full md:w-96">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder={tab === "library" ? "Search the public library..." : "Search your quizzes..."}
             className="w-full pl-12 pr-4 py-3 bg-gray-50 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-medium"
             value={searchQuery}
@@ -192,24 +153,43 @@ export const QuizLibraryPage: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <div className="flex bg-gray-100 p-1 rounded-lg mr-4">
-            <button 
+            <button
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}
             >
               <LayoutGrid size={18} />
             </button>
-            <button 
+            <button
               onClick={() => setViewMode('list')}
               className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}
             >
               <ListIcon size={18} />
             </button>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-all border border-gray-200">
-            <Filter size={16} /> Filter
-          </button>
+          <label className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-gray-600 rounded-xl border border-gray-200">
+            <Filter size={16} />
+            <select
+              aria-label="Filter quizzes"
+              value={filter}
+              onChange={e => setFilter(e.target.value as QuizFilter)}
+              className="bg-transparent outline-none font-bold cursor-pointer"
+            >
+              <option value="all">All quizzes</option>
+              <option value="live">Live</option>
+              <option value="draft">Drafts</option>
+              <option value="public">Public</option>
+              <option value="private">Private</option>
+            </select>
+          </label>
         </div>
       </GlassCard>
+
+      {error && (
+        <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError("")} className="font-bold hover:underline">Dismiss</button>
+        </div>
+      )}
 
       {/* Content Area */}
       {loading ? (
@@ -288,14 +268,16 @@ export const QuizLibraryPage: React.FC = () => {
                         Use a copy
                       </button>
                     ) : (<>
-                    <button 
+                    <button
+                      aria-label={`Edit ${quiz.title}`}
+                      title="Edit"
                       onClick={() => navigate(`/games/quiz/edit/${quiz.id}`)}
                       className="flex-1 py-3 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm"
                     >
                       <Edit3 size={16} /> Edit
                     </button>
                     {!quiz.is_draft && (
-                      <button 
+                      <button
                         onClick={() => handlePlay(quiz.id)}
                         className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-200"
                       >
@@ -308,7 +290,9 @@ export const QuizLibraryPage: React.FC = () => {
                     >
                       Test run
                     </button>
-                    <button 
+                    <button
+                      aria-label={`Delete ${quiz.title}`}
+                      title="Delete"
                       onClick={() => handleDelete(quiz.id)}
                       className="p-3 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
                     >
@@ -341,12 +325,12 @@ export const QuizLibraryPage: React.FC = () => {
                    {tab === "library" ? (
                      <button onClick={() => handleClone(quiz.id)} className="px-4 py-2 bg-blue-600 text-white font-bold text-sm rounded-xl hover:bg-blue-700 transition-all">Use a copy</button>
                    ) : (<>
-                   <button onClick={() => navigate(`/games/quiz/edit/${quiz.id}`)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"><Edit3 size={20}/></button>
+                   <button aria-label={`Edit ${quiz.title}`} title="Edit" onClick={() => navigate(`/games/quiz/edit/${quiz.id}`)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"><Edit3 size={20}/></button>
                    {!quiz.is_draft && (
                      <button onClick={() => handlePlay(quiz.id)} className="px-4 py-2 bg-blue-600 text-white font-bold text-sm rounded-xl hover:bg-blue-700 transition-all flex items-center gap-2"><Play size={14} fill="white"/> Host</button>
                    )}
                    <button onClick={() => handleStartTestRun(quiz.id)} className="px-4 py-2 bg-amber-500 text-white font-bold text-sm rounded-xl hover:bg-amber-600 transition-all">Test run</button>
-                   <button onClick={() => handleDelete(quiz.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={20}/></button>
+                   <button aria-label={`Delete ${quiz.title}`} title="Delete" onClick={() => handleDelete(quiz.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={20}/></button>
                    </>)}
                 </div>
              </GlassCard>

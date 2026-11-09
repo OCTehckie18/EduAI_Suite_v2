@@ -47,7 +47,7 @@ const SimpleWordCloud: React.FC<{ words: WordData[] }> = ({ words }) => {
               {word.text}
             </span>
             {word.value > 1 && (
-              <span 
+              <span
                 className="rounded-full bg-white/25 text-white flex items-center justify-center font-bold px-2 py-1 backdrop-blur-sm shadow-inner"
                 style={{
                   fontSize: `${Math.max(12, fontSize * 0.6)}px`,
@@ -71,6 +71,7 @@ export const WordCloudHostComponent: React.FC<WordCloudHostProps> = ({ onBack, i
   const [words, setWords] = useState<WordData[]>([]);
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
 
   const copyPin = () => {
     if (pin) {
@@ -81,18 +82,18 @@ export const WordCloudHostComponent: React.FC<WordCloudHostProps> = ({ onBack, i
   };
 
   const startSession = async () => {
+    setError("");
     try {
       const response = await fetch(`${API_BASE_URL}/wordcloud/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
-      if (response.ok) {
-        const data = await response.json();
-        setPin(data.pin);
-      }
-    } catch (e) {
-      console.error("Failed to start session", e);
+      const data = await response.json().catch(() => null);
+      if (response.ok && data?.pin) setPin(data.pin);
+      else setError(data?.detail || "The word cloud could not be started.");
+    } catch {
+      setError("Could not reach the server. Check your connection and try again.");
     }
   };
 
@@ -171,19 +172,21 @@ export const WordCloudHostComponent: React.FC<WordCloudHostProps> = ({ onBack, i
 
   const endSession = async () => {
     if (!pin) return;
+    setError("");
     try {
       if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "end_session" }));
       }
-      const response = await fetch(`${API_BASE_URL}/wordcloud/${pin}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(`${API_BASE_URL}/wordcloud/${pin}`, { method: "DELETE" });
       if (response.ok) {
         setPin(null);
         if (onBack) onBack();
+      } else {
+        const data = await response.json().catch(() => null);
+        setError(data?.detail || "The session could not be ended.");
       }
-    } catch (e) {
-      console.error("Failed to end session", e);
+    } catch {
+      setError("Could not reach the server. Check your connection and try again.");
     }
   };
 
@@ -225,6 +228,7 @@ export const WordCloudHostComponent: React.FC<WordCloudHostProps> = ({ onBack, i
             >
               Start Word Cloud Session
             </button>
+            {error && <p role="alert" className="text-sm font-medium text-red-600">{error}</p>}
           </div>
         </GlassCard>
       </div>
@@ -253,14 +257,14 @@ return (
           </p>
         </div>
         <div className="flex gap-2">
-          <button 
+          <button
             onClick={copyPin}
             className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
             title="Copy PIN"
           >
             {copied ? <Check size={20} className="text-green-600" /> : <Copy size={20} />}
           </button>
-          <button 
+          <button
             onClick={endSession}
             className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 transition-colors font-semibold"
           >
@@ -268,6 +272,7 @@ return (
           </button>
         </div>
       </div>
+      {error && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
 
       <div className="w-full h-96 flex items-center justify-center rounded-xl bg-gray-50/50">
         {words.length === 0 ? (

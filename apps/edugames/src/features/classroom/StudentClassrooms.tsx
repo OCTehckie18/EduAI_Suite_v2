@@ -117,6 +117,8 @@ export const StudentClassrooms: React.FC = () => {
       setMarkingByAssignment((m) => ({ ...m, [assignmentId]: "error" }));
     }
   };
+  const [flash, setFlash] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [joinError, setJoinError] = useState("");
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
@@ -248,7 +250,7 @@ export const StudentClassrooms: React.FC = () => {
         throw new Error(body.detail || body.error?.message || "Failed to submit assignment.");
       }
 
-      alert("Assignment submitted successfully!");
+      setFlash({ kind: "ok", text: "Your work was handed in." });
       setSubmittedAssignmentIds(prev => Array.from(new Set([...prev, assignmentId])));
       setSelectedFiles(prev => {
         const next = { ...prev };
@@ -257,7 +259,7 @@ export const StudentClassrooms: React.FC = () => {
       });
       void refresh(); // progress and counts change once work is handed in
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not upload work");
+      setFlash({ kind: "error", text: err instanceof Error ? err.message : "Your work could not be uploaded." });
     }
   };
 
@@ -273,11 +275,11 @@ export const StudentClassrooms: React.FC = () => {
         throw new Error("Failed to unsubmit assignment.");
       }
 
-      alert("Assignment unsubmitted successfully!");
+      setFlash({ kind: "ok", text: "Your work was withdrawn." });
       setSubmittedAssignmentIds(prev => prev.filter(id => id !== assignmentId));
       void refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not unsubmit work");
+      setFlash({ kind: "error", text: err instanceof Error ? err.message : "Your work could not be withdrawn." });
     }
   };
 
@@ -285,7 +287,7 @@ export const StudentClassrooms: React.FC = () => {
     e.preventDefault();
     const code = joinCode.trim();
     if (code.length < 4) {
-      alert("Enter the class code your teacher gave you.");
+      setJoinError("Enter the class code your teacher gave you.");
       return;
     }
 
@@ -324,12 +326,13 @@ export const StudentClassrooms: React.FC = () => {
         throw new Error(errData.detail);
       }
 
-      alert("Successfully joined the class!");
+      setFlash({ kind: "ok", text: "You joined the class." });
+      setJoinError("");
       setShowJoinModal(false);
       setJoinCode("");
       refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Error joining class.");
+      setJoinError(err instanceof Error ? err.message : "Could not join the class.");
     } finally {
       setIsJoining(false);
     }
@@ -346,7 +349,7 @@ export const StudentClassrooms: React.FC = () => {
     const requestedJoinCode = (location.state as { joinCode?: string } | null)?.joinCode;
     if (requestedJoinCode) {
       setJoinCode(requestedJoinCode.toUpperCase());
-      setShowJoinModal(true);
+      setJoinError(""); setShowJoinModal(true);
     }
   }, [location.state]);
 
@@ -363,6 +366,12 @@ export const StudentClassrooms: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
+      {flash && (
+        <div role={flash.kind === "error" ? "alert" : "status"} className={`fixed bottom-4 right-4 z-50 flex max-w-sm items-start gap-3 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg ${flash.kind === "error" ? "border-red-200 bg-red-50 text-red-700" : "border-green-200 bg-green-50 text-green-700"}`}>
+          <span>{flash.text}</span>
+          <button type="button" onClick={() => setFlash(null)} className="font-bold hover:underline">Dismiss</button>
+        </div>
+      )}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold font-display" style={{ color: "var(--color-text-primary)" }}>
@@ -385,7 +394,7 @@ export const StudentClassrooms: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={() => setShowJoinModal(true)}
+            onClick={() => { setJoinError(""); setShowJoinModal(true); }}
             className="btn bg-brand-blue hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 px-6 flex items-center gap-2"
           >
             <BookOpen size={18} /> Join a Class
@@ -792,7 +801,7 @@ export const StudentClassrooms: React.FC = () => {
                                                     const all = Array.from(e.target.files);
                                                     const files = all.filter((f) => /\.(pdf|docx)$/i.test(f.name));
                                                     if (files.length < all.length) {
-                                                        alert("Only PDF or Word (.docx) files can be submitted. Other files were skipped.");
+                                                        setFlash({ kind: "error", text: "Only PDF or Word (.docx) files can be submitted. Other files were skipped." });
                                                     }
                                                     e.target.value = "";
                                                     setSelectedFiles(prev => ({ 
@@ -985,8 +994,9 @@ export const StudentClassrooms: React.FC = () => {
                 </div>
               )}
 
-              <button 
-                type="submit" 
+              {joinError && <p role="alert" className="text-sm font-medium text-red-600">{joinError}</p>}
+              <button
+                type="submit"
                 disabled={isJoining || joinCode.trim().length < 4}
                 className="w-full bg-brand-blue hover:bg-blue-700 disabled:bg-slate-300 text-white shadow-xl shadow-blue-500/30 py-4 rounded-2xl font-bold text-lg transition-all hover:-translate-y-1 flex items-center justify-center gap-2"
               >

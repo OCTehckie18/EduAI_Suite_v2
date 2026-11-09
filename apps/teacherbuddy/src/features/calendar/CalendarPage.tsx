@@ -131,8 +131,10 @@ export const CalendarPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [search, setSearch] = useState("");
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(["custom", "deadline", "exam", "appointment", "class"]));
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [eventError, setEventError] = useState("");
+  const [pageError, setPageError] = useState("");
   const [editEventId, setEditEventId] = useState<number | null>(null);
   const [newEvent, setNewEvent] = useState({
     title: "",
@@ -154,12 +156,12 @@ export const CalendarPage: React.FC = () => {
         fetch(`${API_ENDPOINTS.CALENDAR}/events`, { headers }),
         fetch(`${API_ENDPOINTS.CALENDAR}/notifications`, { headers })
       ]);
-      
+
       if (eventsRes.ok) {
         const data = await eventsRes.json();
         setEvents(Array.isArray(data) ? data.map(normalizeCalendarEvent) : []);
       }
-      
+
       if (notificationsRes.ok) {
         const notifData = await notificationsRes.json();
         setNotifications(notifData.notifications || []);
@@ -236,15 +238,15 @@ export const CalendarPage: React.FC = () => {
 
   const filteredEvents = useMemo(() => {
     let filtered = events.filter(e => activeFilters.has(FILTER_TYPES.includes(e.type) ? e.type : "custom"));
-    
+
     if (search) {
       const q = search.toLowerCase();
-      filtered = filtered.filter(e => 
-        e.title.toLowerCase().includes(q) || 
+      filtered = filtered.filter(e =>
+        e.title.toLowerCase().includes(q) ||
         e.description.toLowerCase().includes(q)
       );
     }
-    
+
     return filtered;
   }, [events, activeFilters, search]);
 
@@ -270,15 +272,16 @@ export const CalendarPage: React.FC = () => {
       type: "custom",
       location: ""
     });
+    setEventError("");
     setIsModalOpen(true);
   };
 
   const openEditModal = (event: CalendarEvent) => {
     if (!event.editable) return;
-    
+
     const startDate = new Date(event.start);
     const endDate = new Date(event.end);
-    
+
     setEditEventId(event.raw_id);
     setNewEvent({
       title: event.title,
@@ -289,12 +292,13 @@ export const CalendarPage: React.FC = () => {
       type: event.type,
       location: event.location || ""
     });
+    setEventError("");
     setIsModalOpen(true);
   };
 
   const handleDeleteEvent = async (id: number) => {
     if (!confirm("Are you sure you want to delete this event?")) return;
-    
+
     try {
       const res = await fetch(`${API_ENDPOINTS.CALENDAR}/events/${id}`, {
         method: "DELETE",
@@ -302,12 +306,15 @@ export const CalendarPage: React.FC = () => {
           ? { Authorization: `Bearer ${localStorage.getItem("token")}` }
           : undefined,
       });
-      
-      if (res.ok) {
-        fetchEventsAndNotifications();
+
+      setPageError("");
+      if (res.ok) fetchEventsAndNotifications();
+      else {
+        const body = await res.json().catch(() => null);
+        setPageError(body?.detail || body?.error?.message || "The event could not be deleted.");
       }
-    } catch (err) {
-      console.error("Failed to delete event:", err);
+    } catch {
+      setPageError("Could not reach the server. Check your connection and try again.");
     }
   };
 
@@ -316,7 +323,7 @@ export const CalendarPage: React.FC = () => {
     try {
       const startDT = `${newEvent.date}T${newEvent.startTime}:00`;
       const endDT = `${newEvent.date}T${newEvent.endTime}:00`;
-      
+
       const storedUser = localStorage.getItem("user");
       let teacherName = "";
       if (storedUser) {
@@ -335,12 +342,12 @@ export const CalendarPage: React.FC = () => {
         teacher_name: teacherName,
       };
 
-      const url = editEventId 
+      const url = editEventId
         ? `${API_ENDPOINTS.CALENDAR}/events/${editEventId}`
         : `${API_ENDPOINTS.CALENDAR}/events`;
-        
+
       const method = editEventId ? "PUT" : "POST";
-      
+
       const res = await fetch(url, {
         method,
         headers: {
@@ -351,38 +358,41 @@ export const CalendarPage: React.FC = () => {
         },
         body: JSON.stringify(payload),
       });
-      
+
       if (res.ok) {
         setIsModalOpen(false);
         fetchEventsAndNotifications();
+      } else {
+        const body = await res.json().catch(() => null);
+        setEventError(body?.detail || body?.error?.message || "The event could not be saved.");
       }
-    } catch (err) {
-      console.error("Failed to save event:", err);
+    } catch {
+      setEventError("Could not reach the server. Check your connection and try again.");
     }
   };
 
   const renderCalendarDays = () => {
     const days = [];
     const todayDate = new Date();
-    
+
     for (let i = 0; i < firstDayOfMonth; i++) {
       days.push(<div key={`empty-${i}`} className="h-24 sm:h-32 p-1 border border-transparent bg-slate-50/50 dark:bg-slate-800/20 rounded-xl" />);
     }
-    
+
     for (let i = 1; i <= daysInMonth; i++) {
       const date = new Date(year, month, i);
       const dateStr = toLocalISODate(date);
       const dayEvents = eventsByDate.get(dateStr) || [];
       const isToday = i === todayDate.getDate() && month === todayDate.getMonth() && year === todayDate.getFullYear();
       const isSelected = selectedDate ? toLocalISODate(selectedDate) === dateStr : false;
-      
+
       days.push(
-        <div 
-          key={i} 
+        <div
+          key={i}
           onClick={() => setSelectedDate(date)}
           className={`h-24 sm:h-32 p-2 border rounded-xl overflow-hidden cursor-pointer transition-all ${
-            isToday ? 'border-blue-500 bg-blue-50/30' : 
-            isSelected ? 'border-slate-400 bg-slate-100/50' : 
+            isToday ? 'border-blue-500 bg-blue-50/30' :
+            isSelected ? 'border-slate-400 bg-slate-100/50' :
             'border-slate-200/60 bg-white/40 hover:bg-white hover:shadow-sm'
           }`}
         >
@@ -398,14 +408,14 @@ export const CalendarPage: React.FC = () => {
               </span>
             )}
           </div>
-          
+
           <div className="space-y-1 overflow-y-auto max-h-[calc(100%-1.75rem)] scrollbar-hide">
             {dayEvents.slice(0, 3).map((ev: CalendarEvent, idx: number) => (
-              <div 
-                key={idx} 
+              <div
+                key={idx}
                 className="text-[10px] px-1.5 py-0.5 rounded truncate border"
-                style={{ 
-                  backgroundColor: `${eventTypeColors[ev.type.toLowerCase()] || ev.color}15`, 
+                style={{
+                  backgroundColor: `${eventTypeColors[ev.type.toLowerCase()] || ev.color}15`,
                   color: eventTypeColors[ev.type.toLowerCase()] || ev.color,
                   borderColor: `${eventTypeColors[ev.type.toLowerCase()] || ev.color}30`
                 }}
@@ -423,11 +433,11 @@ export const CalendarPage: React.FC = () => {
         </div>
       );
     }
-    
+
     return days;
   };
 
-  const selectedDayEvents = selectedDate 
+  const selectedDayEvents = selectedDate
     ? (eventsByDate.get(toLocalISODate(selectedDate)) || [])
     : [];
 
@@ -484,10 +494,10 @@ export const CalendarPage: React.FC = () => {
             <div className="mt-1 flex flex-wrap gap-2">
               {notifications.map((notif, i) => (
                 <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border"
-                      style={{ 
-                        backgroundColor: `${eventTypeColors[notif.type.toLowerCase()] || notif.color}15`, 
-                        color: eventTypeColors[notif.type.toLowerCase()] || notif.color, 
-                        borderColor: `${eventTypeColors[notif.type.toLowerCase()] || notif.color}30` 
+                      style={{
+                        backgroundColor: `${eventTypeColors[notif.type.toLowerCase()] || notif.color}15`,
+                        color: eventTypeColors[notif.type.toLowerCase()] || notif.color,
+                        borderColor: `${eventTypeColors[notif.type.toLowerCase()] || notif.color}30`
                       }}>
                   {notif.message}
                 </span>
@@ -512,7 +522,7 @@ export const CalendarPage: React.FC = () => {
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
               activeFilters.has(filter.id) ? 'shadow-sm' : 'opacity-60 bg-transparent'
             }`}
-            style={{ 
+            style={{
               backgroundColor: activeFilters.has(filter.id) ? `${filter.color}15` : 'transparent',
               color: activeFilters.has(filter.id) ? filter.color : 'var(--color-text-muted)',
               borderColor: activeFilters.has(filter.id) ? `${filter.color}40` : 'var(--color-border)',
@@ -545,7 +555,7 @@ export const CalendarPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-4">
               <div className="grid grid-cols-7 gap-2 mb-2">
                 {dayNames.map(day => (
@@ -554,7 +564,7 @@ export const CalendarPage: React.FC = () => {
                   </div>
                 ))}
               </div>
-              
+
               {loading ? (
                 <div className="h-96 flex items-center justify-center">
                   <Loader2 className="animate-spin text-blue-500" size={32} />
@@ -580,7 +590,7 @@ export const CalendarPage: React.FC = () => {
                 </p>
               </div>
             </div>
-            
+
             <div className="p-4 flex-1 overflow-y-auto space-y-3">
               {!selectedDate ? (
                 <div className="text-center py-10 text-slate-400">
@@ -613,17 +623,17 @@ export const CalendarPage: React.FC = () => {
                           <MapPin size={12} /> {ev.location}
                         </div>
                       )}
-                      
+
                       {ev.editable && (
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
+                          <button
                             onClick={(e) => { e.stopPropagation(); openEditModal(ev); }}
                             className="p-1.5 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors"
                             title="Edit Event"
                           >
                             <Edit2 size={14} />
                           </button>
-                          <button 
+                          <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev.raw_id); }}
                             className="p-1.5 bg-red-50 text-red-600 rounded-md hover:bg-red-100 transition-colors"
                             title="Delete Event"
@@ -642,6 +652,13 @@ export const CalendarPage: React.FC = () => {
       </div>
 
       {/* Edit/Create Modal */}
+      {pageError && (
+        <div role="alert" className="fixed bottom-4 right-4 z-50 flex max-w-sm items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 shadow-lg">
+          <span>{pageError}</span>
+          <button type="button" onClick={() => setPageError("")} className="font-bold hover:underline">Dismiss</button>
+        </div>
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <GlassCard className="w-full max-w-md animate-fade-in-up p-0 overflow-hidden">
@@ -654,11 +671,11 @@ export const CalendarPage: React.FC = () => {
                 <X size={18} />
               </button>
             </div>
-            
+
             <form onSubmit={handleSaveEvent} className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Event Title *</label>
-                <input 
+                <input
                   required
                   value={newEvent.title}
                   onChange={e => setNewEvent({...newEvent, title: e.target.value})}
@@ -666,11 +683,11 @@ export const CalendarPage: React.FC = () => {
                   placeholder="e.g. Department Meeting"
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Type</label>
-                  <select 
+                  <select
                     value={newEvent.type}
                     onChange={e => setNewEvent({...newEvent, type: e.target.value})}
                     className="form-input"
@@ -682,7 +699,7 @@ export const CalendarPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Date *</label>
-                  <input 
+                  <input
                     required
                     type="date"
                     value={newEvent.date}
@@ -691,11 +708,11 @@ export const CalendarPage: React.FC = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Start Time *</label>
-                  <input 
+                  <input
                     required
                     type="time"
                     value={newEvent.startTime}
@@ -705,7 +722,7 @@ export const CalendarPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">End Time *</label>
-                  <input 
+                  <input
                     required
                     type="time"
                     value={newEvent.endTime}
@@ -717,17 +734,17 @@ export const CalendarPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Location</label>
-                <input 
+                <input
                   value={newEvent.location}
                   onChange={e => setNewEvent({...newEvent, location: e.target.value})}
                   className="form-input"
                   placeholder="Room, Link, etc."
                 />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Description</label>
-                <textarea 
+                <textarea
                   value={newEvent.description}
                   onChange={e => setNewEvent({...newEvent, description: e.target.value})}
                   className="form-input resize-none"
@@ -735,7 +752,10 @@ export const CalendarPage: React.FC = () => {
                   placeholder="Optional details..."
                 />
               </div>
-              
+
+              {eventError && (
+                <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{eventError}</p>
+              )}
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline flex-1">
                   Cancel
