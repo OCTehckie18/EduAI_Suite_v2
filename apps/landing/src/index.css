@@ -1,0 +1,38 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* The brand colours (--color-brand-*) are set at runtime from the university settings by shared/brand.ts.
+ * These defaults only show for a moment before that, or when no university is configured. */
+:root {
+  --color-brand-blue: #264796;
+  --color-brand-blue-dark: #1c3570;
+  --color-brand-blue-pale: #e8edf8;
+  --color-brand-accent: #0f766e;
+
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #0f172a;
+  --text-sub: #475569;
+  --text-dim: #5b6779;
+  --line: #e2e8f0;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+/* Same dark palette as the portals (contrast on #131c2e: main 13.9:1, secondary 7.9:1, muted 5.5:1). */
+html.dark {
+  color-scheme: dark;
+  --bg: #0b1220;
+  --card: #131c2e;
+  --text: #e5e9f0;
+  --text-sub: #a7b1c2;
+  --text-dim: #8794a8;
+  --line: rgba(148, 163, 184, 0.18);
+}
+
+/* A light logo stays on a white tile in dark mode; a dark-mode logo sits on the page colour. */
+.logo-tile { background-color: #ffffff; }
+html.dark .logo-tile[data-variant="dark"] { background-color: #1b2638; }
+
+html.theme-switching * { transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
+
+body { margin: 0; }

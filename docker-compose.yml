@@ -49,7 +49,7 @@ services:
       USE_SQLITE_FALLBACK: "False"
       DATABASE_URL: postgres://eduai:eduai_dev_password@postgres:5432/eduai_suite
       REDIS_URL: redis://redis:6379/0
-      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5175
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5175,http://127.0.0.1:5176
     volumes:
       - ./backend:/app
       - backend_media:/app/media
@@ -158,6 +158,25 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5173 || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  landing:
+    build:
+      context: ./apps
+      dockerfile: landing/Dockerfile
+    container_name: eduai_landing
+    restart: unless-stopped
+    ports:
+      - "5176:5176"
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5176 || exit 0"]
       interval: 10s
       timeout: 5s
       retries: 12

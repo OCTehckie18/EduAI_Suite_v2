@@ -159,7 +159,7 @@ CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = [
     origin.strip() for origin in os.getenv(
         'CORS_ALLOWED_ORIGINS',
-        'http://localhost:5173,http://localhost:5174,http://localhost:5175'
+        'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176'
     ).split(',') if origin.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
