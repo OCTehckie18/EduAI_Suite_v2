@@ -1,0 +1,46 @@
+# EduAI Suite company website and its backend. Separate from every university installation:
+# its own database, its own ports (8100 and 5180) and its own project name.
+name: eduai-business
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: business
+      POSTGRES_USER: business
+      POSTGRES_PASSWORD: business
+    volumes:
+      - business_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U business -d business"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
+      DATABASE_URL: postgres://business:business@db:5432/business
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      CORS_ALLOWED_ORIGINS: http://localhost:5180,http://127.0.0.1:5180
+    ports:
+      - "8100:8100"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  site:
+    build: ./site
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8100
+    ports:
+      - "5180:5180"
+    depends_on:
+      - backend
+
+volumes:
+  business_db:
