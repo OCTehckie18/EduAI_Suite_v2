@@ -299,7 +299,7 @@ export const ExamsPage: React.FC = () => {
         {[
           { label: "Total Exams", value: stats.total_exams == null ? "Not available" : String(stats.total_exams), icon: ClipboardList, color: "var(--color-brand-blue)" },
           { label: "Submissions Today", value: stats.submissions_today == null ? "Not available" : String(stats.submissions_today), icon: CheckCircle2, color: "#16a34a" },
-          { label: "Completion Rate", value: stats.avg_completion_rate == null ? "—" : `${stats.avg_completion_rate}%`, icon: Users, color: "#264796" },
+          { label: "Completion Rate", value: stats.avg_completion_rate == null ? "Not available" : `${stats.avg_completion_rate}%`, icon: Users, color: "var(--color-brand-accent)" },
         ].map(s => (
           <GlassCard key={s.label} padding="sm" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"

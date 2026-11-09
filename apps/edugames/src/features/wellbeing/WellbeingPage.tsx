@@ -8,7 +8,7 @@ import { GlassCard } from "../../shared/components/GlassCard";
 
 /* ─── Breathing Patterns ─────────────────────────────── */
 const breathingPatterns = [
-  { id: "box",         name: "Box Breathing",       desc: "4-4-4-4 pattern. Great for stress relief.",      in: 4, hold1: 4, out: 4, hold2: 4, color: "#264796" },
+  { id: "box",         name: "Box Breathing",       desc: "4-4-4-4 pattern. Great for stress relief.",      in: 4, hold1: 4, out: 4, hold2: 4, color: "#0b4a87" },
   { id: "478",         name: "4-7-8 Relaxation",    desc: "Promotes sleep and reduces anxiety.",            in: 4, hold1: 7, out: 8, hold2: 0, color: "#7c3aed" },
   { id: "coherent",   name: "Coherent Breathing",  desc: "5-5 rhythm. Balances the nervous system.",       in: 5, hold1: 0, out: 5, hold2: 0, color: "#059669" },
 ];
@@ -33,8 +33,8 @@ const focusPresets = [
 /* ─── Mood Tracker ───────────────────────────────────── */
 const moods = [
   { label: "Great",    mark: "G", color: "#16a34a" },
-  { label: "Good",     mark: "G", color: "#264796" },
-  { label: "Neutral",  mark: "N", color: "#d0ae61" },
+  { label: "Good",     mark: "G", color: "#0b4a87" },
+  { label: "Neutral",  mark: "N", color: "#e8792b" },
   { label: "Tired",    mark: "T", color: "#7c3aed" },
   { label: "Stressed", mark: "S", color: "#dc2626" },
 ];
@@ -136,7 +136,7 @@ export const WellbeingPage: React.FC = () => {
   const timerProgress = 1 - timerSeconds / timerTotal;
 
   const sections = [
-    { id: "breathing", label: "Breathing",    icon: Wind,    color: "#264796" },
+    { id: "breathing", label: "Breathing",    icon: Wind,    color: "#0b4a87" },
     { id: "sounds",   label: "Ambience",      icon: Music,   color: "#059669" },
     { id: "timer",    label: "Focus Timer",   icon: Timer,   color: "#d97706" },
     { id: "mood",     label: "Mood & Reflect",icon: Smile,   color: "#7c3aed" },
@@ -485,10 +485,10 @@ export const WellbeingPage: React.FC = () => {
               <div className="flex items-end gap-2">
                 {[
                   { day: "Mon", mark: "G", color: "#16a34a" },
-                  { day: "Tue", mark: "G", color: "#264796" },
+                  { day: "Tue", mark: "G", color: "#0b4a87" },
                   { day: "Wed", mark: "S", color: "#dc2626" },
-                  { day: "Thu", mark: "N", color: "#d0ae61" },
-                  { day: "Fri", mark: "G", color: "#264796" },
+                  { day: "Thu", mark: "N", color: "#e8792b" },
+                  { day: "Fri", mark: "G", color: "#0b4a87" },
                   { day: "Sat", mark: "G", color: "#16a34a" },
                   { day: "Sun", mark: "T", color: "#7c3aed" },
                 ].map(d => (

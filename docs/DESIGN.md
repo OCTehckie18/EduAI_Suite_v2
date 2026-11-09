@@ -57,7 +57,7 @@ The existing portals already use:
 - Tailwind CSS 4.
 - Inter for body text.
 - Poppins for display and section headings.
-- Christ University-inspired blue and gold tokens.
+- Brand colour tokens (`--color-brand-*`) that each university sets for its own installation in Master Admin. EduAI Suite's own navy, orange and teal are only the defaults before that.
 - React, TypeScript, Lucide React, and Framer Motion.
 - TanStack React Query in the teacher and student portals.
 - Zustand for selected client state.
@@ -367,7 +367,7 @@ The header must not become a second navigation bar full of duplicated links.
 A scope indicator uses compact text such as:
 
 ```text
-Christ University / School of Engineering / CSE-A
+Example University / School of Engineering / CSE-A
 ```
 
 On narrow screens, show the immediate scope and make the full hierarchy available in a popover or detail sheet. Scope changes require confirmation when they would alter the data set on screen.
@@ -1077,7 +1077,7 @@ The current codebase is partway toward this design system. The following items s
 
 The following existing behavior needs product or engineering confirmation before a broad visual change:
 
-- Existing Christ University brand colors and institutional identity.
+- Each university's own brand colours and identity, which come from its installation's settings, not from code.
 - Portal-specific navigation density.
 - Current use of Google Fonts and deployment privacy requirements.
 - Legacy screens that still use older utility classes.

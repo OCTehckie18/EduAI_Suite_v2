@@ -47,7 +47,7 @@ class CalendarEventListCreateView(APIView):
             start_time=start,
             end_time=end,
             event_type=data.get("event_type", "custom"),
-            color=data.get("color", "#264796"),
+            color=data.get("color", "#0b4a87"),
             location=data.get("location"),
             is_all_day=bool(data.get("is_all_day", False)),
             recurrence=data.get("recurrence"),

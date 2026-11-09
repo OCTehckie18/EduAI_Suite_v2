@@ -98,7 +98,7 @@ def _course_payload(classroom, viewer=None):
         "batch": batch_name,
         "students": students_count,
         "progress": _progress(classroom, viewer),
-        "color": classroom.color or "#264796",
+        "color": classroom.color or "#0b4a87",
         "description": classroom.description or "",
         # The join code is for the course's teacher; classmates have no use for it.
         "enrollment_code": classroom.enrollment_code if viewer is None or _manages(viewer, classroom) else None,
@@ -248,7 +248,7 @@ class LegacyCourseListCreateView(APIView):
             batch=batch,
             section=section,
             enrollment_code=_unique_enrollment_code(request.data.get("enrollment_code")),
-            color=str(request.data.get("color") or "#264796"),
+            color=str(request.data.get("color") or "#0b4a87"),
             description=str(request.data.get("description") or ""),
             course_plan_path=_save_course_plan(request.FILES.get("file")),
         )
@@ -317,7 +317,7 @@ class LegacyCourseDetailView(APIView):
         if "description" in data:
             classroom.description = str(data.get("description") or "")
         if "color" in data:
-            classroom.color = str(data.get("color") or "#264796")
+            classroom.color = str(data.get("color") or "#0b4a87")
         if "enrollment_code" in data:
             classroom.enrollment_code = _unique_enrollment_code(data.get("enrollment_code"), classroom.enrollment_code)
         if "batch" in data or "batch_id" in data:

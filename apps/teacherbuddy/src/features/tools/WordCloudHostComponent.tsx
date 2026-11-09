@@ -15,7 +15,7 @@ interface WordCloudHostProps {
 }
 
 /* ── Custom CSS Word Cloud ────────────────────────────────── */
-const CLOUD_COLORS = ["#264796", "#2a4fa7", "#d0ae61", "#ddb867", "#16a34a", "#7c3aed", "#dc2626", "#0891b2"];
+const CLOUD_COLORS = ["#0b4a87", "#1a558e", "#e8792b", "#eb8944", "#16a34a", "#7c3aed", "#dc2626", "#0891b2"];
 
 const SimpleWordCloud: React.FC<{ words: WordData[] }> = ({ words }) => {
   const maxValue = Math.max(...words.map(w => w.value), 1);

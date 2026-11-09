@@ -100,7 +100,7 @@ class ClassroomTests(APITestCase):
                 "code": "CS201",
                 "name": "Data Structures",
                 "batch": self.batch.name,
-                "color": "#264796",
+                "color": "#0b4a87",
                 "description": "Original course contract",
             },
             format="json",

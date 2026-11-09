@@ -8,7 +8,7 @@ class CalendarEvent(models.Model):
     start_time = models.DateTimeField(blank=True, null=True)
     end_time = models.DateTimeField(blank=True, null=True)
     event_type = models.CharField(max_length=50, default="custom")
-    color = models.CharField(max_length=50, default="#264796")
+    color = models.CharField(max_length=50, default="#0b4a87")
     location = models.CharField(max_length=255, blank=True, null=True)
     is_all_day = models.BooleanField(default=False)
     recurrence = models.CharField(max_length=100, blank=True, null=True)

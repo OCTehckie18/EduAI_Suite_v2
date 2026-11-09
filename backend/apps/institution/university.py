@@ -105,7 +105,7 @@ def clean_details(data):
             continue
         value = str(data.get(field) or "").strip()
         if not COLOR_PATTERN.match(value):
-            errors[field] = "Choose a colour in #rrggbb form, such as #264796."
+            errors[field] = "Choose a colour in #rrggbb form, such as #0b4a87."
             continue
         value = value.lower()
         if field == "primary_color" and contrast_with_white(value) < MIN_PRIMARY_CONTRAST:
