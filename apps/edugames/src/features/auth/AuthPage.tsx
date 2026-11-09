@@ -1,3 +1,4 @@
+import { landingUrl } from "../../shared/utils/landingUrl";
 import React, { useState, useEffect } from "react";
 import { Loader } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
@@ -271,9 +272,11 @@ export const AuthPage: React.FC = () => {
             )}
           </div>
 
-          {/* SSD info */}
           <p className="text-center text-xs mt-6" style={{ color: "var(--color-text-muted)" }}>
-            Secured with TLS 1.3 · Google OAuth 2.0 · Admin Approval
+            Looking for another portal?{" "}
+            <a href={landingUrl()} className="font-semibold hover:underline" style={{ color: "var(--color-brand-blue)" }}>
+              All portals
+            </a>
           </p>
         </div>
       </div>

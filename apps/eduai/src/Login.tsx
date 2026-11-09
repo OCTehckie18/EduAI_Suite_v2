@@ -1,3 +1,4 @@
+import { landingUrl } from "./shared/landingUrl";
 import { FormEvent, useState } from "react";
 import logo from "../../logo/eduai_logo.png";
 import { API_ENDPOINTS } from "./shared/apiConfig";
@@ -61,6 +62,7 @@ export function LoginScreen({ onLogin }: { onLogin: (user: AdminUser) => void })
         </label>
         <button type="submit" disabled={loading} className="w-full rounded-xl bg-brand-blue px-4 py-3 font-semibold text-white transition hover:bg-brand-blue-dark disabled:opacity-50">{loading ? "Signing in..." : "Sign in"}</button>
         {university.contact_email && <p className="mt-5 text-center text-xs text-slate-500">Need help? <a href={`mailto:${university.contact_email}`} className="text-slate-700 underline">{university.contact_email}</a></p>}
+        <p className="mt-3 text-center text-xs text-slate-500"><a href={landingUrl()} className="text-slate-700 underline">All portals</a></p>
       </form>
     </div>
   );
