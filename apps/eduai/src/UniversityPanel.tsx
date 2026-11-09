@@ -18,12 +18,12 @@ const COLOR_FIELDS: { key: "primary_color" | "secondary_color" | "tertiary_color
 
 const FIELDS: { key: keyof Details; label: string; placeholder: string; multiline?: boolean; hint?: string }[] = [
   { key: "name", label: "University name", placeholder: "Example University", hint: "Shown on every login page and in the page title." },
-  { key: "short_name", label: "Short name", placeholder: "CHRIST", hint: "Shown next to the logo in the top bar." },
+  { key: "short_name", label: "Short name", placeholder: "EU", hint: "Shown next to the logo in the top bar." },
   { key: "email_domain", label: "Email domain", placeholder: "example.edu", hint: "Used only as a hint on sign-in pages (\"Use your @domain email\")." },
   { key: "contact_email", label: "Support email", placeholder: "it@example.edu", hint: "Shown on sign-in pages for people who need help." },
   { key: "phone", label: "Phone", placeholder: "+91 80 1234 5678" },
   { key: "website", label: "Website", placeholder: "https://www.example.edu" },
-  { key: "address", label: "Address", placeholder: "Hosur Road, Bengaluru", multiline: true },
+  { key: "address", label: "Address", placeholder: "1 University Road, City, State", multiline: true },
 ];
 
 const inputClass = "mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900";

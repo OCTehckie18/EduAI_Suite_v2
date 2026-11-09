@@ -112,7 +112,7 @@ const eventTypeIcons: Record<string, React.ReactNode> = {
 };
 
 const eventTypeColors: Record<string, string> = {
-  custom: "#264796",
+  custom: "#0b4a87",
   deadline: "#d97706",
   exam: "#dc2626",
   appointment: "#16a34a",
@@ -336,7 +336,7 @@ export const CalendarPage: React.FC = () => {
         start_time: startDT,
         end_time: endDT,
         event_type: newEvent.type,
-        color: eventTypeColors[newEvent.type] || "#264796",
+        color: eventTypeColors[newEvent.type] || "#0b4a87",
         location: newEvent.location,
         is_all_day: false,
         teacher_name: teacherName,
@@ -510,7 +510,7 @@ export const CalendarPage: React.FC = () => {
       {/* Filters */}
       <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
         {[
-          { id: "custom", label: "My Events", color: "#264796" },
+          { id: "custom", label: "My Events", color: "#0b4a87" },
           { id: "class", label: "Classes", color: "#7c3aed" },
           { id: "appointment", label: "Appointments", color: "#16a34a" },
           { id: "deadline", label: "Deadlines", color: "#d97706" },

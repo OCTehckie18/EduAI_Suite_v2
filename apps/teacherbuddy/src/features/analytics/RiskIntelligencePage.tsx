@@ -45,7 +45,7 @@ const LEVEL_STYLE: Record<Level, { label: string; badge: string; bar: string }> 
   no_data: { label: "Not enough data", badge: "bg-slate-100 text-slate-700", bar: "#94a3b8" },
 };
 const PART_STYLE: { key: "marks" | "missing" | "trend" | "integrity"; label: string; color: string }[] = [
-  { key: "marks", label: "Low marks", color: "#264796" },
+  { key: "marks", label: "Low marks", color: "var(--color-brand-blue)" },
   { key: "missing", label: "Missing or late work", color: "#d97706" },
   { key: "trend", label: "Falling marks", color: "#0284c7" },
   { key: "integrity", label: "Exam flags", color: "#dc2626" },
@@ -227,7 +227,7 @@ const RiskBoard: React.FC = () => {
                     <XAxis dataKey="week" tick={{ fontSize: 11 }} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(v) => [`${v}%`, "Average"]} />
-                    <Line type="monotone" dataKey="average" stroke="#264796" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="average" stroke="var(--color-brand-blue)" strokeWidth={2} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}

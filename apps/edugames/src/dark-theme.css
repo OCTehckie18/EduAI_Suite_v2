@@ -143,8 +143,8 @@ html.dark :is([style^="color: rgb(124, 58, 237)"], [style*="; color: rgb(124, 58
 html.dark :is([style^="color: rgb(37, 99, 235)"], [style*="; color: rgb(37, 99, 235)"], [style^="color: rgb(59, 130, 246)"], [style*="; color: rgb(59, 130, 246)"]) { color: #93b4ff !important; }
 
 /* Chart colours written into the SVG */
-html.dark svg [fill="#264796"] { fill: var(--color-brand-blue); }
-html.dark svg [stroke="#264796"] { stroke: var(--color-brand-blue); }
+html.dark svg [fill="#0b4a87"] { fill: var(--color-brand-blue); }
+html.dark svg [stroke="#0b4a87"] { stroke: var(--color-brand-blue); }
 html.dark svg [fill="#dc2626"] { fill: #f87171; }
 html.dark svg [fill="#d97706"] { fill: #fbbf24; }
 html.dark svg [fill="#16a34a"] { fill: #4ade80; }

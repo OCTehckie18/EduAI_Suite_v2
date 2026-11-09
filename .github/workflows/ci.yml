@@ -8,6 +8,22 @@ permissions:
   contents: read
 
 jobs:
+  neutral-brand:
+    name: No single university baked into the product
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Fail if a university's name appears in product code
+        # Each university's name, logo and colours come from its own installation's settings.
+        # Add a name here when a new customer is onboarded, so it never lands in the code.
+        run: |
+          if grep -rniIE "christ ?university|christuniversity" apps/*/src apps/*/index.html backend/apps backend/config .env.example apps/*/.env.example docker-compose.yml; then
+            echo "Found a university's name in product code. Keep it in that installation's settings instead."
+            exit 1
+          fi
+
   backend:
     name: Backend checks
     runs-on: ubuntu-latest
@@ -51,6 +67,8 @@ jobs:
           - app: edugames
             test: true
           - app: teacherbuddy
+            test: true
+          - app: landing
             test: true
     defaults:
       run:

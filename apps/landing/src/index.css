@@ -4,17 +4,17 @@
 /* The brand colours (--color-brand-*) are set at runtime from the university settings by shared/brand.ts.
  * These defaults only show for a moment before that, or when no university is configured. */
 :root {
-  --color-brand-blue: #264796;
-  --color-brand-blue-fill: #264796;
-  --color-brand-blue-fill-2: #4a65a7;
-  --color-brand-blue-dark: #1c3570;
-  --color-brand-blue-pale: #e8edf8;
+  --color-brand-blue: #0b4a87;
+  --color-brand-blue-fill: #0b4a87;
+  --color-brand-blue-fill-2: #32679a;
+  --color-brand-blue-dark: #083561;
+  --color-brand-blue-pale: #ebf1f5;
   --color-brand-accent: #0f766e;
   --color-brand-accent-fill: #0f766e;
-  --color-brand-accent-light: #3a8c85;
-  --color-brand-gold: #d0ae61;
-  --color-brand-gold-bright: #dcc289;
-  --color-brand-gold-dark: #a68b4e;
+  --color-brand-accent-light: #358c85;
+  --color-brand-gold: #e8792b;
+  --color-brand-gold-bright: #ee9f66;
+  --color-brand-gold-dark: #ba6122;
 
   --bg: #f8fafc;
   --surface-2: #f1f5f9;

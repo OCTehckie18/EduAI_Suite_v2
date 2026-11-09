@@ -121,7 +121,7 @@ export const ClassroomsPage: React.FC = () => {
     section_id: "",
     description: "",
     enrollment_code: "",
-    color: "#264796",
+    color: "#0b4a87",
   });
   const [classOptions, setClassOptions] = useState<{
     department: { id: number; name: string } | null;
@@ -401,7 +401,7 @@ export const ClassroomsPage: React.FC = () => {
       section_id: "",
       description: "",
       enrollment_code: "",
-      color: "#264796",
+      color: "#0b4a87",
     });
     setCoursePlanFile(null);
   };

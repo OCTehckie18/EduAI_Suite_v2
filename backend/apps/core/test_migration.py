@@ -339,12 +339,12 @@ class MigrationSmokeTestCase(TestCase):
 
     def test_student_crud_and_engagement(self):
         from apps.accounts.testing import admit
-        admit("karan@christuniversity.in", "REG-101", name="Karan Singhania")
-        admit("meera@christuniversity.in", "REG-103", name="Meera Sen")
+        admit("karan@example.edu", "REG-101", name="Karan Singhania")
+        admit("meera@example.edu", "REG-103", name="Meera Sen")
         # 1. Manual Enroll
         res = self.client.post(f"/students/{self.course.id}", {
             "name": "Karan Singhania",
-            "email": "karan@christuniversity.in",
+            "email": "karan@example.edu",
             "registration_number": "REG-101",
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
@@ -375,7 +375,7 @@ class MigrationSmokeTestCase(TestCase):
         # 5. Enroll via code
         res = self.client.post(f"/students/enroll/code?enrollment_code={self.course.enrollment_code}", {
             "name": "Meera Sen",
-            "email": "meera@christuniversity.in",
+            "email": "meera@example.edu",
             "registration_number": "REG-103",
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)

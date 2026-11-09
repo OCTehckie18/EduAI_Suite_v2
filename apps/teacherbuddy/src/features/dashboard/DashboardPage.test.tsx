@@ -11,7 +11,7 @@ vi.mock("../../store/useAuthStore", () => ({
 vi.mock("../games/TeacherTestRuns", () => ({ TeacherTestRuns: () => null }));
 
 const DATA = {
-  stats: [{ label: "Active Students", value: "3", delta: "+2", icon: "Users", color: "#264796", bg: "#eef", accent: "x" }],
+  stats: [{ label: "Active Students", value: "3", delta: "+2", icon: "Users", color: "#0b4a87", bg: "#eef", accent: "x" }],
   classrooms: [{ id: 1, code: "M1", name: "Maths", batch: "B", students: 3, time: null, submitted: 8, graded: 5, progress: 63, teacher: "Ann Lee" }],
   riskAlerts: [],
   recentActivity: [],

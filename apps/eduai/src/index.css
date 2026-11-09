@@ -3,20 +3,20 @@
 
 @theme {
   /* Brand colours: defaults, replaced at runtime by the university's own colours. */
-  --color-brand-blue: #264796;
-  --color-brand-blue-mid: #2a52a8;
-  --color-brand-blue-light: #3460c4;
-  --color-brand-blue-dark: #1c3570;
-  --color-brand-blue-pale: #e8edf8;
-  --color-brand-gold: #d0ae61;
-  --color-brand-gold-light: #ddb867;
-  --color-brand-gold-bright: #e6c97a;
-  --color-brand-gold-dark: #b8943e;
-  --color-brand-gold-pale: #fdf6e3;
+  --color-brand-blue: #0b4a87;
+  --color-brand-blue-mid: #1a558e;
+  --color-brand-blue-light: #32679a;
+  --color-brand-blue-dark: #083561;
+  --color-brand-blue-pale: #ebf1f5;
+  --color-brand-gold: #e8792b;
+  --color-brand-gold-light: #eb8944;
+  --color-brand-gold-bright: #ee9f66;
+  --color-brand-gold-dark: #ba6122;
+  --color-brand-gold-pale: #fdf2ea;
   --color-brand-accent: #0f766e;
-  --color-brand-accent-light: #14a094;
-  --color-brand-accent-dark: #0b5a54;
-  --color-brand-accent-pale: #e7f4f3;
+  --color-brand-accent-light: #358c85;
+  --color-brand-accent-dark: #0b5953;
+  --color-brand-accent-pale: #e7f1f1;
 }
 
 :root {

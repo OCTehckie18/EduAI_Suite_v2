@@ -11,7 +11,7 @@ vi.mock("../../store/useAuthStore", () => ({
 
 const SUMMARY = {
   student: { name: "Alice Able", average: 82.5, pendingAssignments: 2, overdueAssignments: 1, liveGames: 0 },
-  courses: [{ id: 7, code: "M1", name: "Maths", teacher_name: "Tess", students: 3, batch: "B", progress: 50, average: 82.5, description: "", color: "#264796" }],
+  courses: [{ id: 7, code: "M1", name: "Maths", teacher_name: "Tess", students: 3, batch: "B", progress: 50, average: 82.5, description: "", color: "#0b4a87" }],
   deadlines: [{ id: 2, title: "Next week HW", course_code: "M1", course_id: 7, due_at: "2099-03-04T17:30:00+05:30", due_is_date_only: false, is_overdue: false, is_urgent: false }],
   overdue: [{ id: 1, title: "Late HW", course_code: "M1", course_id: 7, due_at: "2020-01-01T10:00:00+05:30", due_is_date_only: false, is_overdue: true, is_urgent: false }],
   liveGame: { title: "", teacher: "", active: false },

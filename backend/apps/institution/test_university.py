@@ -39,15 +39,15 @@ class UniversityDetailsTests(APITestCase):
     def test_master_admin_saves_details_and_everyone_sees_them(self):
         self.client.force_authenticate(self.master)
         response = self.client.put(DETAILS, {
-            "name": "  Christ University ", "short_name": "CU", "email_domain": "@ChristUniversity.in",
-            "contact_email": "it@christuniversity.in", "website": "https://christuniversity.in",
-            "phone": "+91 80 1234 5678", "address": "Hosur Road, Bengaluru",
+            "name": "  Example University ", "short_name": "EU", "email_domain": "@Example.EDU",
+            "contact_email": "it@example.edu", "website": "https://www.example.edu",
+            "phone": "+91 80 1234 5678", "address": "1 University Road, Pune",
         }, format="json")
         self.assertEqual(response.status_code, 200, response.content)
         self.client.force_authenticate(None)
         body = self.client.get(PUBLIC).json()
         self.assertTrue(body["configured"])
-        self.assertEqual((body["name"], body["email_domain"], body["short_name"]), ("Christ University", "christuniversity.in", "CU"))
+        self.assertEqual((body["name"], body["email_domain"], body["short_name"]), ("Example University", "example.edu", "EU"))
         self.assertTrue(ActionHistory.objects.filter(action="update_university").exists())
 
     def test_partial_updates_keep_other_fields(self):
@@ -65,7 +65,7 @@ class UniversityDetailsTests(APITestCase):
             ({"email_domain": "not a domain"}, "email_domain"),
             ({"contact_email": "nope"}, "contact_email"),
             ({"website": "javascript:alert(1)"}, "website"),
-            ({"website": "christ.edu"}, "website"),
+            ({"website": "example.edu"}, "website"),
         ]:
             response = self.client.put(DETAILS, payload, format="json")
             self.assertEqual(response.status_code, 400, payload)
@@ -142,7 +142,7 @@ class UniversityColorTests(APITestCase):
     def test_defaults_are_published_before_anything_is_set(self):
         self.client.force_authenticate(None)
         body = self.client.get(PUBLIC).json()
-        self.assertEqual((body["primary_color"], body["secondary_color"], body["tertiary_color"]), ("#264796", "#d0ae61", "#0f766e"))
+        self.assertEqual((body["primary_color"], body["secondary_color"], body["tertiary_color"]), ("#0b4a87", "#e8792b", "#0f766e"))
 
     def test_three_colours_are_saved_normalised_and_public(self):
         response = self.client.put(DETAILS, {"primary_color": "#7A1F2B", "secondary_color": "#F2C94C", "tertiary_color": "#2D9CDB"}, format="json")
@@ -161,7 +161,7 @@ class UniversityColorTests(APITestCase):
         response = self.client.put(DETAILS, {"primary_color": "#ffee99"}, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("too light", response.json()["detail"])
-        self.assertEqual(UniversityProfile.load().primary_color, "#264796")
+        self.assertEqual(UniversityProfile.load().primary_color, "#0b4a87")
 
     def test_only_a_master_admin_can_change_colours(self):
         teacher = User.objects.create_user(email="t@x.com", password="pw", role="TEACHER")

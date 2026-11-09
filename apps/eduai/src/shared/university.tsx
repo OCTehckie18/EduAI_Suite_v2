@@ -24,7 +24,7 @@ export interface University {
 const EMPTY: University = {
   configured: false, name: "", short_name: "", email_domain: "", contact_email: "",
   phone: "", website: "", address: "", logo_url: null, logo_dark_url: null,
-  primary_color: "#264796", secondary_color: "#d0ae61", tertiary_color: "#0f766e",
+  primary_color: "#0b4a87", secondary_color: "#e8792b", tertiary_color: "#0f766e",
 };
 const CACHE_KEY = "eduai-university";
 

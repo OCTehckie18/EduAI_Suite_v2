@@ -6,7 +6,7 @@ const json = (body: unknown, status = 200) =>
 
 const UNIVERSITY = {
   configured: true, name: "Central Test University", short_name: "CTU", email_domain: "ctu.edu",
-  contact_email: "help@ctu.edu", phone: "+91 80 1234 5678", website: "https://ctu.edu", address: "Hosur Road",
+  contact_email: "help@ctu.edu", phone: "+91 80 1234 5678", website: "https://ctu.edu", address: "1 University Road",
   logo_url: "/uploads/university/logo.png", logo_dark_url: null,
   primary_color: "#7a1f2b", secondary_color: "#d0ae61", tertiary_color: "#0f766e",
 };
@@ -30,7 +30,7 @@ describe("landing page", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Central Test University digital campus" })).toBeInTheDocument();
     expect(screen.getByAltText("Central Test University logo")).toHaveAttribute("src", expect.stringContaining("/uploads/university/logo.png"));
     expect(screen.getAllByText("help@ctu.edu").length).toBeGreaterThan(0);
-    expect(screen.getByText("Hosur Road")).toBeInTheDocument();
+    expect(screen.getByText("1 University Road")).toBeInTheDocument();
     expect(document.documentElement.style.getPropertyValue("--color-brand-blue")).not.toBe("");
   });
 

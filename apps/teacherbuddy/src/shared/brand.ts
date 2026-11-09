@@ -3,7 +3,7 @@
  * In dark mode the same colours are lightened just enough to stay readable on dark surfaces
  * (and keep white button text readable), and the pale tints become dark tints. */
 const HEX = /^#[0-9a-f]{6}$/i;
-const DEFAULTS = { primary_color: "#264796", secondary_color: "#d0ae61", tertiary_color: "#0f766e" };
+const DEFAULTS = { primary_color: "#0b4a87", secondary_color: "#e8792b", tertiary_color: "#0f766e" };
 const DARK_CARD = "#131c2e";
 
 const channels = (hex: string): [number, number, number] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];

@@ -79,7 +79,7 @@ export function LiveQuizWindow() {
                   <span className="text-white/60">{player.score}</span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
-                  <div className="bar-grow h-full rounded-full" style={{ width: `${(player.score / 1000) * 100}%`, background: "linear-gradient(90deg, var(--color-brand-blue-fill, #264796), var(--color-brand-gold-bright, #e0c58a))", animationDelay: `${index * 120}ms` }} />
+                  <div className="bar-grow h-full rounded-full" style={{ width: `${(player.score / 1000) * 100}%`, background: "linear-gradient(90deg, var(--color-brand-blue-fill, #0b4a87), var(--color-brand-gold-bright, #ee9f66))", animationDelay: `${index * 120}ms` }} />
                 </div>
               </li>
             ))}

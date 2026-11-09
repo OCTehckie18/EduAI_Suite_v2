@@ -12,7 +12,7 @@ def generate_join_code():
 
 class Board(models.Model):
     name = models.CharField(max_length=255)
-    background = models.CharField(max_length=255, default="linear-gradient(135deg, #264796 0%, #3460c4 100%)")
+    background = models.CharField(max_length=255, default="linear-gradient(135deg, #0b4a87 0%, #32679a 100%)")
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owned_boards")
     join_code = models.CharField(max_length=12, unique=True, default=generate_join_code)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

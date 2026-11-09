@@ -25,7 +25,7 @@ from .models import CalendarEvent
 ADMIN_ROLES = {"MASTER_ADMIN"}
 
 COLORS = {
-    "custom": "#264796",
+    "custom": "#0b4a87",
     "deadline": "#d97706",
     "exam": "#dc2626",
     "appointment": "#16a34a",

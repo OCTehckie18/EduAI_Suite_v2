@@ -301,9 +301,9 @@ class DashboardSummaryView(APIView):
                 "value": f"{total_students:,}",
                 "delta": student_delta,
                 "icon": "Users",
-                "color": "#264796",
+                "color": "#0b4a87",
                 "bg": "rgba(38,71,150,0.1)",
-                "accent": "border-l-[#264796]",
+                "accent": "border-l-[#0b4a87]",
             },
             {
                 "label": "Risk Alerts",
@@ -350,11 +350,11 @@ class DashboardSummaryView(APIView):
             })
 
         color_map = {
-            "mail": "#264796",
+            "mail": "#0b4a87",
             "appointment": "#16a34a",
             "omr": "#dc2626",
             "course": "#7c3aed",
-            "default": "#264796",
+            "default": "#0b4a87",
         }
 
         # Everything below is limited to the signed-in teacher's own classes, appointments, mail and

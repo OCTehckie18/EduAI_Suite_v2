@@ -152,10 +152,10 @@ async function request(method: string, path: string, body?: unknown): Promise<{ 
 const bySequence = <T extends { sequence: number }>(a: T, b: T) => a.sequence - b.sequence;
 
 export const BOARD_BACKGROUNDS = [
-  { name: 'Royal Blue', value: 'linear-gradient(135deg, #264796 0%, #3460c4 100%)' },
-  { name: 'Navy', value: 'linear-gradient(135deg, #1c3570 0%, #264796 100%)' },
-  { name: 'Royal Gold', value: 'linear-gradient(135deg, #d0ae61 0%, #e6c97a 100%)' },
-  { name: 'Royal Mix', value: 'linear-gradient(135deg, #264796 0%, #1c3570 60%, #b8943e 100%)' },
+  { name: 'Blue', value: 'linear-gradient(135deg, #0b4a87 0%, #32679a 100%)' },
+  { name: 'Navy', value: 'linear-gradient(135deg, #083561 0%, #0b4a87 100%)' },
+  { name: 'Orange', value: 'linear-gradient(135deg, #e8792b 0%, #ee9f66 100%)' },
+  { name: 'Blue and orange', value: 'linear-gradient(135deg, #0b4a87 0%, #083561 60%, #ba6122 100%)' },
   { name: 'Ocean', value: 'linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%)' },
   { name: 'Emerald', value: 'linear-gradient(135deg, #059669 0%, #34d399 100%)' },
   { name: 'Violet', value: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' },

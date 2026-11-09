@@ -39,8 +39,8 @@ const Sparkline: React.FC<{ points: Point[] }> = ({ points }) => {
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="h-16 w-full" role="img" aria-label={`Marks over time: ${points.map((p) => `${p.percent}%`).join(", ")}`}>
       <line x1={pad} x2={w - pad} y1={y(70)} y2={y(70)} stroke="#cbd5e1" strokeDasharray="3 3" />
-      <path d={path} fill="none" stroke="#264796" strokeWidth={2} />
-      {points.map((p, i) => <circle key={i} cx={x(i)} cy={y(p.percent)} r={2.5} fill="#264796"><title>{`${p.title}: ${p.percent}%`}</title></circle>)}
+      <path d={path} fill="none" stroke="var(--color-brand-blue)" strokeWidth={2} />
+      {points.map((p, i) => <circle key={i} cx={x(i)} cy={y(p.percent)} r={2.5} fill="var(--color-brand-blue)"><title>{`${p.title}: ${p.percent}%`}</title></circle>)}
     </svg>
   );
 };
