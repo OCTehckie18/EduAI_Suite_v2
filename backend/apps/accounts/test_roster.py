@@ -8,6 +8,7 @@ from rest_framework.test import APITestCase
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
 
 from .models import AdmittedStudent
+from .roster import link_existing_account
 from .testing import admit
 
 User = get_user_model()
@@ -179,3 +180,70 @@ def build_structure_other():
     )
     batch = Batch.objects.create(name="2026-29", program=program, start_year=2026, end_year=2029, academic_year="2026-27")
     return Section.objects.create(name="A", batch=batch)
+
+
+class LinkingExistingAccountsTests(APITestCase):
+    """An account made before its roster entry existed still gets connected to it."""
+
+    def setUp(self):
+        self.section_a, self.section_b = build_structure()
+        self.master = User.objects.create_user(email="m@x.com", password="pw", role="MASTER_ADMIN")
+
+    def student(self, email="asha@example.com", **extra):
+        return User.objects.create_user(email=email, password="Pw-12345678", role="STUDENT", is_profile_complete=True, **extra)
+
+    def listing(self):
+        self.client.force_authenticate(self.master)
+        body = self.client.get("/api/v1/master-admin/roster/").json()
+        self.client.force_authenticate(None)
+        return body
+
+    def test_uploading_the_roster_links_an_existing_student(self):
+        user = self.student()
+        self.client.force_authenticate(self.master)
+        self.client.post("/api/v1/master-admin/roster/import/", {"file": csv_file("2641001,Asha Rao,Asha@example.com,CEN,SOS,CSE,BCA,2026-29,B")}, format="multipart")
+        entry = AdmittedStudent.objects.get()
+        self.assertEqual(entry.user_id, user.pk)
+        user.refresh_from_db()
+        self.assertEqual((user.register_no, user.section_id), ("2641001", self.section_b.pk))
+        body = self.listing()
+        self.assertEqual((body["signed_up"], body["results"][0]["status"]), (1, "signed_up"))
+        # and the row can no longer be removed as if nobody used it
+        self.client.force_authenticate(self.master)
+        self.assertEqual(self.client.delete(f"/api/v1/master-admin/roster/{entry.pk}/").status_code, 409)
+
+    def test_signing_in_links_an_entry_uploaded_after_the_account(self):
+        user = self.student()
+        entry = admit("asha@example.com", "2641001", section=self.section_a)
+        self.assertIsNone(entry.user_id)
+        self.assertEqual(google(self.client, "asha@example.com").status_code, 200)
+        entry.refresh_from_db()
+        self.assertEqual(entry.user_id, user.pk)
+
+    def test_password_sign_in_links_too(self):
+        user = self.student()
+        entry = admit("asha@example.com", "2641001", section=self.section_a)
+        response = self.client.post(reverse("password-login"), {"username": "asha@example.com", "password": "Pw-12345678"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        entry.refresh_from_db()
+        self.assertEqual(entry.user_id, user.pk)
+
+    def test_a_different_register_number_is_never_linked(self):
+        self.student(register_no="9999999")
+        entry = admit("asha@example.com", "2641001", section=self.section_a)
+        google(self.client, "asha@example.com")
+        entry.refresh_from_db()
+        self.assertIsNone(entry.user_id)
+
+    def test_a_teacher_with_a_listed_email_is_not_turned_into_a_student(self):
+        teacher = User.objects.create_user(email="tina@example.com", password="pw", role="TEACHER")
+        entry = admit("tina@example.com", "2641005", section=self.section_a)
+        self.assertIsNone(link_existing_account(entry))
+        teacher.refresh_from_db()
+        self.assertEqual((teacher.role, entry.user_id), ("TEACHER", None))
+
+    def test_a_register_number_held_by_another_account_blocks_the_link(self):
+        self.student(email="someone@example.com", register_no="2641001")
+        self.student()
+        entry = admit("asha@example.com", "2641001", section=self.section_a)
+        self.assertIsNone(link_existing_account(entry))

@@ -160,6 +160,7 @@ class GoogleLoginView(APIView):
                     changed.append(field)
             if changed:
                 user.save(update_fields=changed)
+            roster.link_account_to_roster(user)
         return Response(_auth_response(user), status=status.HTTP_200_OK)
 
 
@@ -177,6 +178,7 @@ class PasswordLoginView(APIView):
         user = User.objects.filter(email__iexact=username).first() or User.objects.filter(register_no__iexact=username).first() or User.objects.filter(emp_no__iexact=username).first()
         if user is None or not user.is_active or not user.check_password(password):
             return Response({"detail": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
+        roster.link_account_to_roster(user)
         return Response(_auth_response(user), status=status.HTTP_200_OK)
 
 
