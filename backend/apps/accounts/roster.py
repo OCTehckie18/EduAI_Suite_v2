@@ -64,6 +64,40 @@ def apply_entry_to_user(user, entry):
         entry.save(update_fields=["user", "updated_at"])
 
 
+def link_existing_account(entry):
+    """Connect an unlinked roster entry to the student account that already uses its email.
+
+    Accounts made before their roster entry was uploaded (an earlier sign-in, or an entry
+    removed and uploaded again) are otherwise never connected, and the roster keeps
+    showing them as not signed up. Nothing is linked when the account is not a student,
+    already belongs to another entry, or carries a different register number.
+    """
+    if entry.user_id:
+        return entry.user
+    User = get_user_model()
+    user = User.objects.filter(email__iexact=entry.email).first()
+    if user is None or user.role != User.Role.STUDENT:
+        return None
+    if AdmittedStudent.objects.filter(user=user).exclude(pk=entry.pk).exists():
+        return None
+    if user.register_no and user.register_no.strip().lower() != entry.register_no.strip().lower():
+        return None
+    if User.all_objects.filter(register_no__iexact=entry.register_no).exclude(pk=user.pk).exists():
+        return None
+    apply_entry_to_user(user, entry)
+    user.save()
+    return user
+
+
+def link_account_to_roster(user):
+    """On sign-in: connect a student to their roster entry if that never happened."""
+    if user.role != user.Role.STUDENT or AdmittedStudent.objects.filter(user=user).exists():
+        return
+    entry = entry_for_email(user.email)
+    if entry is not None and not entry.user_id:
+        link_existing_account(entry)
+
+
 def provision_student(entry):
     """Create (or return) the account for a roster entry; the student finishes sign-up later."""
     if entry.user_id:
@@ -177,7 +211,8 @@ def _import_row(row, result):
 
     entry = entry_for_identifiers(email, register_no)
     if entry is None:
-        AdmittedStudent.objects.create(register_no=register_no, email=email, name=name, section=section)
+        entry = AdmittedStudent.objects.create(register_no=register_no, email=email, name=name, section=section)
+        link_existing_account(entry)
         result.created += 1
         return
     if entry.user_id:
@@ -187,10 +222,12 @@ def _import_row(row, result):
         result.unchanged += 1
         return
     if (entry.register_no, entry.email, entry.name, entry.section_id) == (register_no, email, name, section.pk):
+        link_existing_account(entry)
         result.unchanged += 1
         return
     entry.register_no, entry.email, entry.name, entry.section = register_no, email, name, section
     entry.save()
+    link_existing_account(entry)
     result.updated += 1
 
 
