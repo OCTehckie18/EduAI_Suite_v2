@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const json = (body: unknown, status = 200) =>
@@ -48,6 +48,34 @@ describe("landing page", () => {
     expect(screen.getByRole("link", { name: /Open EduGames/ })).toHaveAttribute("href", "https://games.ctu.edu");
     expect(screen.getByRole("link", { name: /Open TeacherBuddy/ })).toHaveAttribute("href", "https://teach.ctu.edu");
     expect(screen.getByRole("link", { name: /Open Master Admin/ })).toHaveAttribute("href", "https://admin.ctu.edu");
+  });
+
+  it("hero buttons send students and teachers to their portals", async () => {
+    vi.stubEnv("VITE_EDUGAMES_URL", "https://games.ctu.edu");
+    vi.stubEnv("VITE_TEACHERBUDDY_URL", "https://teach.ctu.edu");
+    await renderApp(() => json(UNIVERSITY));
+    expect(screen.getByRole("link", { name: /I'm a student/ })).toHaveAttribute("href", "https://games.ctu.edu");
+    expect(screen.getByRole("link", { name: /I'm a teacher/ })).toHaveAttribute("href", "https://teach.ctu.edu");
+  });
+
+  it("switches the feature tabs by click and by arrow keys", async () => {
+    await renderApp(() => json(UNIVERSITY));
+    const exams = screen.getByRole("tab", { name: /Exams/ });
+    fireEvent.click(exams);
+    expect(exams).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel")).toHaveTextContent("Timed exams students sit online");
+    fireEvent.keyDown(exams, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: /Live games/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel")).toHaveTextContent("Quizzes and games the whole room plays");
+  });
+
+  it("opens and closes the phone menu", async () => {
+    await renderApp(() => json(UNIVERSITY));
+    const toggle = screen.getByRole("button", { name: "Open menu" });
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(document.querySelector<HTMLAnchorElement>("#mobile-nav a")!);
+    expect(screen.getByRole("button", { name: "Open menu" })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("says so when the server is down, and still offers every portal", async () => {
