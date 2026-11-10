@@ -13,6 +13,9 @@ from rest_framework.views import APIView
 from apps.classrooms.models import Classroom, Enrollment
 from apps.core.permissions import IsTeacher
 from apps.core.services import course_student_ids, notify, record_student_activity
+from .grading import (
+    MAX_GUIDE, MAX_TEXT_ANSWER, MAX_WORD_LIMIT, clean_accepted_answers, count_blanks, fill_blank_is_correct,
+)
 from .models import Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer
 from .serializers import ExamSerializer, ExamAttemptSerializer
 
@@ -86,23 +89,50 @@ def _clean_questions(raw):
             return None, f"{label}: points must be a number."
         if not 0 < points <= MAX_POINTS:
             return None, f"{label}: points must be more than 0 and at most {MAX_POINTS}."
+        kind = item.get("question_type") or ExamQuestion.Type.MCQ
+        if kind not in ExamQuestion.Type.values:
+            return None, f"{label}: the question type must be one of {', '.join(ExamQuestion.Type.values)}."
         choices = item.get("choices") or []
-        if not isinstance(choices, list) or len(choices) < 2:
-            return None, f"{label} needs at least two choices."
         clean_choices = []
-        for choice in choices:
-            choice_text = str((choice or {}).get("choice_text") or "").strip() if isinstance(choice, dict) else ""
-            if not choice_text:
-                return None, f"{label} has an empty choice."
-            clean_choices.append({"choice_text": choice_text, "is_correct": bool(choice.get("is_correct", False))})
-        if sum(c["is_correct"] for c in clean_choices) != 1:
-            return None, f"{label} must have exactly one correct choice."
+        accepted, guide, word_limit = [], "", None
+        if kind == ExamQuestion.Type.MCQ:
+            if not isinstance(choices, list) or len(choices) < 2:
+                return None, f"{label} needs at least two choices."
+            for choice in choices:
+                choice_text = str((choice or {}).get("choice_text") or "").strip() if isinstance(choice, dict) else ""
+                if not choice_text:
+                    return None, f"{label} has an empty choice."
+                clean_choices.append({"choice_text": choice_text, "is_correct": bool(choice.get("is_correct", False))})
+            if sum(c["is_correct"] for c in clean_choices) != 1:
+                return None, f"{label} must have exactly one correct choice."
+        else:
+            if choices:
+                kinds = "A fill in the blanks question" if kind == ExamQuestion.Type.FILL_BLANK else "A long-answer question"
+                return None, f"{label}: {kinds.lower()} cannot have choices."
+            if kind == ExamQuestion.Type.FILL_BLANK:
+                blanks = count_blanks(text)
+                if blanks < 1:
+                    return None, f"{label}: write ___ where each blank goes."
+                accepted, error = clean_accepted_answers(item.get("accepted_answers"), blanks, label)
+                if error:
+                    return None, error
+            else:
+                guide = str(item.get("answer_guide") or "").strip()
+                if len(guide) > MAX_GUIDE:
+                    return None, f"{label}: the answer guide is too long."
+                if item.get("word_limit") not in (None, ""):
+                    word_limit, error = _whole_number(item.get("word_limit"), 1, MAX_WORD_LIMIT, f"{label}: the word limit")
+                    if error:
+                        return None, error
         cleaned.append({
             "question_text": text,
-            "question_type": "mcq",
+            "question_type": kind,
             "points": points,
             "order": item.get("order", index) if isinstance(item.get("order", index), int) else index,
             "choices": clean_choices,
+            "accepted_answers": accepted,
+            "answer_guide": guide,
+            "word_limit": word_limit,
         })
     return cleaned, None
 
@@ -165,6 +195,9 @@ def _save_questions(exam, questions):
             question_type=q_data["question_type"],
             points=q_data["points"],
             order=q_data.get("order", q_idx),
+            accepted_answers=q_data.get("accepted_answers", []),
+            answer_guide=q_data.get("answer_guide", ""),
+            word_limit=q_data.get("word_limit"),
         )
         for c_data in q_data["choices"]:
             ExamChoice.objects.create(question=question, choice_text=c_data["choice_text"], is_correct=c_data["is_correct"])
@@ -215,7 +248,7 @@ class ExamStatsView(APIView):
 
     def get(self, request):
         exams = Exam.objects.all()
-        attempts = ExamAttempt.objects.filter(status="submitted")
+        attempts = ExamAttempt.objects.filter(status__in=["submitted", "pending_review"])  # handed in, marked or not
         if not _is_admin(request.user):
             exams = exams.filter(course__teacher=request.user)
             attempts = attempts.filter(exam__course__teacher=request.user)
@@ -434,22 +467,45 @@ class ExamAttemptSubmitView(APIView):
                 if question.pk in chosen:
                     continue  # the first answer to a question counts
                 selected = ans.get("selected_choice_id")
-                if selected is not None and not any(c.pk == selected for c in question.choices.all()):
-                    return _bad("An answer picks a choice that does not belong to its question.")
-                chosen[question.pk] = selected
+                if question.question_type == ExamQuestion.Type.MCQ:
+                    if selected is not None and not any(c.pk == selected for c in question.choices.all()):
+                        return _bad("An answer picks a choice that does not belong to its question.")
+                    chosen[question.pk] = (selected, "")
+                else:
+                    if "text_answers" in ans and isinstance(ans["text_answers"], list):
+                        text = "\n".join(str(part or "").strip() for part in ans["text_answers"])
+                    else:
+                        text = str(ans.get("text_answer") or "")
+                    if len(text) > MAX_TEXT_ANSWER:
+                        return _bad(f"An answer is too long (at most {MAX_TEXT_ANSWER} characters).")
+                    chosen[question.pk] = (None, text)
 
             total_points = 0.0
             earned_points = 0.0
+            needs_marking = False
             for question in questions.values():
                 total_points += question.points
-                selected = chosen.get(question.pk)
-                ExamAnswer.objects.create(attempt=attempt, question=question, selected_choice_id=selected)
-                if selected is not None and any(c.pk == selected and c.is_correct for c in question.choices.all()):
-                    earned_points += question.points
+                selected, text = chosen.get(question.pk, (None, ""))
+                awarded = 0.0
+                if question.question_type == ExamQuestion.Type.MCQ:
+                    if selected is not None and any(c.pk == selected and c.is_correct for c in question.choices.all()):
+                        awarded = question.points
+                elif question.question_type == ExamQuestion.Type.FILL_BLANK:
+                    if fill_blank_is_correct(question.accepted_answers, text):
+                        awarded = question.points
+                elif text.strip():
+                    awarded = None  # a written answer waits for the teacher; a blank one is simply 0
+                    needs_marking = True
+                ExamAnswer.objects.create(attempt=attempt, question=question, selected_choice_id=selected, text_answer=text, awarded_points=awarded)
+                earned_points += awarded or 0.0
 
-            # Unanswered questions count in the total, so handing in a blank paper scores 0, not 100.
-            score_percent = round(earned_points / total_points * 100, 1) if total_points > 0 else 0.0
-            _finish(attempt, score=score_percent, earned=earned_points, total=total_points)
+            if needs_marking:
+                # No score yet: the teacher marks the written answers first.
+                _finish(attempt, score=None, earned=None, total=total_points, final_status="pending_review")
+            else:
+                # Unanswered questions count in the total, so handing in a blank paper scores 0, not 100.
+                score_percent = round(earned_points / total_points * 100, 1) if total_points > 0 else 0.0
+                _finish(attempt, score=score_percent, earned=earned_points, total=total_points)
 
         return Response(ExamAttemptSerializer(attempt).data)
 

@@ -16,13 +16,19 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
   const questions: any[] = attempt.exam?.questions ?? [];
   const totalPoints = attempt.total_points ?? questions.reduce((acc: number, q: any) => acc + q.points, 0);
   const earnedPoints = attempt.earned_points ?? 0;
+  const waiting = attempt.status === "pending_review";
   const answerFor = (questionId: number) => attempt.answers.find((a: any) => a.question_id === questionId);
+  const isWritten = (q: any) => q.question_type === "fill_blank" || q.question_type === "long_answer";
+  const marksFor = (q: any): number | null => answerFor(q.id)?.awarded_points ?? null;
+  const answered = (q: any) => (isWritten(q) ? (answerFor(q.id)?.text_answer ?? "").trim() !== "" : answerFor(q.id)?.selected_choice_id != null);
+  const awaitingMark = (q: any) => isWritten(q) && answered(q) && marksFor(q) === null;
   const isRight = (q: any) => {
+    if (isWritten(q)) return (marksFor(q) ?? -1) >= q.points;
     const picked = answerFor(q.id)?.selected_choice_id;
     return picked != null && !!q.choices.find((c: any) => c.id === picked)?.is_correct;
   };
   const correctCount = questions.filter(isRight).length;
-  const wrongCount = questions.filter((q: any) => answerFor(q.id)?.selected_choice_id != null && !isRight(q)).length;
+  const wrongCount = questions.filter((q: any) => answered(q) && !isRight(q) && !awaitingMark(q)).length;
   const finished = attempt.end_time
     ? new Date(attempt.end_time).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })
     : "Not finished";
@@ -45,7 +51,7 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
         <div className="flex items-center gap-6">
            <div className="text-right hidden md:block">
               <p className="text-[10px] font-bold text-slate-400 uppercase">Personal Score</p>
-              <p className="text-sm font-bold text-blue-600">{earnedPoints} / {totalPoints}</p>
+              <p className="text-sm font-bold text-blue-600">{waiting ? "Awaiting marking" : `${earnedPoints} / ${totalPoints}`}</p>
            </div>
         </div>
       </header>
@@ -57,7 +63,7 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
              <GlassCard className="flex flex-col items-center justify-center p-4 text-center">
                 <Award size={20} className="text-blue-600 mb-2" />
-                <p className="text-2xl font-black text-slate-800">{earnedPoints} <span className="text-sm font-normal text-slate-400">/ {totalPoints} ({attempt.score ?? 0}%)</span></p>
+                {waiting ? <p className="text-lg font-black text-amber-800">Awaiting marking</p> : <p className="text-2xl font-black text-slate-800">{earnedPoints} <span className="text-sm font-normal text-slate-400">/ {totalPoints} ({attempt.score ?? 0}%)</span></p>}
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Final Score</p>
              </GlassCard>
              <GlassCard className="flex flex-col items-center justify-center p-4 text-center">
@@ -89,11 +95,11 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
              {questions.map((question: any, idx: number) => {
                 const studentAnswer = answerFor(question.id);
                 const isCorrect = isRight(question);
-                const isUnanswered = !studentAnswer?.selected_choice_id;
+                const isUnanswered = !answered(question);
 
                 return (
                   <div key={question.id} className={`p-6 rounded-3xl border-2 transition-all ${
-                    isCorrect ? "bg-green-50/30 border-green-100" : isUnanswered ? "bg-slate-50 border-slate-100" : "bg-red-50/30 border-red-100"
+                    isCorrect ? "bg-green-50/30 border-green-100" : awaitingMark(question) ? "bg-amber-50/30 border-amber-200" : isUnanswered ? "bg-slate-50 border-slate-100" : "bg-red-50/30 border-red-100"
                   }`}>
                     <div className="flex items-start justify-between gap-4 mb-4">
                       <div className="flex gap-3">
@@ -103,7 +109,11 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
                          <p className="font-semibold text-slate-800">{question.question_text}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                         {isCorrect ? (
+                         {awaitingMark(question) ? (
+                           <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                             <AlertCircle size={12} /> Awaiting marking
+                           </span>
+                         ) : isCorrect ? (
                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500 text-white text-[10px] font-bold uppercase tracking-wider">
                              <CheckCircle2 size={12} /> Correct
                            </span>
@@ -116,10 +126,36 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
                              <XCircle size={12} /> Incorrect
                            </span>
                          )}
-                         <span className="text-[10px] font-bold text-slate-400">{question.points} pts</span>
+                         <span className="text-[10px] font-bold text-slate-400">{isWritten(question) && marksFor(question) !== null ? `${marksFor(question)} / ${question.points}` : question.points} pts</span>
                       </div>
                     </div>
 
+                    {isWritten(question) && (
+                      <div className="mb-3 space-y-2">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 whitespace-pre-wrap">
+                          <p className="mb-1 text-[10px] font-bold uppercase text-slate-400">Answer given</p>
+                          {answered(question) ? answerFor(question.id)?.text_answer : <span className="text-slate-400">No answer</span>}
+                        </div>
+                        {Array.isArray(question.accepted_answers) && question.accepted_answers.length > 0 && (
+                          <div className="rounded-2xl border border-green-200 bg-green-50 p-3 text-sm text-green-900">
+                            <p className="mb-1 text-[10px] font-bold uppercase text-green-800">Accepted answers</p>
+                            {question.accepted_answers.map((group: string[]) => group.join(" or ")).join("  ·  ")}
+                          </div>
+                        )}
+                        {question.answer_guide && (
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                            <p className="mb-1 text-[10px] font-bold uppercase text-slate-500">Marking notes</p>
+                            {question.answer_guide}
+                          </div>
+                        )}
+                        {answerFor(question.id)?.feedback && (
+                          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                            <p className="mb-1 text-[10px] font-bold uppercase text-blue-800">Teacher feedback</p>
+                            {answerFor(question.id)?.feedback}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                        {question.choices.map((choice: any) => {
                          const isSelected = studentAnswer?.selected_choice_id === choice.id;

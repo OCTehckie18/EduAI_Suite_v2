@@ -160,7 +160,7 @@ def _build_platform_context(user):
         question_count=Count("questions"),
         attempt_count=Count("attempts"),
         submitted_count=Count("attempts", filter=Q(
-            attempts__status="submitted")),
+            attempts__status__in=["submitted", "pending_review"])),
         average_score=Avg("attempts__score"),
     )[:MAX_ITEMS]
     context.append("\nEXAMS AND ASSESSMENT ACTIVITY")

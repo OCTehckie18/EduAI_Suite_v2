@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.permissions import IsTeacher
+from apps.exams.grading import clean_accepted_answers, count_blanks
 from apps.core.utils.file_uploads import MAX_SPREADSHEET_BYTES, validate_upload
 from apps.core.utils.plan_parser import CoursePlanParser
 from services.groq_service import DEFAULT_MODEL, GroqService
@@ -27,7 +28,13 @@ MAX_QUESTIONS_PER_IMPORT = 500
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
 MAX_PROMPT_CHARS = 12000
 OPTION_LETTERS = "ABCDEF"
-HEADERS = ["Question", "Option A", "Option B", "Option C", "Option D", "Correct (A-D)", "Points"]
+HEADERS = ["Type", "Question", "Option A", "Option B", "Option C", "Option D", "Option E", "Option F",
+           "Correct Option", "Accepted Answers", "Marks", "Answer Guide", "Word Limit"]
+TYPE_NAMES = {
+    "mcq": "mcq", "multiple choice": "mcq", "multiple-choice": "mcq",
+    "fill in the blanks": "fill_blank", "fill in the blank": "fill_blank", "fill_blank": "fill_blank", "fill blank": "fill_blank", "blank": "fill_blank",
+    "long answer": "long_answer", "long_answer": "long_answer", "long": "long_answer", "theory": "long_answer",
+}
 
 
 def _error(message, code=status.HTTP_400_BAD_REQUEST):
@@ -54,10 +61,26 @@ class ExamTemplateView(APIView):
         sheet = workbook.active
         sheet.title = "Questions"
         sheet.append(HEADERS)
-        sheet.append(["What is 2 + 2?", "3", "4", "5", "6", "B", 1])
-        sheet.append(["The capital of France is...", "Paris", "Rome", "Madrid", "Berlin", "A", 2])
-        for column, width in zip("ABCDEFG", (50, 20, 20, 20, 20, 14, 8)):
+        sheet.append(["MCQ", "What is 2 + 2?", "3", "4", "5", "6", None, None, "B", None, 1, None, None])
+        sheet.append(["Fill in the blanks", "The capital of France is ___.", None, None, None, None, None, None, None, "Paris", 2, None, None])
+        sheet.append(["Fill in the blanks", "Water boils at ___ degrees Celsius at sea level and freezes at ___.", None, None, None, None, None, None, None, "100|one hundred;0|zero", 2, None, None])
+        sheet.append(["Long answer", "Explain how photosynthesis works.", None, None, None, None, None, None, None, None, 6, "Light reactions, Calvin cycle, role of chlorophyll.", 250])
+        for column, width in zip("ABCDEFGHIJKLM", (18, 50, 16, 16, 16, 16, 16, 16, 14, 28, 8, 40, 11)):
             sheet.column_dimensions[column].width = width
+        guide = workbook.create_sheet("How to fill this in")
+        for line in (
+            "Each row is one question. The Type column decides which other columns to fill in.",
+            "Type: MCQ, Fill in the blanks or Long answer.",
+            "MCQ: fill Option A and Option B (more if you like, up to F) and Correct Option (a letter). Leave Accepted Answers empty.",
+            "Fill in the blanks: write ___ in the Question where each blank goes. Leave all Option columns and Correct Option empty.",
+            "   Accepted Answers: separate alternatives for one blank with | and separate blanks with ; (for example 100|one hundred;0|zero).",
+            "   Spelling is not case sensitive and extra spaces are ignored. All blanks must be right to earn the marks.",
+            "Long answer: leave all Option columns, Correct Option and Accepted Answers empty. You mark these yourself after the exam.",
+            "   Answer Guide (optional) is your marking notes, never shown to students. Word Limit (optional) is a number.",
+            "Marks: required on every row. A question can be worth any number above 0.",
+        ):
+            guide.append([line])
+        guide.column_dimensions["A"].width = 120
         response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         response["Content-Disposition"] = 'attachment; filename="exam_questions_template.xlsx"'
         workbook.save(response)
@@ -78,7 +101,8 @@ class ExamImportExcelView(APIView):
             return problem
         try:
             workbook = load_workbook(io.BytesIO(uploaded.read()), read_only=True, data_only=True)
-            rows = list(workbook.active.iter_rows(values_only=True))
+            sheet = workbook["Questions"] if "Questions" in workbook.sheetnames else workbook.worksheets[0]
+            rows = list(sheet.iter_rows(values_only=True))
         except Exception:
             return _error("That file could not be read as an Excel workbook. Use the template and save it as .xlsx.")
         if not rows:
@@ -92,13 +116,20 @@ class ExamImportExcelView(APIView):
                     return header.index(name)
             return None
 
-        question_col = column("question", "question text")
+        cols = {
+            "question": column("question", "question text"),
+            "type": column("type", "question type"),
+            "correct": column("correct option", "correct (a-d)", "correct", "answer", "correct answer"),
+            "accepted": column("accepted answers", "accepted answer"),
+            "points": column("marks", "points"),
+            "guide": column("answer guide"),
+            "limit": column("word limit"),
+        }
         option_cols = [column(f"option {letter.lower()}") for letter in OPTION_LETTERS]
-        option_cols = [(letter, col) for letter, col in zip(OPTION_LETTERS, option_cols) if col is not None]
-        correct_col = column("correct (a-d)", "correct", "answer", "correct answer")
-        points_col = column("points", "marks")
-        if question_col is None or len(option_cols) < 2 or correct_col is None:
-            return _error("The first row must have the headings Question, Option A, Option B, ... and Correct. Download the template to see the layout.")
+        cols["options"] = [(letter, col) for letter, col in zip(OPTION_LETTERS, option_cols) if col is not None]
+        # Older sheets have no Type column: every row is a multiple-choice question.
+        if cols["question"] is None or (cols["type"] is None and (len(cols["options"]) < 2 or cols["correct"] is None)):
+            return _error("The first row must have the headings Type, Question, Option A, Option B, ... Correct Option and Marks. Download the template to see the layout.")
 
         questions, errors = [], []
         for number, row in enumerate(rows[1:], start=2):
@@ -107,35 +138,87 @@ class ExamImportExcelView(APIView):
             if len(questions) >= MAX_QUESTIONS_PER_IMPORT:
                 errors.append(f"Stopped after {MAX_QUESTIONS_PER_IMPORT} questions.")
                 break
-            text = _cell_text(row[question_col]) if question_col < len(row) else ""
-            options = [(letter, _cell_text(row[col]) if col < len(row) else "") for letter, col in option_cols]
-            options = [(letter, value) for letter, value in options if value]
-            answer = (_cell_text(row[correct_col]) if correct_col < len(row) else "").upper().rstrip(".")
-            if not text:
-                errors.append(f"Row {number}: the question is empty.")
-            elif len(options) < 2:
-                errors.append(f"Row {number}: needs at least two options.")
-            elif answer not in {letter for letter, _ in options}:
-                errors.append(f"Row {number}: the correct answer '{answer or '(blank)'}' does not match a filled option.")
+            problem, question = _read_row(number, row, cols)
+            if problem:
+                errors.append(problem)
             else:
-                points = 1.0
-                if points_col is not None and points_col < len(row) and _cell_text(row[points_col]):
-                    try:
-                        points = float(row[points_col])
-                    except (TypeError, ValueError):
-                        errors.append(f"Row {number}: points must be a number.")
-                        continue
-                    if not 0 < points <= 1000:
-                        errors.append(f"Row {number}: points must be more than 0 and at most 1000.")
-                        continue
-                questions.append({
-                    "question_text": text,
-                    "question_type": "mcq",
-                    "points": points,
-                    "choices": [{"choice_text": value, "is_correct": letter == answer} for letter, value in options],
-                })
+                questions.append(question)
 
         return Response({"questions": questions, "imported_count": len(questions), "errors": errors})
+
+
+def _cell(row, col):
+    return _cell_text(row[col]) if col is not None and col < len(row) else ""
+
+
+def _read_row(number, row, cols):
+    """(error, question) for one spreadsheet row, following the rules of its type."""
+    label = f"Row {number}"
+    typed = cols["type"] is not None
+    kind = "mcq"
+    if typed:
+        raw_type = _cell(row, cols["type"])
+        kind = TYPE_NAMES.get(raw_type.lower())
+        if kind is None:
+            return f"{label}: the type '{raw_type or '(blank)'}' must be MCQ, Fill in the blanks or Long answer.", None
+    text = _cell(row, cols["question"])
+    if not text:
+        return f"{label}: the question is empty.", None
+    options = [(letter, _cell(row, col)) for letter, col in cols["options"]]
+    options = [(letter, value) for letter, value in options if value]
+    answer = _cell(row, cols["correct"]).upper().rstrip(".")
+    accepted_text = _cell(row, cols["accepted"])
+
+    points = 1.0
+    if _cell(row, cols["points"]):
+        try:
+            points = float(row[cols["points"]])
+        except (TypeError, ValueError):
+            return f"{label}: marks must be a number.", None
+        if not 0 < points <= 1000:
+            return f"{label}: marks must be more than 0 and at most 1000.", None
+    elif typed:
+        return f"{label}: marks are required.", None
+
+    question = {"question_text": text, "question_type": kind, "points": points, "choices": []}
+    if kind == "mcq":
+        if accepted_text:
+            return f"{label}: a multiple-choice question cannot have accepted answers.", None
+        if len(options) < 2:
+            return f"{label}: needs at least two options.", None
+        if answer not in {letter for letter, _ in options}:
+            return f"{label}: the correct answer '{answer or '(blank)'}' does not match a filled option.", None
+        question["choices"] = [{"choice_text": value, "is_correct": letter == answer} for letter, value in options]
+        return None, question
+    noun = "a fill in the blanks question" if kind == "fill_blank" else "a long-answer question"
+    if options:
+        return f"{label}: {noun} cannot have options.", None
+    if answer:
+        return f"{label}: {noun} cannot have a correct option.", None
+    if kind == "fill_blank":
+        blanks = count_blanks(text)
+        if blanks < 1:
+            return f"{label}: write ___ in the question where each blank goes.", None
+        if not accepted_text:
+            return f"{label}: accepted answers are required.", None
+        groups = [group.split("|") for group in accepted_text.split(";")]
+        accepted, error = clean_accepted_answers(groups, blanks, label)
+        if error:
+            return error, None
+        question["accepted_answers"] = accepted
+        return None, question
+    if accepted_text:
+        return f"{label}: a long-answer question cannot have accepted answers.", None
+    question["answer_guide"] = _cell(row, cols["guide"])
+    if _cell(row, cols["limit"]):
+        try:
+            limit = float(row[cols["limit"]])
+        except (TypeError, ValueError):
+            return f"{label}: the word limit must be a number.", None
+        if not limit.is_integer() or not 1 <= limit <= 5000:
+            return f"{label}: the word limit must be a whole number from 1 to 5000.", None
+        question["word_limit"] = int(limit)
+    return None, question
 
 
 class ExamExtractView(APIView):

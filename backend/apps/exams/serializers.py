@@ -22,7 +22,15 @@ class ExamQuestionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ExamQuestion
-        fields = ["id", "question_text", "question_type", "points", "order", "choices"]
+        fields = ["id", "question_text", "question_type", "points", "order", "word_limit", "accepted_answers", "answer_guide", "choices"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if self.context.get("hide_answers"):
+            # Students never receive the accepted answers or the marking notes.
+            data.pop("accepted_answers", None)
+            data.pop("answer_guide", None)
+        return data
 
 
 class ExamAnswerSerializer(serializers.ModelSerializer):
@@ -30,7 +38,7 @@ class ExamAnswerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ExamAnswer
-        fields = ["id", "question_id", "selected_choice_id"]
+        fields = ["id", "question_id", "selected_choice_id", "text_answer", "awarded_points", "feedback"]
 
 
 class ExamAttemptSerializer(serializers.ModelSerializer):
@@ -80,17 +88,22 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
         if attempt.status in ("in_progress", "flagged") and not self.context.get("viewer_manages"):
             return None  # no answer key while sitting the exam, and none for an attempt ended for cheating
         exam = attempt.exam
-        questions = [
-            {
+        manages = bool(self.context.get("viewer_manages"))
+        questions = []
+        for q in exam.questions.all():
+            item = {
                 "id": q.id,
                 "question_text": q.question_text,
                 "question_type": q.question_type,
                 "points": q.points,
                 "order": q.order,
+                "word_limit": q.word_limit,
                 "choices": [{"id": c.id, "choice_text": c.choice_text, "is_correct": c.is_correct} for c in q.choices.all()],
             }
-            for q in exam.questions.all()
-        ]
+            if manages:  # the answer key for written questions is the teacher's only
+                item["accepted_answers"] = q.accepted_answers
+                item["answer_guide"] = q.answer_guide
+            questions.append(item)
         return {"id": exam.id, "title": exam.title, "questions": questions}
 
 

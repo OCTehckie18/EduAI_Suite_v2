@@ -124,6 +124,7 @@ def _get_student_engagement(student: User, course_id, data: "_ClassData | None" 
 
     exams_data = []
     total_exam_score = 0.0
+    scored_attempts = 0
     for attempt in exam_attempts:
         exams_data.append({
             "exam_id": attempt.exam_id,
@@ -135,8 +136,10 @@ def _get_student_engagement(student: User, course_id, data: "_ClassData | None" 
         })
         if attempt.score is not None:
             total_exam_score += attempt.score
+            scored_attempts += 1
 
-    avg_exam_score = (total_exam_score / len(exam_attempts)) if exam_attempts else None
+    # An attempt still waiting for the teacher's marks has no score and must not pull the average down.
+    avg_exam_score = (total_exam_score / scored_attempts) if scored_attempts else None
 
     # Games
     games_data = []

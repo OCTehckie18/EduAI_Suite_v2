@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { Fragment, useState, useEffect, useRef } from "react";
 import { 
   Timer, ChevronRight, ChevronLeft, CheckCircle2, 
   AlertTriangle, ArrowRight, Home, ShieldAlert, Maximize, Lock
@@ -20,8 +20,13 @@ interface Question {
   question_type: string;
   points: number;
   order: number;
+  word_limit?: number | null;
   choices: Choice[];
 }
+
+const BLANK = /_{3,}\d*/;
+const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
+const hasText = (value: string | undefined) => (value ?? "").split("\n").some((part) => part.trim() !== "");
 
 interface Exam {
   id: number;
@@ -54,6 +59,8 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
   const displayQuestions = exam.questions;
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
+  // Fill in the blanks (one line per blank) and long answers, by question id.
+  const [texts, setTexts] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [results, setResults] = useState<any>(null);
@@ -72,20 +79,24 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // The timer callback outlives any one render, so it reads the latest values through refs.
   const answersRef = useRef(answers);
+  const textsRef = useRef(texts);
   const attemptIdRef = useRef<number | null>(null);
   const doneRef = useRef(false);
   const submittingRef = useRef(false);
   // Monitoring is armed shortly after the exam begins so entering full screen itself is not counted.
   const armedRef = useRef(false);
   answersRef.current = answers;
+  textsRef.current = texts;
   useEffect(() => {
     if (!attemptId || doneRef.current) return;
     try {
-      localStorage.setItem(`exam-draft-${attemptId}`, JSON.stringify(answers));
+      localStorage.setItem(`exam-draft-${attemptId}`, JSON.stringify({ choices: answers, texts }));
     } catch {
       /* storage unavailable: answers stay in memory only */
     }
-  }, [answers, attemptId]);
+  }, [answers, texts, attemptId]);
+
+  const answeredCount = () => displayQuestions.filter((q) => (q.question_type === "mcq" || !q.question_type ? answersRef.current[q.id] !== undefined : hasText(textsRef.current[q.id]))).length;
 
   useEffect(() => {
     return () => {
@@ -228,7 +239,16 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
       setAttemptId(data.id);
       try {
         const saved = localStorage.getItem(`exam-draft-${data.id}`);
-        if (saved) setAnswers(JSON.parse(saved));
+        if (saved) {
+          const draft = JSON.parse(saved);
+          // Drafts saved before written questions existed are a plain map of choices.
+          if (draft && typeof draft === "object" && "choices" in draft) {
+            setAnswers(draft.choices ?? {});
+            setTexts(draft.texts ?? {});
+          } else {
+            setAnswers(draft);
+          }
+        }
       } catch {
         /* a missing or unreadable draft just means starting blank */
       }
@@ -251,7 +271,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
     }
 
     // An in-page prompt, not confirm(): a browser dialog would take focus and count as leaving the exam.
-    if (status === "submitted" && !confirmed && displayQuestions.length - Object.keys(answersRef.current).length > 0) {
+    if (status === "submitted" && !confirmed && displayQuestions.length - answeredCount() > 0) {
       setConfirmFinish(true);
       return;
     }
@@ -262,10 +282,14 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
     setError(null);
     const token = localStorage.getItem("token");
     const submissionData = {
-      answers: Object.entries(answersRef.current).map(([qId, cId]) => ({
-        question_id: parseInt(qId),
-        selected_choice_id: cId
-      }))
+      answers: displayQuestions.flatMap((q): Record<string, unknown>[] => {
+        if (!q.question_type || q.question_type === "mcq") {
+          const choice = answersRef.current[q.id];
+          return choice === undefined ? [] : [{ question_id: q.id, selected_choice_id: choice }];
+        }
+        const text = textsRef.current[q.id];
+        return hasText(text) ? [{ question_id: q.id, text_answer: text }] : [];
+      }),
     };
 
     try {
@@ -292,11 +316,14 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
       leaveFullscreen();
 
       // The server's score is already a percentage of the exam's total points.
+      // Written answers are marked by the teacher, so there is no score until they have been.
+      const waiting = data.status === "pending_review" || data.score === null || data.score === undefined;
       setResults({
-        percentage: Number(data.score).toFixed(1),
+        percentage: waiting ? null : Number(data.score).toFixed(1),
         earned: data.earned_points,
         maxPoints: data.total_points,
         status: status,
+        awaitingMarking: waiting,
       });
     } catch (err: any) {
       console.error("Submission failed", err);
@@ -431,10 +458,16 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
           <div>
             <h2 className="text-2xl font-bold text-slate-800">Exam Completed!</h2>
             <p className="text-slate-500 mt-2">
-              {results.status === "time_up" ? "Time ran out, so your answers so far were handed in." : "Your submission has been evaluated successfully."}
+              {results.status === "time_up" ? "Time ran out, so your answers so far were handed in." : results.awaitingMarking ? "Your answers were handed in." : "Your submission has been evaluated successfully."}
             </p>
           </div>
           
+          {results.awaitingMarking ? (
+            <div className="py-6 px-4 bg-amber-50 rounded-3xl border border-amber-200">
+               <p className="text-xs font-bold text-amber-800 uppercase tracking-widest mb-2">Awaiting marking</p>
+               <p className="text-sm text-amber-900">Your teacher will mark your written answers. You will get a notification when your score is ready.</p>
+            </div>
+          ) : (
           <div className="py-6 px-4 bg-blue-50/50 rounded-3xl border border-blue-100/50">
              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Final Results</p>
              <div className="flex items-end justify-center gap-1">
@@ -444,6 +477,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
                Score: {results.earned} / {results.maxPoints}
              </p>
           </div>
+          )}
 
           <div className="flex gap-3">
              <button onClick={fetchFullReview} disabled={isLoadingReview} className="btn bg-white border-blue-200 text-blue-600 flex-1 py-3 font-bold hover:bg-blue-50">
@@ -494,7 +528,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
           <GlassCard className="max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <AlertTriangle className="mx-auto text-orange-500" size={36} />
             <p className="font-semibold text-slate-800">
-              You have {displayQuestions.length - Object.keys(answers).length} unanswered question(s). Finish anyway?
+              You have {displayQuestions.length - answeredCount()} unanswered question(s). Finish anyway?
             </p>
             <div className="flex gap-3">
               <button onClick={() => setConfirmFinish(false)} className="btn btn-outline flex-1 py-2">Keep working</button>
@@ -538,10 +572,57 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
 
           {/* Question Card */}
           <GlassCard padding="lg" className="shadow-xl border-0">
-             <p className="text-lg font-medium text-slate-800 leading-relaxed mb-8">
-                {currentQuestion.question_text}
-             </p>
+             {currentQuestion.question_type !== "fill_blank" && (
+               <p className="text-lg font-medium text-slate-800 leading-relaxed mb-8">
+                  {currentQuestion.question_text}
+               </p>
+             )}
 
+             {currentQuestion.question_type === "fill_blank" ? (
+               <p className="text-lg font-medium text-slate-800 leading-[2.6]">
+                 {currentQuestion.question_text.split(BLANK).map((part, i, parts) => {
+                   const values = (texts[currentQuestion.id] ?? "").split("\n");
+                   return (
+                     <Fragment key={i}>
+                       {part}
+                       {i < parts.length - 1 && (
+                         <input
+                           aria-label={`Blank ${i + 1}`}
+                           value={values[i] ?? ""}
+                           autoComplete="off"
+                           onChange={(event) => {
+                             const next = Array.from({ length: parts.length - 1 }, (_, k) => values[k] ?? "");
+                             next[i] = event.target.value.replace(/\n/g, " ");
+                             setTexts((prev) => ({ ...prev, [currentQuestion.id]: next.join("\n") }));
+                           }}
+                           className="mx-1 w-40 rounded-lg border-2 border-slate-200 bg-white px-3 py-1 text-base focus:border-blue-500 focus:outline-none"
+                         />
+                       )}
+                     </Fragment>
+                   );
+                 })}
+               </p>
+             ) : currentQuestion.question_type === "long_answer" ? (
+               <div className="space-y-2">
+                 <textarea
+                   aria-label="Your answer"
+                   value={texts[currentQuestion.id] ?? ""}
+                   rows={10}
+                   onChange={(event) => {
+                     const value = event.target.value;
+                     const limit = currentQuestion.word_limit;
+                     if (limit && wordCount(value) > limit && wordCount(value) > wordCount(texts[currentQuestion.id] ?? "")) return;
+                     setTexts((prev) => ({ ...prev, [currentQuestion.id]: value }));
+                   }}
+                   className="w-full rounded-2xl border-2 border-slate-200 bg-white p-4 text-base leading-relaxed focus:border-blue-500 focus:outline-none"
+                   placeholder="Type your answer here"
+                 />
+                 <p className="text-xs text-slate-500">
+                   {wordCount(texts[currentQuestion.id] ?? "")} word{wordCount(texts[currentQuestion.id] ?? "") === 1 ? "" : "s"}
+                   {currentQuestion.word_limit ? ` of ${currentQuestion.word_limit} allowed` : ""}
+                 </p>
+               </div>
+             ) : (
              <div className="space-y-3">
                 {currentQuestion.choices.map((choice) => (
                   <button
@@ -562,6 +643,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
                   </button>
                 ))}
              </div>
+             )}
           </GlassCard>
 
           {/* Navigation */}

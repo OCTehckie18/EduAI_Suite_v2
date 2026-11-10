@@ -29,9 +29,19 @@ class Exam(models.Model):
 class ExamQuestion(models.Model):
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name="questions")
     question_text = models.TextField(blank=True, null=True)
-    question_type = models.CharField(max_length=50, default="mcq")
+    class Type(models.TextChoices):
+        MCQ = "mcq", "Multiple choice"
+        FILL_BLANK = "fill_blank", "Fill in the blanks"
+        LONG_ANSWER = "long_answer", "Long answer"
+
+    question_type = models.CharField(max_length=50, choices=Type.choices, default=Type.MCQ)
     points = models.FloatField(default=1.0)
     order = models.IntegerField(default=0)
+    # Fill in the blanks: one list of accepted answers per blank, e.g. [["Paris"], ["1789", "seventeen eighty-nine"]].
+    accepted_answers = models.JSONField(default=list, blank=True)
+    # Long answers: the marking notes or model answer. Never sent to students.
+    answer_guide = models.TextField(blank=True, default="")
+    word_limit = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         ordering = ["order", "id"]
@@ -74,9 +84,16 @@ class ExamAnswer(models.Model):
     attempt = models.ForeignKey(ExamAttempt, on_delete=models.CASCADE, related_name="answers")
     question = models.ForeignKey(ExamQuestion, on_delete=models.CASCADE, related_name="answers")
     selected_choice_id = models.IntegerField(null=True, blank=True)
+    # Fill in the blanks (one line per blank) and long answers.
+    text_answer = models.TextField(blank=True, default="")
+    # Marks given for this answer. Null until it has been marked (long answers wait for the teacher).
+    awarded_points = models.FloatField(null=True, blank=True)
+    feedback = models.TextField(blank=True, default="")
+    marked_by = models.ForeignKey("accounts.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    marked_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"Answer for Q{self.question_id}: {self.selected_choice_id}"
+        return f"Answer for Q{self.question_id}: {self.selected_choice_id or self.text_answer[:30]}"
 
 
 def exam_availability(exam, now=None):
