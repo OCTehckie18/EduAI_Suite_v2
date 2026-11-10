@@ -83,3 +83,8 @@ export interface TeacherApplication {
 export type TabKey =
   | "overview" | "campuses" | "structure" | "university"
   | "roster" | "users" | "approvals" | "recycle_bin";
+
+export interface RestoreField { name: string; label: string; type: "text" | "email" | "textarea"; value: string; max_length?: number | null; required: boolean }
+export interface RestoreRecord { content_type: string; id: number; label: string; is_active: boolean; fields: RestoreField[] }
+export interface RestoreConflict { fields: string[]; record: RestoreRecord }
+export interface RestoreDetail { content_type: string; id: number; label: string; fields: RestoreField[]; blockers: string[]; conflicts: RestoreConflict[] }
