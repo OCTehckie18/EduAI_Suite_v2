@@ -115,6 +115,8 @@ export const StudentExams: React.FC = () => {
             const bestScore = scores.length ? Math.max(...scores) : null;
             const flagged = myAttempts.some((a) => a.status === "flagged");
             const awaiting = myAttempts.some((a) => a.status === "pending_review");
+            // A teacher cleared this student's attempt: say so until they start again.
+            const wasReset = !!exam.my_reset && !myAttempts.some((a) => new Date(a.start_time) > new Date(exam.my_reset.at));
             const outOfAttempts = flagged || (!inProgress && finished.length >= (exam.attempts_allowed ?? 1));
             const notOpen = !inProgress && exam.availability === "upcoming";
             const ended = !inProgress && exam.availability === "ended";
@@ -143,6 +145,7 @@ export const StudentExams: React.FC = () => {
                         Attempts: {finished.length} of {exam.attempts_allowed ?? 1}
                         {bestScore != null && <> · Best score: <strong>{bestScore}%</strong></>}
                       </p>
+                      {wasReset && <p className="mt-1 text-xs font-semibold text-green-700">Your attempt was reset by your teacher. You can start again{exam.my_reset.allowed_until ? ` until ${fmt(exam.my_reset.allowed_until)}` : ""}.</p>}
                       {awaiting && <p className="mt-1 text-xs font-semibold text-amber-800">Submitted, awaiting marking. Your teacher will mark your written answers.</p>}
                       {(exam.opens_at || exam.closes_at) && (
                         <p className="mt-1 text-xs">

@@ -9,6 +9,7 @@ from .views import (
     ExamAttemptListView,
     ExamAttemptViolationView,
 )
+from .resets import ExamAttemptResetView, ExamResetListView
 from .marking import ExamAttemptMarkView, ExamAttemptSuggestMarkView
 from .import_views import ExamExtractView, ExamImportExcelView, ExamTemplateView
 
@@ -23,6 +24,8 @@ urlpatterns = [
     path("<int:exam_id>/attempts/start", ExamAttemptStartView.as_view(), name="exam-attempt-start"),
     path("<int:exam_id>/attempts/<int:attempt_id>", ExamAttemptDetailView.as_view(), name="exam-attempt-detail"),
     path("<int:exam_id>/attempts/<int:attempt_id>/violation", ExamAttemptViolationView.as_view(), name="exam-attempt-violation"),
+    path("<int:exam_id>/attempts/<int:attempt_id>/reset", ExamAttemptResetView.as_view(), name="exam-attempt-reset"),
+    path("<int:exam_id>/resets", ExamResetListView.as_view(), name="exam-resets"),
     path("<int:exam_id>/attempts/<int:attempt_id>/mark", ExamAttemptMarkView.as_view(), name="exam-attempt-mark"),
     path("<int:exam_id>/attempts/<int:attempt_id>/suggest-mark", ExamAttemptSuggestMarkView.as_view(), name="exam-attempt-suggest-mark"),
     path("<int:exam_id>/attempts/<int:attempt_id>/submit", ExamAttemptSubmitView.as_view(), name="exam-attempt-submit"),

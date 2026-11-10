@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer, exam_availability
+from .models import Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer, ExamReset, exam_availability, personal_deadline
 from .paper import attempt_questions, paper_total, pool_groups
 
 
@@ -131,11 +131,24 @@ class ExamSerializer(serializers.ModelSerializer):
     attempts = serializers.SerializerMethodField()
     availability = serializers.SerializerMethodField()
     question_count = serializers.SerializerMethodField()
+    my_reset = serializers.SerializerMethodField()
     paper_total = serializers.SerializerMethodField()
     pool_groups = serializers.SerializerMethodField()
 
     def get_availability(self, exam):
-        return exam_availability(exam)
+        availability = exam_availability(exam)
+        student_id = self.context.get("attempts_for_student")
+        if availability == "ended" and student_id is not None and personal_deadline(exam, student_id):
+            return "open"  # a reset gave this student a personal deadline
+        return availability
+
+    def get_my_reset(self, exam):
+        """For a student: their latest reset of this exam, so the card can say they may start again."""
+        student_id = self.context.get("attempts_for_student")
+        if student_id is None:
+            return None
+        latest = ExamReset.objects.filter(exam=exam, student_id=student_id).order_by("-created_at").first()
+        return {"at": latest.created_at, "allowed_until": latest.allowed_until} if latest else None
 
     def get_question_count(self, exam):
         """Questions on one student's paper."""
@@ -180,6 +193,7 @@ class ExamSerializer(serializers.ModelSerializer):
             "randomize_questions",
             "pattern",
             "question_count",
+            "my_reset",
             "paper_total",
             "pool_groups",
             "opens_at",

@@ -28,7 +28,13 @@ export const ExamsPage: React.FC = () => {
   const { user: authUser, logout } = useAuthStore();
   const [examsList, setExamsList] = useState<any[]>([]);
   const [selectedExam, setSelectedExam] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "review">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "review" | "resets">("overview");
+  const [resets, setResets] = useState<any[]>([]);
+  const [resetTarget, setResetTarget] = useState<any>(null);
+  const [resetReason, setResetReason] = useState("");
+  const [resetUntil, setResetUntil] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetting, setResetting] = useState(false);
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -264,9 +270,49 @@ export const ExamsPage: React.FC = () => {
     }
   };
 
+  const fetchResets = async (examId: number) => {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.EXAMS}/${examId}/resets`, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
+      if (!response.ok) throw new Error("Could not load the reset history.");
+      setResets(await response.json());
+    } catch (err) {
+      setResets([]);
+      setNotice(err instanceof Error ? err.message : "Could not load the reset history.");
+    }
+  };
+
+  const submitReset = async () => {
+    if (!resetTarget || !selectedExam) return;
+    setResetError("");
+    if (!resetReason.trim()) { setResetError("Give a reason. It is kept with the exam record."); return; }
+    setResetting(true);
+    try {
+      const response = await fetch(`${API_ENDPOINTS.EXAMS}/${selectedExam.id}/attempts/${resetTarget.id}/reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
+        body: JSON.stringify({ reason: resetReason.trim(), allowed_until: resetUntil ? new Date(resetUntil).toISOString() : null }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "Could not reset the attempt.");
+      setNotice(`${resetTarget.student_name || "The student"}'s attempt was reset. They can take the exam again with a new set of questions.`);
+      setResetTarget(null);
+      setResetReason("");
+      setResetUntil("");
+      await fetchAttempts(selectedExam.id);
+      await fetchResets(selectedExam.id);
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : "Could not reset the attempt.");
+    } finally {
+      setResetting(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedExam && activeTab === "review") {
       fetchAttempts(selectedExam.id);
+    }
+    if (selectedExam && activeTab === "resets") {
+      fetchResets(selectedExam.id);
     }
   }, [selectedExam, activeTab]);
 
@@ -404,12 +450,12 @@ export const ExamsPage: React.FC = () => {
 
                 {/* Tabs */}
                 <div className="flex border-b" style={{ borderColor: "color-mix(in srgb, var(--color-brand-blue) 10%, transparent)" }}>
-                  {(["overview", "review"] as const).map(tab => (
+                  {(["overview", "review", "resets"] as const).map(tab => (
                     <button key={tab} onClick={() => setActiveTab(tab)}
                       className={`px-5 py-3.5 text-sm font-semibold capitalize transition-colors flex items-center gap-1.5 ${activeTab === tab ? "border-b-2 border-brand-blue text-brand-blue" : "text-slate-400 hover:text-slate-600"
                         }`}>
                       {tab === "review" && <Eye size={13} />}
-                      {tab}
+                      {tab === "resets" ? "Reset history" : tab}
                     </button>
                   ))}
                 </div>
@@ -528,6 +574,14 @@ export const ExamsPage: React.FC = () => {
                                 >
                                   {loadingDetail ? "..." : attempt.status === "pending_review" ? "Mark answers" : "View Sheet"}
                                 </button>
+                                {attempt.status !== "in_progress" && (
+                                  <button
+                                    onClick={() => { setResetTarget(attempt); setResetError(""); }}
+                                    className="px-3 py-1.5 bg-white border border-amber-300 text-amber-800 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-amber-50 transition-colors"
+                                  >
+                                    Reset attempt
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -537,6 +591,50 @@ export const ExamsPage: React.FC = () => {
                   )}
                 </div>
               </GlassCard>
+
+              {activeTab === "resets" && (
+                <GlassCard padding="md" className="space-y-3">
+                  <h3 className="text-sm font-bold text-slate-700">Reset history</h3>
+                  {resets.length === 0 ? (
+                    <p className="py-6 text-center text-sm italic text-slate-400">No attempts have been reset for this exam.</p>
+                  ) : resets.map((item: any) => (
+                    <div key={item.id} className="rounded-2xl border border-slate-200 p-3 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-semibold">{item.student_name || item.student_email}</p>
+                        <p className="text-[11px] text-slate-500">{new Date(item.created_at).toLocaleString()} · by {item.reset_by || "a teacher"}</p>
+                      </div>
+                      <p className="mt-1 text-slate-700">Reason: {item.reason}</p>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        Cleared attempt: {item.previous?.status === "flagged" ? `flagged (${item.previous.flag_reason || "left the exam"})` : item.previous?.status === "expired" ? "timed out" : item.previous?.score != null ? `${item.previous.score}%` : item.previous?.status}
+                        {item.allowed_until ? ` · allowed until ${new Date(item.allowed_until).toLocaleString()}` : ""}
+                      </p>
+                    </div>
+                  ))}
+                </GlassCard>
+              )}
+
+              {resetTarget && (
+                <div role="dialog" aria-modal="true" aria-label="Reset attempt" className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
+                  <div className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 text-slate-800 shadow-2xl">
+                    <h3 className="text-lg font-bold">Reset {resetTarget.student_name || "this student"}'s attempt?</h3>
+                    <p className="text-sm text-slate-600">
+                      Use this when something went wrong on the student's side, such as a power cut or crash. The attempt, its score and any cheating flag are cleared, and the student gets a new set of questions. The old attempt is kept in the reset history.
+                    </p>
+                    <label className="block text-sm font-semibold">Reason (required)
+                      <textarea value={resetReason} onChange={(e) => setResetReason(e.target.value)} rows={3} maxLength={500} placeholder="For example: power cut during the exam" className="mt-1 w-full rounded-xl border border-slate-300 p-2 text-sm font-normal" />
+                    </label>
+                    <label className="block text-sm font-semibold">Allow until (optional)
+                      <input type="datetime-local" value={resetUntil} onChange={(e) => setResetUntil(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 p-2 text-sm font-normal" />
+                      <span className="mt-1 block text-xs font-normal text-slate-500">Only needed if the exam window has already closed.</span>
+                    </label>
+                    {resetError && <p role="alert" className="text-sm font-semibold text-red-700">{resetError}</p>}
+                    <div className="flex justify-end gap-3">
+                      <button onClick={() => setResetTarget(null)} className="btn btn-outline px-5 py-2">Cancel</button>
+                      <button onClick={() => void submitReset()} disabled={resetting} className="btn btn-primary px-5 py-2 font-bold disabled:opacity-50">{resetting ? "Resetting..." : "Reset attempt"}</button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Answer Sheet Viewer Modal */}
               {selectedAttempt && (

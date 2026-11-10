@@ -17,7 +17,7 @@ from apps.core.services import course_student_ids, notify, record_student_activi
 from .grading import (
     MAX_GUIDE, MAX_TEXT_ANSWER, MAX_WORD_LIMIT, clean_accepted_answers, count_blanks, fill_blank_is_correct,
 )
-from .models import AttemptQuestion, Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer
+from .models import AttemptQuestion, Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer, personal_deadline
 from .paper import (
     PoolTooSmall, attempt_questions, attempt_total, clean_pattern, draw_paper, pattern_shortfalls,
 )
@@ -519,11 +519,14 @@ class ExamAttemptStartView(APIView):
             now = timezone.now()
             if exam.opens_at and now < exam.opens_at:
                 return Response({"detail": f"This exam opens on {timezone.localtime(exam.opens_at):%d %b %Y, %H:%M}."}, status=status.HTTP_409_CONFLICT)
-            if exam.closes_at and now > exam.closes_at:
+            # A teacher's reset can give this student a personal deadline after the window has closed.
+            personal = personal_deadline(exam, user.pk, now)
+            deadline = max((d for d in (exam.closes_at, personal) if d), default=None)
+            if deadline and now > deadline:
                 return Response({"detail": "This exam has closed."}, status=status.HTTP_409_CONFLICT)
             expires = now + timedelta(minutes=exam.time_limit)
-            if exam.closes_at:
-                expires = min(expires, exam.closes_at)  # a late starter gets only the time left in the window
+            if deadline:
+                expires = min(expires, deadline)  # a late starter gets only the time left in the window
             attempt = ExamAttempt.objects.create(exam=exam, student_id=user.pk, status="in_progress", expires_at=expires)
             try:
                 draw_paper(attempt)
