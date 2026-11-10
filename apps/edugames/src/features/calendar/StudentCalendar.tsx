@@ -17,6 +17,7 @@ import {
   Trash2
 } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
+import { GoogleCalendarSync } from "./GoogleCalendarSync";
 
 // Assuming API_BASE_URL is available from gameAPI or similar, but for consistency with teacher app, we can just use the proxy or env
 import { API_BASE_URL } from "../../shared/utils/gameAPI";
@@ -392,6 +393,8 @@ export const StudentCalendar: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <GoogleCalendarSync calendarBase={`${API_BASE_URL}/calendar`} />
 
       {/* Notifications Banner */}
       {notifications.length > 0 && (

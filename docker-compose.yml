@@ -97,6 +97,31 @@ services:
       backend:
         condition: service_healthy
 
+  # Sends calendar changes to users' Google calendars (see docs/google-calendar-setup.md)
+  calendar_worker:
+    build:
+      context: ./backend
+    container_name: eduai_calendar_worker
+    restart: unless-stopped
+    env_file:
+      - path: ./backend/.env
+        required: false
+    command: python manage.py sync_google_calendars --watch
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DJANGO_DEBUG: "True"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      USE_SQLITE_FALLBACK: "False"
+      DATABASE_URL: postgres://eduai:eduai_dev_password@postgres:5432/eduai_suite
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
   eduai:
     build:
       context: ./apps
