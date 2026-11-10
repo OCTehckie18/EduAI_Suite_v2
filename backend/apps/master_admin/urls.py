@@ -1,6 +1,9 @@
 from django.urls import path
 
 from .university_views import UniversityDetailView, UniversityLogoUploadView
+from .staff_roster_views import (
+    StaffRosterDetailView, StaffRosterImportView, StaffRosterListView, StaffRosterTemplateView,
+)
 from .roster_views import RosterDetailView, RosterImportView, RosterListView, RosterTemplateView
 from .views import (
     CampusDetailView,
@@ -29,6 +32,10 @@ urlpatterns = [
          name="master-admin-teacher-reject"),
     path("roster/", RosterListView.as_view(), name="master-admin-roster"),
     path("roster/import/", RosterImportView.as_view(), name="master-admin-roster-import"),
+    path("staff-roster/", StaffRosterListView.as_view(), name="master-admin-staff-roster"),
+    path("staff-roster/import/", StaffRosterImportView.as_view(), name="master-admin-staff-roster-import"),
+    path("staff-roster/template/", StaffRosterTemplateView.as_view(), name="master-admin-staff-roster-template"),
+    path("staff-roster/<int:pk>/", StaffRosterDetailView.as_view(), name="master-admin-staff-roster-detail"),
     path("roster/template/", RosterTemplateView.as_view(), name="master-admin-roster-template"),
     path("roster/<int:pk>/", RosterDetailView.as_view(), name="master-admin-roster-detail"),
     path("university/", UniversityDetailView.as_view(), name="master-admin-university"),

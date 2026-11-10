@@ -34,9 +34,12 @@ export function ApprovalsPanel({ search, onChanged }: { search: string; onChange
 
   const decide = async (row: TeacherApplication, decision: "approve" | "reject") => {
     let body: string | undefined;
+    let addToRoster = false;
     if (decision === "approve") {
       const ok = await confirm({ title: `Approve ${row.name}?`, message: `${row.email} will be able to use TeacherBuddy as a teacher${row.department ? ` for ${row.department}` : ""}.`, confirmLabel: "Approve" });
       if (!ok) return;
+      addToRoster = row.profile_complete && Boolean(row.emp_no) && await confirm({ title: `Also add ${row.name} to the teacher roster?`, message: "Listed teachers are approved automatically whenever they sign in. Choose Cancel to approve without listing them.", confirmLabel: "Add to roster" }) === true;
+      body = JSON.stringify({ add_to_roster: addToRoster });
     } else {
       const reason = await confirm({ title: `Reject ${row.name}?`, message: "They will see your reason on their waiting screen.", confirmLabel: "Reject", tone: "danger", input: { label: "Reason (optional)", placeholder: "For example: not on the staff list", multiline: true } });
       if (reason === false) return;
@@ -44,8 +47,8 @@ export function ApprovalsPanel({ search, onChanged }: { search: string; onChange
     }
     setBusyId(row.id);
     try {
-      await requestJson(`${API_ENDPOINTS.MASTER_ADMIN}/teacher-approvals/${row.id}/${decision}/`, { method: "POST", body });
-      toast.success(decision === "approve" ? `${row.name} approved.` : `${row.name} rejected.`);
+      const saved = await requestJson<{ added_to_roster?: boolean }>(`${API_ENDPOINTS.MASTER_ADMIN}/teacher-approvals/${row.id}/${decision}/`, { method: "POST", body });
+      toast.success(decision === "approve" ? `${row.name} approved${addToRoster ? (saved.added_to_roster ? " and added to the roster" : ", but not added to the roster: that email or employee number is already listed") : ""}.` : `${row.name} rejected.`);
       await load();
       onChanged();
     } catch (err) {
@@ -59,7 +62,7 @@ export function ApprovalsPanel({ search, onChanged }: { search: string; onChange
 
   return (
     <PanelCard>
-      <PanelHeader title="Teacher applications" subtitle="Teachers sign in on TeacherBuddy, fill in their profile and wait here until you approve them." actions={<Chips value={status} options={FILTERS} onChange={setStatus} />} />
+      <PanelHeader title="Teacher applications" subtitle="Teachers who are on the roster below are approved automatically. Anyone else signs in on TeacherBuddy, fills in their profile and waits here until you approve them." actions={<Chips value={status} options={FILTERS} onChange={setStatus} />} />
       {error && <div className="mb-4"><ErrorState message={error} onRetry={() => void load()} /></div>}
       {rows === null ? <SkeletonRows rows={4} cols={4} /> : rows.length === 0 ? (
         <EmptyState icon={<UserCheck className="h-5 w-5" />} title={status === "pending" ? "No applications are waiting" : `No ${status} teachers`} hint={status === "pending" ? "New teacher sign-ups on TeacherBuddy will appear here." : undefined} />

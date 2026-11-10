@@ -107,3 +107,26 @@ class AdmittedStudent(TimeStampedModel):
     def save(self, *args, **kwargs):
         self.email = (self.email or "").strip().lower()
         super().save(*args, **kwargs)
+
+
+class AdmittedStaff(TimeStampedModel):
+    """A teacher the university has listed. A listed teacher is approved when they sign in."""
+
+    emp_no = models.CharField(max_length=50, unique=True)
+    email = models.EmailField(unique=True)
+    name = models.CharField(max_length=150, blank=True)
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="admitted_staff")
+    designation = models.CharField(max_length=100, blank=True)
+    user = models.OneToOneField(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="staff_record"
+    )
+
+    class Meta:
+        ordering = ["emp_no"]
+
+    def __str__(self):
+        return f"{self.emp_no} ({self.email})"
+
+    def save(self, *args, **kwargs):
+        self.email = (self.email or "").strip().lower()
+        super().save(*args, **kwargs)
