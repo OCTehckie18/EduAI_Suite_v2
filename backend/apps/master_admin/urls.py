@@ -6,6 +6,7 @@ from .views import (
     CampusDetailView,
     CampusSummaryView,
     MasterAdminOverviewView,
+    PlacementOptionsView,
     RecycleBinListView,
     RecycleBinRestoreView,
     TeacherApprovalDecisionView,
@@ -17,6 +18,7 @@ from .views import (
 urlpatterns = [
     path("campuses/", CampusSummaryView.as_view(), name="master-admin-campuses"),
     path("campuses/<int:pk>/", CampusDetailView.as_view(), name="master-admin-campus-detail"),
+    path("users/placement-options/", PlacementOptionsView.as_view(), name="master-admin-placement-options"),
     path("users/", UserDirectoryView.as_view(), name="master-admin-users"),
     path("users/<int:pk>/", UserDirectoryDetailView.as_view(), name="master-admin-user-detail"),
     path("teacher-approvals/", TeacherApprovalListView.as_view(), name="master-admin-teacher-approvals"),
