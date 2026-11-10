@@ -247,3 +247,85 @@ class LinkingExistingAccountsTests(APITestCase):
         self.student()
         entry = admit("asha@example.com", "2641001", section=self.section_a)
         self.assertIsNone(link_existing_account(entry))
+
+
+class RosterDownloadTests(APITestCase):
+    """The download holds the current roster, so new students are added below it."""
+
+    def setUp(self):
+        self.section_a, self.section_b = build_structure()
+        self.master = User.objects.create_user(email="m@x.com", password="pw", role="MASTER_ADMIN")
+        self.client.force_authenticate(self.master)
+
+    def download(self):
+        response = self.client.get("/api/v1/master-admin/roster/template/")
+        self.assertEqual(response.status_code, 200)
+        return response
+
+    def sheets(self, response):
+        import io
+        from openpyxl import load_workbook
+        return load_workbook(io.BytesIO(response.content), data_only=True)
+
+    def upload(self, response, workbook=None):
+        import io
+        buffer = io.BytesIO()
+        if workbook is None:
+            buffer.write(response.content)
+        else:
+            workbook.save(buffer)
+        file = SimpleUploadedFile("roster.xlsx", buffer.getvalue())
+        return self.client.post("/api/v1/master-admin/roster/import/", {"file": file}, format="multipart").json()
+
+    def test_download_lists_every_student_with_codes_that_resolve_back(self):
+        admit("a@x.com", "R1", name="Asha", section=self.section_a)
+        admit("b@x.com", "R2", name="Ben", section=self.section_b)
+        workbook = self.sheets(self.download())
+        rows = list(workbook["Admitted students"].values)
+        self.assertEqual(rows[1], ("R1", "Asha", "a@x.com", "CEN", "SOS", "CSE", "BCA", "2026-29", "A"))
+        self.assertEqual(rows[2][8], "B")
+        self.assertEqual(len(rows), 3)
+
+    def test_uploading_the_download_unchanged_changes_nothing(self):
+        admit("a@x.com", "R1", name="Asha", section=self.section_a)
+        admit("b@x.com", "R2", name="Ben", section=self.section_b)
+        result = self.upload(self.download())
+        self.assertEqual((result["created"], result["updated"], result["unchanged"], result["errors"]), (0, 0, 2, []))
+
+    def test_adding_rows_to_the_download_creates_only_those(self):
+        admit("a@x.com", "R1", section=self.section_a)
+        workbook = self.sheets(self.download())
+        sheet = workbook["Admitted students"]
+        sheet.append(["R2", "Ben", "b@x.com", "CEN", "SOS", "CSE", "BCA", "2026-29", "B"])
+        sheet.append(["R3", "Cy", "c@x.com", "CEN", "SOS", "CSE", "BCA", "2026-29", "A"])
+        result = self.upload(None, workbook)
+        self.assertEqual((result["created"], result["unchanged"], result["errors"]), (2, 1, []))
+        self.assertEqual(AdmittedStudent.objects.count(), 3)
+
+    def test_removing_a_row_from_the_file_keeps_the_student(self):
+        admit("a@x.com", "R1", section=self.section_a)
+        admit("b@x.com", "R2", section=self.section_b)
+        workbook = self.sheets(self.download())
+        workbook["Admitted students"].delete_rows(2)
+        self.upload(None, workbook)
+        self.assertEqual(AdmittedStudent.objects.count(), 2)
+
+    def test_guide_sheet_is_ignored_on_upload_and_sample_is_never_imported(self):
+        workbook = self.sheets(self.download())
+        self.assertIn("How to fill this in", workbook.sheetnames)
+        self.assertEqual(workbook.sheetnames[0], "Admitted students")
+        self.assertEqual(len(list(workbook["Admitted students"].values)), 1)  # empty roster: header only
+        result = self.upload(None, workbook)
+        self.assertEqual((result["created"], result["errors"]), (0, []))
+        self.assertFalse(AdmittedStudent.objects.exists())
+
+    def test_download_is_audited_and_admin_only(self):
+        from apps.core.models import ActionHistory
+
+        admit("a@x.com", "R1", section=self.section_a)
+        self.download()
+        log = ActionHistory.objects.get(action="download_student_roster")
+        self.assertEqual(log.metadata_json["rows"], 1)
+        for user in (User.objects.create_user(email="t@x.com", role="TEACHER"), User.objects.create_user(email="s@x.com", role="STUDENT")):
+            self.client.force_authenticate(user)
+            self.assertEqual(self.client.get("/api/v1/master-admin/roster/template/").status_code, 403)

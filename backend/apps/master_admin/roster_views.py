@@ -92,11 +92,16 @@ class RosterTemplateView(APIView):
     permission_classes = [IsAuthenticated, IsMasterAdmin]
 
     def get(self, request):
+        from django.utils import timezone
+
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        response["Content-Disposition"] = 'attachment; filename="admitted_students_template.xlsx"'
-        roster.template_workbook().save(response)
+        filename = f"admitted_students_{timezone.localdate().isoformat()}.xlsx"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        workbook, count = roster.roster_workbook()
+        workbook.save(response)
+        _record_admin_action(request, "download_student_roster", "accounts.admittedstudent", {"rows": count})
         return response
 
 
