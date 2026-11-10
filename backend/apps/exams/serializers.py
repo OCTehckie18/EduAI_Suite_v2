@@ -3,6 +3,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer, exam_availability
+from .paper import attempt_questions, paper_total, pool_groups
 
 
 class ExamChoiceSerializer(serializers.ModelSerializer):
@@ -53,12 +54,27 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
     student_email = serializers.SerializerMethodField()
     remaining_seconds = serializers.SerializerMethodField()
     exam = serializers.SerializerMethodField()
+    paper = serializers.SerializerMethodField()
 
     class Meta:
         model = ExamAttempt
         fields = [
             "id", "student_id", "student_name", "student_email", "score", "earned_points", "total_points",
             "status", "flag_reason", "start_time", "end_time", "expires_at", "remaining_seconds", "answers", "exam",
+            "paper",
+        ]
+
+    def get_paper(self, attempt):
+        """The questions this student sits, in their order (no answer key). Only while the attempt runs."""
+        if not self.context.get("include_paper") or attempt.status != "in_progress":
+            return None
+        return [
+            {
+                "id": q.id, "question_text": q.question_text, "question_type": q.question_type, "points": points,
+                "order": position, "word_limit": q.word_limit,
+                "choices": [{"id": c.id, "choice_text": c.choice_text} for c in choices],
+            }
+            for position, (q, points, choices) in enumerate(attempt_questions(attempt))
         ]
 
     def _student(self, attempt):
@@ -90,15 +106,15 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
         exam = attempt.exam
         manages = bool(self.context.get("viewer_manages"))
         questions = []
-        for q in exam.questions.all():
+        for position, (q, points, choices) in enumerate(attempt_questions(attempt)):
             item = {
                 "id": q.id,
                 "question_text": q.question_text,
                 "question_type": q.question_type,
-                "points": q.points,
-                "order": q.order,
+                "points": points,
+                "order": position,
                 "word_limit": q.word_limit,
-                "choices": [{"id": c.id, "choice_text": c.choice_text, "is_correct": c.is_correct} for c in q.choices.all()],
+                "choices": [{"id": c.id, "choice_text": c.choice_text, "is_correct": c.is_correct} for c in choices],
             }
             if manages:  # the answer key for written questions is the teacher's only
                 item["accepted_answers"] = q.accepted_answers
@@ -114,9 +130,34 @@ class ExamSerializer(serializers.ModelSerializer):
     questions = ExamQuestionSerializer(many=True, required=False)
     attempts = serializers.SerializerMethodField()
     availability = serializers.SerializerMethodField()
+    question_count = serializers.SerializerMethodField()
+    paper_total = serializers.SerializerMethodField()
+    pool_groups = serializers.SerializerMethodField()
 
     def get_availability(self, exam):
         return exam_availability(exam)
+
+    def get_question_count(self, exam):
+        """Questions on one student's paper."""
+        if exam.pattern:
+            return sum(section["count"] for section in exam.pattern)
+        return len(exam.questions.all())
+
+    def get_paper_total(self, exam):
+        return paper_total(exam.pattern, list(exam.questions.all()))
+
+    def get_pool_groups(self, exam):
+        if self.context.get("hide_answers"):
+            return None  # students never see how the pool is made up
+        return pool_groups(list(exam.questions.all()))
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if self.context.get("hide_answers") and instance.pattern:
+            # A student must not see the whole pool: their paper arrives when they start.
+            data["questions"] = []
+            data["pattern"] = None
+        return data
 
     def get_attempts(self, exam):
         attempts = exam.attempts.all()
@@ -137,6 +178,10 @@ class ExamSerializer(serializers.ModelSerializer):
             "time_limit",
             "attempts_allowed",
             "randomize_questions",
+            "pattern",
+            "question_count",
+            "paper_total",
+            "pool_groups",
             "opens_at",
             "closes_at",
             "availability",

@@ -16,6 +16,7 @@ from apps.core.services import notify
 from services.groq_service import DEFAULT_MODEL, GroqService
 
 from .models import ExamAnswer, ExamAttempt, ExamQuestion
+from .paper import attempt_points
 from .serializers import ExamAttemptSerializer
 from .views import _bad, _can_manage, _finish, _forbidden
 
@@ -63,7 +64,7 @@ def finish_if_fully_marked(attempt):
     if waiting:
         return False
     earned = sum(a.awarded_points or 0.0 for a in answers)
-    total = sum(a.question.points for a in answers)
+    total = sum(attempt_points(attempt).values())
     score = round(earned / total * 100, 1) if total > 0 else 0.0
     _finish(attempt, score=score, earned=earned, total=total)
     return True
@@ -83,14 +84,16 @@ class ExamAttemptMarkView(APIView):
             if problem:
                 return problem
             answers = {a.question_id: a for a in attempt.answers.select_related("question")}
+            drawn_points = attempt_points(attempt)
             for question_id, points, feedback in marks:
                 answer = answers.get(question_id)
                 if answer is None:
                     return _bad("A mark refers to a question that is not part of this attempt.")
                 if answer.question.question_type not in MARKABLE:
                     return _bad("Multiple-choice questions are marked automatically.")
-                if not 0 <= points <= answer.question.points:
-                    return _bad(f"Marks for a question must be between 0 and {answer.question.points:g}.")
+                out_of = drawn_points.get(question_id, answer.question.points)
+                if not 0 <= points <= out_of:
+                    return _bad(f"Marks for a question must be between 0 and {out_of:g}.")
             for question_id, points, feedback in marks:
                 answer = answers[question_id]
                 answer.awarded_points = points
@@ -120,6 +123,7 @@ class ExamAttemptSuggestMarkView(APIView):
             return _forbidden()
         answer = get_object_or_404(ExamAnswer.objects.select_related("question"), attempt=attempt, question_id=question_id)
         question = answer.question
+        out_of = attempt_points(attempt).get(question.pk, question.points)
         if question.question_type != ExamQuestion.Type.LONG_ANSWER:
             return _bad("Only long answers can get a suggested mark.")
         if not answer.text_answer.strip():
@@ -129,7 +133,7 @@ class ExamAttemptSuggestMarkView(APIView):
             return Response({"detail": "AI marking is not set up on this server."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         prompt = (
             "You help a teacher mark a written exam answer. Give a fair mark and one or two sentences of feedback "
-            f"addressed to the student. The question is worth {question.points:g} marks. Return ONLY JSON: "
+            f"addressed to the student. The question is worth {out_of:g} marks. Return ONLY JSON: "
             '{"points": number, "feedback": string}.\n\n'
             f"Question: {question.question_text}\n"
             f"Marking notes from the teacher: {question.answer_guide or '(none given)'}\n"
@@ -147,5 +151,5 @@ class ExamAttemptSuggestMarkView(APIView):
             return Response({"detail": "The AI service could not suggest a mark right now."}, status=status.HTTP_502_BAD_GATEWAY)
         if not math.isfinite(points):
             return Response({"detail": "The AI service could not suggest a mark right now."}, status=status.HTTP_502_BAD_GATEWAY)
-        points = round(min(max(points, 0.0), question.points), 2)
+        points = round(min(max(points, 0.0), out_of), 2)
         return Response({"question_id": question.pk, "points": points, "feedback": str(payload.get("feedback") or "")[:MAX_FEEDBACK]})

@@ -14,6 +14,8 @@ class Exam(models.Model):
     time_limit = models.IntegerField(default=60)
     attempts_allowed = models.IntegerField(default=1)
     randomize_questions = models.BooleanField(default=False)
+    # How a paper is drawn from the pool: [{"type": "mcq", "marks": 1, "count": 4}, ...]. Empty: every question.
+    pattern = models.JSONField(default=list, blank=True)
     opens_at = models.DateTimeField(null=True, blank=True)  # students cannot start before this
     closes_at = models.DateTimeField(null=True, blank=True)  # nor after this
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.DRAFT)
@@ -78,6 +80,24 @@ class ExamAttempt(models.Model):
 
     def __str__(self):
         return f"Attempt by student {self.student_id} on {self.exam}"
+
+
+class AttemptQuestion(models.Model):
+    """One question on one student's paper, in the order they see it.
+
+    ``points`` is copied from the question when the paper is drawn, so editing a question later never
+    changes a finished paper. ``choice_order`` is the order of its choice ids for this student.
+    """
+
+    attempt = models.ForeignKey(ExamAttempt, on_delete=models.CASCADE, related_name="paper")
+    question = models.ForeignKey(ExamQuestion, on_delete=models.CASCADE, related_name="drawn_in")
+    position = models.IntegerField(default=0)
+    points = models.FloatField(default=1.0)
+    choice_order = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+        constraints = [models.UniqueConstraint(fields=["attempt", "question"], name="unique_question_per_attempt")]
 
 
 class ExamAnswer(models.Model):

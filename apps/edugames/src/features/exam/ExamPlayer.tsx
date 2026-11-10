@@ -35,6 +35,7 @@ interface Exam {
   time_limit: number;
   randomize_questions: boolean;
   questions: Question[];
+  question_count?: number;
 }
 
 // What the student sees when the server ends their attempt, keyed by the event the player detected.
@@ -55,8 +56,11 @@ interface ExamPlayerProps {
 
 export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClose }) => {
   const navigate = useNavigate();
-  // The server already put the questions (and choices) in this student's order; keep it as it is.
-  const displayQuestions = exam.questions;
+  // The student's own paper arrives when the attempt starts (drawn from the exam's pool, in their order).
+  // Until then only the number of questions is known, so the intro is shown and the paper is empty.
+  const [paper, setPaper] = useState<Question[]>(exam.questions ?? []);
+  const displayQuestions = paper;
+  const questionTotal = displayQuestions.length || exam.question_count || 0;
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   // Fill in the blanks (one line per blank) and long answers, by question id.
@@ -235,6 +239,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
         throw new Error(errorData.detail || "Failed to start attempt");
       }
       const data = await response.json();
+      if (Array.isArray(data.paper) && data.paper.length > 0) setPaper(data.paper);
       attemptIdRef.current = data.id;
       setAttemptId(data.id);
       try {
@@ -365,7 +370,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  if (!exam || !displayQuestions || displayQuestions.length === 0) {
+  if (!exam || (displayQuestions.length === 0 && !(phase === "intro" && questionTotal > 0))) {
     return (
       <div className="fixed inset-0 z-50 bg-white flex items-center justify-center p-6">
         <GlassCard className="max-w-md w-full text-center p-8 space-y-4">
@@ -413,7 +418,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
               <Maximize size={30} />
             </div>
             <h2 className="text-2xl font-bold text-slate-800">{exam.title}</h2>
-            <p className="text-sm text-slate-500 mt-1">{displayQuestions.length} questions · {exam.time_limit} minutes</p>
+            <p className="text-sm text-slate-500 mt-1">{questionTotal} questions · {exam.time_limit} minutes</p>
           </div>
 
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-2">

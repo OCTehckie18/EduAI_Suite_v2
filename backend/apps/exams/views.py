@@ -1,5 +1,6 @@
 import random
 from datetime import timedelta
+from types import SimpleNamespace
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -16,7 +17,10 @@ from apps.core.services import course_student_ids, notify, record_student_activi
 from .grading import (
     MAX_GUIDE, MAX_TEXT_ANSWER, MAX_WORD_LIMIT, clean_accepted_answers, count_blanks, fill_blank_is_correct,
 )
-from .models import Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer
+from .models import AttemptQuestion, Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer
+from .paper import (
+    PoolTooSmall, attempt_questions, attempt_total, clean_pattern, draw_paper, pattern_shortfalls,
+)
 from .serializers import ExamSerializer, ExamAttemptSerializer
 
 ADMIN_ROLES = {"MASTER_ADMIN"}
@@ -124,7 +128,9 @@ def _clean_questions(raw):
                     word_limit, error = _whole_number(item.get("word_limit"), 1, MAX_WORD_LIMIT, f"{label}: the word limit")
                     if error:
                         return None, error
+        question_id = item.get("id")
         cleaned.append({
+            "id": question_id if isinstance(question_id, int) and not isinstance(question_id, bool) else None,
             "question_text": text,
             "question_type": kind,
             "points": points,
@@ -135,6 +141,59 @@ def _clean_questions(raw):
             "word_limit": word_limit,
         })
     return cleaned, None
+
+
+def _as_pool(questions):
+    """Cleaned question dicts as objects the pool helpers understand."""
+    return [SimpleNamespace(question_type=q["question_type"], points=q["points"]) for q in questions]
+
+
+def _drawn_ids(exam):
+    """Ids of questions that have ever been on a student's paper (or answered, for older attempts)."""
+    ids = set(AttemptQuestion.objects.filter(attempt__exam=exam).values_list("question_id", flat=True))
+    ids |= set(ExamAnswer.objects.filter(attempt__exam=exam).values_list("question_id", flat=True))
+    return ids
+
+
+def _same_question(question, data):
+    """Does the stored question match the cleaned data exactly?"""
+    stored_choices = [(c.choice_text, c.is_correct) for c in question.choices.order_by("pk")]
+    new_choices = [(c["choice_text"], c["is_correct"]) for c in data["choices"]]
+    return (
+        question.question_text == data["question_text"] and question.question_type == data["question_type"]
+        and question.points == data["points"] and stored_choices == new_choices
+        and (question.accepted_answers or []) == (data.get("accepted_answers") or [])
+        and (question.answer_guide or "") == (data.get("answer_guide") or "")
+        and question.word_limit == data.get("word_limit")
+    )
+
+
+def _sync_pool(exam, cleaned):
+    """Change the pool of an exam that already has attempts.
+
+    New questions may always be added (to top the pool up). A question that has been on a paper cannot be
+    edited or removed: it returns a message naming it. Questions never drawn can change freely.
+    """
+    drawn = _drawn_ids(exam)
+    existing = {q.pk: q for q in exam.questions.prefetch_related("choices")}
+    sent_ids = {q["id"] for q in cleaned if q["id"] in existing}
+    for question_id in drawn & set(existing):
+        stored = existing[question_id]
+        label = (stored.question_text or "")[:60]
+        if question_id not in sent_ids:
+            return f"The question \"{label}\" has already been on a student's paper, so it cannot be removed."
+        data = next(q for q in cleaned if q["id"] == question_id)
+        if not _same_question(stored, data):
+            return f"The question \"{label}\" has already been on a student's paper, so it cannot be changed. Add a new question instead."
+    for question_id in set(existing) - sent_ids - drawn:
+        existing[question_id].delete()
+    for position, data in enumerate(cleaned):
+        if data["id"] in existing and data["id"] in drawn:
+            continue
+        if data["id"] in existing:  # never drawn: replace it
+            existing[data["id"]].delete()
+        _save_questions(exam, [{**data, "order": data.get("order", position)}])
+    return None
 
 
 def _announce_exam(exam):
@@ -164,7 +223,8 @@ def _clean_settings(data, partial):
             return None, error
         cleaned["attempts_allowed"] = value
     if "randomize_questions" in data or not partial:
-        cleaned["randomize_questions"] = bool(data.get("randomize_questions", False))
+        # New exams shuffle each student's paper unless the teacher switches it off.
+        cleaned["randomize_questions"] = bool(data.get("randomize_questions", True))
     for field, label in (("opens_at", "The opening time"), ("closes_at", "The closing time")):
         if field in data:
             raw = data.get(field)
@@ -231,14 +291,15 @@ def _finish(attempt, *, score, earned, total, final_status="submitted", flag_rea
     )
 
 
-def _total_points(exam):
-    return sum(q.points for q in exam.questions.all())
+def _total_points(attempt):
+    """Marks of the attempt's own paper (its drawn questions, or every question for older attempts)."""
+    return attempt_total(attempt)
 
 
 def _expire_if_overdue(attempt):
     """Close an attempt whose time ran out long ago (the student never handed it in): it scores 0."""
     if attempt.status == "in_progress" and attempt.expires_at and timezone.now() > attempt.expires_at + timedelta(seconds=GRACE_SECONDS):
-        _finish(attempt, score=0.0, earned=0.0, total=_total_points(attempt.exam), final_status="expired")
+        _finish(attempt, score=0.0, earned=0.0, total=_total_points(attempt), final_status="expired")
         return True
     return False
 
@@ -299,15 +360,24 @@ class ExamListCreateView(APIView):
         questions, error = _clean_questions(data.get("questions", []))
         if error:
             return _bad(error)
+        pattern, error = clean_pattern(data.get("pattern"))
+        if error:
+            return _bad(error)
         if settings["status"] == Exam.Status.PUBLISHED and not questions:
             return _bad("Add at least one question before publishing the exam.")
+        if settings["status"] == Exam.Status.PUBLISHED and pattern_shortfalls(pattern, _as_pool(questions)):
+            return _bad("The question pool is too small for the paper pattern.", problems=pattern_shortfalls(pattern, _as_pool(questions)))
 
         with transaction.atomic():
-            exam = Exam.objects.create(course=classroom, **settings)
+            exam = Exam.objects.create(course=classroom, pattern=pattern, **settings)
             _save_questions(exam, questions)
         if exam.status == Exam.Status.PUBLISHED:
             _announce_exam(exam)
         return Response(ExamSerializer(exam).data, status=status.HTTP_201_CREATED)
+
+
+class _PoolConflict(Exception):
+    pass
 
 
 class ExamDetailView(APIView):
@@ -343,26 +413,47 @@ class ExamDetailView(APIView):
             return _bad(error)
         questions = None
         if "questions" in data:
-            if exam.attempts.exists():
-                return Response(
-                    {"detail": "Students have already attempted this exam, so its questions can no longer be changed."},
-                    status=status.HTTP_409_CONFLICT,
-                )
             questions, error = _clean_questions(data["questions"])
             if error:
                 return _bad(error)
+        pattern = None
+        if "pattern" in data:
+            pattern, error = clean_pattern(data["pattern"])
+            if error:
+                return _bad(error)
+            if pattern != (exam.pattern or []) and exam.attempts.exists():
+                return Response(
+                    {"detail": "Students have already attempted this exam, so its paper pattern can no longer be changed."},
+                    status=status.HTTP_409_CONFLICT,
+                )
         publishing = settings.get("status") == Exam.Status.PUBLISHED
         if publishing and not (questions if questions is not None else exam.questions.exists()):
             return _bad("Add at least one question before publishing the exam.")
+        final_status = settings.get("status", exam.status)
+        if final_status == Exam.Status.PUBLISHED:
+            pool = _as_pool(questions) if questions is not None else list(exam.questions.all())
+            problems = pattern_shortfalls(pattern if pattern is not None else (exam.pattern or []), pool)
+            if problems:
+                return _bad("The question pool is too small for the paper pattern.", problems=problems)
 
         was_published = exam.status == Exam.Status.PUBLISHED
-        with transaction.atomic():
-            for field, value in settings.items():
-                setattr(exam, field, value)
-            exam.save()
-            if questions is not None:
-                exam.questions.all().delete()
-                _save_questions(exam, questions)
+        try:
+            with transaction.atomic():
+                for field, value in settings.items():
+                    setattr(exam, field, value)
+                if pattern is not None:
+                    exam.pattern = pattern
+                exam.save()
+                if questions is not None:
+                    if exam.attempts.exists():
+                        conflict = _sync_pool(exam, questions)
+                        if conflict:
+                            raise _PoolConflict(conflict)
+                    else:
+                        exam.questions.all().delete()
+                        _save_questions(exam, questions)
+        except _PoolConflict as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
         if publishing and not was_published:
             _announce_exam(exam)
         return Response(ExamSerializer(exam).data)
@@ -379,6 +470,10 @@ class ExamDetailView(APIView):
             return _bad(error)
         if settings["status"] == Exam.Status.PUBLISHED and not exam.questions.exists():
             return _bad("Add at least one question before publishing the exam.")
+        if settings["status"] == Exam.Status.PUBLISHED:
+            problems = pattern_shortfalls(exam.pattern or [], list(exam.questions.all()))
+            if problems:
+                return _bad("The question pool is too small for the paper pattern.", problems=problems)
         was_published = exam.status == Exam.Status.PUBLISHED
         exam.status = settings["status"]
         exam.save(update_fields=["status"])
@@ -417,7 +512,7 @@ class ExamAttemptStartView(APIView):
                 _expire_if_overdue(attempt)
             in_progress = next((a for a in previous if a.status == "in_progress"), None)
             if in_progress:
-                return Response(ExamAttemptSerializer(in_progress).data, status=status.HTTP_200_OK)
+                return Response(ExamAttemptSerializer(in_progress, context={"include_paper": True}).data, status=status.HTTP_200_OK)
             if len(previous) >= exam.attempts_allowed:
                 return Response({"detail": "No attempts remaining for this exam."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -430,7 +525,15 @@ class ExamAttemptStartView(APIView):
             if exam.closes_at:
                 expires = min(expires, exam.closes_at)  # a late starter gets only the time left in the window
             attempt = ExamAttempt.objects.create(exam=exam, student_id=user.pk, status="in_progress", expires_at=expires)
-        return Response(ExamAttemptSerializer(attempt).data, status=status.HTTP_201_CREATED)
+            try:
+                draw_paper(attempt)
+            except PoolTooSmall:
+                transaction.set_rollback(True)
+                return Response(
+                    {"detail": "This exam cannot be started right now because its question pool is too small. Please tell your teacher."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+        return Response(ExamAttemptSerializer(attempt, context={"include_paper": True}).data, status=status.HTTP_201_CREATED)
 
 
 class ExamAttemptSubmitView(APIView):
@@ -455,7 +558,9 @@ class ExamAttemptSubmitView(APIView):
                     status=status.HTTP_409_CONFLICT,
                 )
 
-            questions = {q.pk: q for q in attempt.exam.questions.prefetch_related("choices")}
+            paper = attempt_questions(attempt)
+            questions = {question.pk: question for question, _, _ in paper}
+            drawn_points = {question.pk: points for question, points, _ in paper}
             chosen = {}
             for ans in answers_data:
                 if not isinstance(ans, dict):
@@ -484,15 +589,16 @@ class ExamAttemptSubmitView(APIView):
             earned_points = 0.0
             needs_marking = False
             for question in questions.values():
-                total_points += question.points
+                points = drawn_points[question.pk]
+                total_points += points
                 selected, text = chosen.get(question.pk, (None, ""))
                 awarded = 0.0
                 if question.question_type == ExamQuestion.Type.MCQ:
                     if selected is not None and any(c.pk == selected and c.is_correct for c in question.choices.all()):
-                        awarded = question.points
+                        awarded = points
                 elif question.question_type == ExamQuestion.Type.FILL_BLANK:
                     if fill_blank_is_correct(question.accepted_answers, text):
-                        awarded = question.points
+                        awarded = points
                 elif text.strip():
                     awarded = None  # a written answer waits for the teacher; a blank one is simply 0
                     needs_marking = True
@@ -528,7 +634,7 @@ class ExamAttemptViolationView(APIView):
             if attempt.student_id != request.user.pk:
                 return _forbidden()
             if attempt.status == "in_progress":
-                _finish(attempt, score=0.0, earned=0.0, total=_total_points(attempt.exam), final_status="flagged", flag_reason=VIOLATIONS[kind])
+                _finish(attempt, score=0.0, earned=0.0, total=_total_points(attempt), final_status="flagged", flag_reason=VIOLATIONS[kind])
         return Response(ExamAttemptSerializer(attempt).data)
 
 
