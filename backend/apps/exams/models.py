@@ -82,6 +82,29 @@ class ExamAttempt(models.Model):
         return f"Attempt by student {self.student_id} on {self.exam}"
 
 
+class ExamReset(models.Model):
+    """A teacher cleared a student's attempt (a power cut, a crash, a wrongly flagged exam).
+
+    The attempt itself is deleted so that the flag, the zero and the used attempt all disappear
+    together; this record keeps the evidence: who reset it, why, and what the attempt held.
+    """
+
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name="resets")
+    student_id = models.IntegerField(db_index=True)
+    reset_by = models.ForeignKey("accounts.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    reason = models.CharField(max_length=500)
+    # A personal deadline for the student, for when the exam window has already closed.
+    allowed_until = models.DateTimeField(null=True, blank=True)
+    snapshot = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Reset of student {self.student_id} on {self.exam}"
+
+
 class AttemptQuestion(models.Model):
     """One question on one student's paper, in the order they see it.
 
@@ -114,6 +137,15 @@ class ExamAnswer(models.Model):
 
     def __str__(self):
         return f"Answer for Q{self.question_id}: {self.selected_choice_id or self.text_answer[:30]}"
+
+
+def personal_deadline(exam, student_id, now=None):
+    """The student's own deadline from their latest reset, while it is still in the future."""
+    from django.utils import timezone
+
+    now = now or timezone.now()
+    latest = ExamReset.objects.filter(exam=exam, student_id=student_id).exclude(allowed_until=None).order_by("-created_at").first()
+    return latest.allowed_until if latest and latest.allowed_until > now else None
 
 
 def exam_availability(exam, now=None):

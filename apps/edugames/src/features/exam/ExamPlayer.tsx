@@ -428,6 +428,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
               <li>Switching tabs, opening a new tab or window, switching windows or desktops, pressing Esc to leave full screen, or refreshing the page <strong>ends the exam immediately</strong>.</li>
               <li>That attempt is recorded as <strong>cheating: failed, score 0</strong>, and you cannot retake the exam.</li>
               <li>Close other programs and silence notifications first, so nothing steals focus.</li>
+              <li>If something goes wrong on your computer, such as a power cut or a crash, tell your teacher. They can reset your attempt.</li>
             </ul>
           </div>
 

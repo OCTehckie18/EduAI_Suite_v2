@@ -53,6 +53,7 @@ class StudentRisk:
     missing_items: list = field(default_factory=list)  # {title, due, course_id, assignment_id}
     late: list = field(default_factory=list)
     flags: list = field(default_factory=list)
+    cleared: int = 0  # flags a teacher cleared by resetting the attempt
 
     # ---- the signals --------------------------------------------------------------
     @property
@@ -124,7 +125,8 @@ class StudentRisk:
         if parts["trend"]:
             out.append((parts["trend"], "trend", f"Marks are falling by about {abs(self.slope)} points per result over the last {min(6, len(self.results))} results."))
         if self.flags:
-            out.append((parts["integrity"], "integrity", f"{len(self.flags)} exam attempt{'s were' if len(self.flags) != 1 else ' was'} ended for leaving the exam window ({', '.join(self.flags[:2])})."))
+            out.append((parts["integrity"], "integrity", f"{len(self.flags)} exam attempt{'s were' if len(self.flags) != 1 else ' was'} ended for leaving the exam window ({', '.join(self.flags[:2])})."
+                       + (f" {self.cleared} earlier flag{'s' if self.cleared != 1 else ''} cleared by a teacher reset." if self.cleared else "")))
         out.sort(key=lambda item: -item[0])
         return [{"signal": kind, "points": round(points, 1), "text": text} for points, kind, text in out]
 
@@ -168,6 +170,7 @@ class StudentRisk:
             "late_count": len(self.late),
             "trend_slope": self.slope,
             "integrity_flags": len(self.flags),
+            "integrity_cleared": self.cleared,
             "z_score": z,
             "reasons": self.reasons(),
             "next_step": self.next_step(),
@@ -233,6 +236,12 @@ def analyse(classrooms, now=None):
             risk.flags.append(exam.title or "Exam")
         elif att.score is not None:
             risk.results.append(Result(att.end_time or att.start_time, round(att.score, 1), "exam", exam.title or "Exam", exam.course_id))
+
+    # Flagged attempts a teacher reset are gone, but the history stays visible beside the student.
+    from apps.exams.models import ExamReset
+    for reset in ExamReset.objects.filter(exam_id__in=list(exams), student_id__in=student_ids):
+        if (reset.snapshot or {}).get("status") == "flagged":
+            risks[reset.student_id].cleared += 1
 
     # OMR sheets the teacher has verified.
     for sheet in OMRSubmission.objects.filter(job__classroom_id__in=course_ids, student_id__in=student_ids, status="verified").select_related("job"):

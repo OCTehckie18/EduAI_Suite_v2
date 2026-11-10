@@ -9,7 +9,7 @@ Without a pattern the paper is every question in the pool, as before.
 import random
 from collections import Counter
 
-from .models import AttemptQuestion, ExamAnswer, ExamAttempt, ExamQuestion
+from .models import AttemptQuestion, ExamAnswer, ExamAttempt, ExamQuestion, ExamReset
 
 MAX_TOTAL_MARKS = 1000
 TYPES = ExamQuestion.Type.values
@@ -99,6 +99,9 @@ def seen_question_ids(exam, student_id, exclude_attempt_id=None):
         attempts = attempts.exclude(pk=exclude_attempt_id)
     ids = set(AttemptQuestion.objects.filter(attempt__in=attempts).values_list("question_id", flat=True))
     ids |= set(ExamAnswer.objects.filter(attempt__in=attempts).values_list("question_id", flat=True))
+    # Attempts a teacher reset are gone, but their questions were still seen: a reset must bring fresh ones.
+    for snapshot in ExamReset.objects.filter(exam=exam, student_id=student_id).values_list("snapshot", flat=True):
+        ids |= set((snapshot or {}).get("question_ids", []))
     return ids
 
 
