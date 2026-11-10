@@ -52,6 +52,8 @@ export interface DirectoryUser {
   is_active: boolean;
   campus?: { id: number; name: string } | null;
   department?: { id: number; name: string } | null;
+  section?: { id: number; name: string } | null;
+  teaching_programs?: number[];
 }
 
 export interface DeletedItem {

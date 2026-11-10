@@ -14,11 +14,19 @@ function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | 
   const toast = useToast();
   const [form, setForm] = useState({
     email: user?.email ?? "", password: "", first_name: user?.first_name ?? "", last_name: user?.last_name ?? "",
+    register_no: user?.register_no ?? "", emp_no: user?.emp_no ?? "", section: user?.section?.id ? String(user.section.id) : "",
     role: user?.role ?? "STUDENT", campus: user?.campus?.id ? String(user.campus.id) : "", department: user?.department?.id ? String(user.department.id) : "",
   });
   const [departments, setDepartments] = useState<{ id: number; label: string }[]>([]);
+  const [teaching, setTeaching] = useState<number[]>(user?.teaching_programs ?? []);
+  const [options, setOptions] = useState<{ sections: { id: number; label: string }[]; programs: { id: number; label: string; department: number }[] }>({ sections: [], programs: [] });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    requestJson<typeof options>(`${API_ENDPOINTS.MASTER_ADMIN}/users/placement-options/`).then(setOptions).catch(() => setOptions({ sections: [], programs: [] }));
+  }, [user]);
 
   useEffect(() => {
     requestJson<{ results: { id: number; name: string; school_detail?: { name: string; campus_detail?: { name: string } } }[] }>(`${API_BASE_URL}/institution/departments/?page_size=100`)
@@ -33,7 +41,12 @@ function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | 
     try {
       await requestJson(user ? `${API_ENDPOINTS.MASTER_ADMIN}/users/${user.id}/` : `${API_ENDPOINTS.MASTER_ADMIN}/users/`, {
         method: user ? "PATCH" : "POST",
-        body: JSON.stringify({ ...form, campus: form.campus ? Number(form.campus) : null, department: form.department ? Number(form.department) : null }),
+        body: JSON.stringify(user ? {
+          ...form, register_no: form.register_no, emp_no: form.emp_no,
+          campus: form.campus ? Number(form.campus) : null, department: form.department ? Number(form.department) : null,
+          ...(form.role === "STUDENT" && form.section && Number(form.section) !== user.section?.id ? { section: Number(form.section) } : {}),
+          ...(form.role === "TEACHER" ? { teaching_programs: teaching } : {}),
+        } : { ...form, campus: form.campus ? Number(form.campus) : null, department: form.department ? Number(form.department) : null }),
       });
       toast.success(user ? "User updated." : "User created.");
       onSaved();
@@ -49,7 +62,8 @@ function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | 
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
         {error && <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 sm:col-span-2">{error}</p>}
         <label className="block text-sm text-slate-700 sm:col-span-2">Email
-          <input required={!user} type="email" disabled={Boolean(user)} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} className={`${inputClass} disabled:opacity-50`} />
+          <input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} className={inputClass} />
+          {user && form.email.trim().toLowerCase() !== user.email && <span className="mt-1 block text-xs text-amber-800">This person will sign in with the new email from now on.</span>}
         </label>
         {!user && <label className="block text-sm text-slate-700 sm:col-span-2">Temporary password
           <input required type="password" autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} className={inputClass} />
@@ -77,6 +91,30 @@ function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | 
             {departments.map((department) => <option key={department.id} value={department.id}>{department.label}</option>)}
           </select>
         </label>
+        {user && form.role === "STUDENT" && <>
+          <label className="block text-sm text-slate-700">Register number
+            <input value={form.register_no} onChange={(event) => setForm({ ...form, register_no: event.target.value })} className={inputClass} />
+          </label>
+          <label className="block text-sm text-slate-700">Section <span className="text-xs text-slate-500">(sets class, program and department; the roster follows)</span>
+            <select value={form.section} onChange={(event) => setForm({ ...form, section: event.target.value })} className={inputClass}>
+              <option value="">{user.section ? "Keep " + user.section.name : "No section"}</option>
+              {options.sections.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}
+            </select>
+          </label>
+        </>}
+        {user && form.role === "TEACHER" && <>
+          <label className="block text-sm text-slate-700 sm:col-span-2">Employee number
+            <input value={form.emp_no} onChange={(event) => setForm({ ...form, emp_no: event.target.value })} className={inputClass} />
+          </label>
+          <fieldset className="sm:col-span-2">
+            <legend className="text-sm text-slate-700">Programs taught <span className="text-xs text-slate-500">(from the teacher's department)</span></legend>
+            {!form.department ? <p className="mt-1 text-xs text-slate-500">Choose a department to pick programs.</p> : <div className="mt-1 flex flex-wrap gap-2">
+              {options.programs.filter((program) => program.department === Number(form.department)).map((program) => <label key={program.id} className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800">
+                <input type="checkbox" checked={teaching.includes(program.id)} onChange={(event) => setTeaching(event.target.checked ? [...teaching, program.id] : teaching.filter((id) => id !== program.id))} />{program.label}
+              </label>)}
+            </div>}
+          </fieldset>
+        </>}
         <div className="flex justify-end gap-3 pt-2 sm:col-span-2">
           <button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:text-slate-900">Cancel</button>
           <PrimaryButton type="submit" disabled={saving}>{saving ? "Saving..." : "Save"}</PrimaryButton>

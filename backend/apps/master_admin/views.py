@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
+from django.core.validators import validate_email
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
@@ -13,6 +14,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.classrooms.models import Classroom
+from apps.accounts.models import AdmittedStudent
+from apps.accounts.roster import hierarchy_for
 from apps.core.permissions import IsMasterAdmin
 from apps.core.models import ActionHistory
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
@@ -382,8 +385,33 @@ def _user_payload(user):
             if user.department_id and user.department
             else None
         ),
+        "section": (
+            {"id": user.section_id, "name": f"{user.section.batch.name} - {user.section.name}"} if user.section_id and user.section else None
+        ),
+        "teaching_programs": [program.pk for program in user.teaching_programs.all()] if user.role == "TEACHER" else [],
         "created_at": user.created_at,
     }
+
+
+class PlacementOptionsView(APIView):
+    """Sections and programs, labelled, for the user edit form."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def get(self, request):
+        sections = Section.objects.select_related("batch__program__department__school__campus").order_by(
+            "batch__program__department__school__campus__name", "batch__program__department__name",
+            "batch__program__name", "batch__name", "name",
+        )
+        programs = Program.objects.select_related("department__school__campus").order_by("department__name", "name")
+        return Response({
+            "sections": [
+                {"id": s.pk, "label": f"{s.batch.program.department.school.campus.name} › {s.batch.program.name} › {s.batch.name} › {s.name}"}
+                for s in sections
+            ],
+            "programs": [
+                {"id": p.pk, "label": f"{p.name} ({p.department.name})", "department": p.department_id} for p in programs
+            ],
+        })
 
 
 class UserDirectoryView(APIView):
@@ -391,7 +419,7 @@ class UserDirectoryView(APIView):
 
     def get(self, request):
         User = get_user_model()
-        queryset = User.all_objects.select_related("campus", "department").order_by("email")
+        queryset = User.all_objects.select_related("campus", "department", "section__batch").prefetch_related("teaching_programs").order_by("email")
         active = request.query_params.get("active", "true").lower()
         if active == "true":
             queryset = queryset.filter(is_active=True)
@@ -465,7 +493,7 @@ class UserDirectoryDetailView(APIView):
 
     def get_object(self, pk):
         User = get_user_model()
-        return get_object_or_404(User.all_objects.select_related("campus", "department"), pk=pk)
+        return get_object_or_404(User.all_objects.select_related("campus", "department", "section__batch").prefetch_related("teaching_programs"), pk=pk)
 
     def get(self, request, pk):
         return Response(_user_payload(self.get_object(pk)))
@@ -473,6 +501,7 @@ class UserDirectoryDetailView(APIView):
     def patch(self, request, pk):
         user = self.get_object(pk)
         data = request.data
+        User = get_user_model()
         if user.pk == request.user.pk and data.get("role") not in (None, user.role):
             return Response(
                 {"detail": "You cannot change your own Master Admin role."},
@@ -481,9 +510,25 @@ class UserDirectoryDetailView(APIView):
         for field in ("first_name", "last_name", "phone_number"):
             if field in data:
                 setattr(user, field, str(data[field] or "").strip())
-        for field in ("register_no", "emp_no"):
+        original_email = user.email
+        if "email" in data:
+            email = str(data["email"] or "").strip().lower()
+            try:
+                validate_email(email)
+            except DjangoValidationError:
+                return Response({"detail": "Enter a valid email address."}, status=400)
+            if email != user.email:
+                if user.pk == request.user.pk:
+                    return Response({"detail": "You cannot change the email you are signed in with."}, status=400)
+                if User.all_objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
+                    return Response({"detail": "Another account already uses this email.", "field": "email"}, status=409)
+                user.email = email
+        for field, label in (("register_no", "register number"), ("emp_no", "employee number")):
             if field in data:
-                setattr(user, field, str(data[field] or "").strip() or None)
+                value = str(data[field] or "").strip() or None
+                if value and User.all_objects.filter(**{f"{field}__iexact": value}).exclude(pk=user.pk).exists():
+                    return Response({"detail": f"Another account already uses this {label}.", "field": field}, status=409)
+                setattr(user, field, value)
         if "role" in data:
             valid_roles = {choice[0] for choice in user.Role.choices}
             if data["role"] not in valid_roles:
@@ -518,14 +563,53 @@ class UserDirectoryDetailView(APIView):
                 user.campus = None
             else:
                 user.campus = get_object_or_404(Campus, pk=campus_id)
+        section = None
+        if data.get("section") not in (None, ""):
+            if user.role != user.Role.STUDENT:
+                return Response({"detail": "Only students belong to a section."}, status=400)
+            try:
+                section = Section.objects.select_related("batch__program__department__school__campus").get(pk=int(data["section"]))
+            except (Section.DoesNotExist, TypeError, ValueError):
+                return Response({"detail": "That section does not exist."}, status=400)
+        programs = None
+        if "teaching_programs" in data:
+            if user.role != user.Role.TEACHER:
+                return Response({"detail": "Only teachers have teaching programs."}, status=400)
+            try:
+                ids = {int(value) for value in (data["teaching_programs"] or [])}
+            except (TypeError, ValueError):
+                return Response({"detail": "Teaching programs must be a list of program ids."}, status=400)
+            programs = list(Program.objects.filter(pk__in=ids))
+            if len(programs) != len(ids):
+                return Response({"detail": "One of those programs does not exist."}, status=400)
+            if any(program.department_id != user.department_id for program in programs):
+                return Response({"detail": "A teacher can only teach programs in their own department."}, status=400)
+        entry = AdmittedStudent.objects.filter(user=user).first()
+        if section is not None:
+            for name, value in hierarchy_for(section).items():
+                setattr(user, name, value)
+        if entry is not None and user.role == user.Role.STUDENT:
+            clash = AdmittedStudent.objects.exclude(pk=entry.pk)
+            if clash.filter(email__iexact=user.email).exists() or (user.register_no and clash.filter(register_no__iexact=user.register_no).exists()):
+                return Response({"detail": "The student roster already has another entry with this email or register number."}, status=409)
         try:
-            user.save()
+            with transaction.atomic():
+                user.save()
+                if entry is not None and user.role == user.Role.STUDENT:
+                    entry.email = user.email
+                    entry.register_no = user.register_no or entry.register_no
+                    if section is not None:
+                        entry.section = section
+                    entry.save()
+                if programs is not None:
+                    user.teaching_programs.set(programs)
         except IntegrityError:
             return Response(
-                {"detail": "Register number or employee number is already in use."},
-                status=400,
+                {"detail": "Register number, employee number or email is already in use."},
+                status=409,
             )
-        _record_admin_action(request, "update_user", f"accounts.user:{user.pk}")
+        changes = {"email_from": original_email, "email_to": user.email} if user.email != original_email else {}
+        _record_admin_action(request, "update_user", f"accounts.user:{user.pk}", changes)
         return Response(_user_payload(user))
 
     def delete(self, request, pk):
