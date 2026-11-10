@@ -11,7 +11,8 @@ export async function requestJson<T>(path: string, options: RequestInit = {}): P
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.detail || data.error?.message || "Request failed.");
+    // The full response rides along so a screen can show field errors or conflicts.
+    throw Object.assign(new Error(data.detail || data.error?.message || "Request failed."), { body: data });
   }
   return data as T;
 }

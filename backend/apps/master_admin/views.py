@@ -20,7 +20,10 @@ from apps.core.permissions import IsMasterAdmin
 from apps.core.models import ActionHistory
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
 
-from .services import content_type_key, model_for_key, soft_delete_models
+from .services import (
+    RestoreConflict, RestoreInvalid, apply_changes, content_type_key, editable_fields, find_conflicts,
+    model_for_key, save_edited, soft_delete_models,
+)
 
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=dt_timezone.utc)
@@ -191,35 +194,92 @@ class RecycleBinListView(APIView):
         return Response({"count": len(items), "results": items})
 
 
+def _recycle_target(content_type, pk):
+    model = model_for_key(content_type)
+    if model is None:
+        return None, None, Response({"detail": "Unknown or unsupported content type."}, status=404)
+    try:
+        return model, model.all_objects.get(pk=pk), None
+    except model.DoesNotExist:
+        return None, None, Response({"detail": "Record not found."}, status=404)
+
+
+class RecycleBinDetailView(APIView):
+    """What a restore needs to show: editable fields, deleted parents and records in the way."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def get(self, request, content_type, pk):
+        model, instance, error = _recycle_target(content_type, pk)
+        if error:
+            return error
+        return Response({
+            "content_type": content_type, "id": instance.pk, "label": str(instance),
+            "is_active": instance.is_active,
+            "fields": editable_fields(instance),
+            "blockers": instance.restore_blockers(),
+            "conflicts": find_conflicts(instance),
+        })
+
+
 class RecycleBinRestoreView(APIView):
-    """Generic restore endpoint for any soft-deleted record, addressed by content type + id."""
+    """Generic restore endpoint for any soft-deleted record, addressed by content type + id.
+
+    The body is optional. ``changes`` edits the restored record; ``existing_changes`` edits other
+    records that are in the way, keyed ``"app.model:id"``. Everything happens in one transaction.
+    """
     permission_classes = [IsAuthenticated, IsMasterAdmin]
 
     def post(self, request, content_type, pk):
-        model = model_for_key(content_type)
-        if model is None:
-            return Response({"detail": "Unknown or unsupported content type."}, status=404)
-        try:
-            instance = model.all_objects.get(pk=pk)
-        except model.DoesNotExist:
-            return Response({"detail": "Record not found."}, status=404)
+        model, instance, error = _recycle_target(content_type, pk)
+        if error:
+            return error
         if instance.is_active:
             return Response({"detail": "Record is already active."}, status=400)
         blockers = instance.restore_blockers()
         if blockers:
             return Response(
-                {"detail": "Restore the parent records first: " + "; ".join(blockers)},
+                {"detail": "Restore the parent records first: " + "; ".join(blockers), "blockers": blockers},
                 status=409,
             )
+        data = request.data if isinstance(request.data, dict) else {}
+        changes = data.get("changes") or {}
+        existing_changes = data.get("existing_changes") or {}
+        if not isinstance(changes, dict) or not isinstance(existing_changes, dict):
+            return Response({"detail": "changes and existing_changes must be objects."}, status=400)
+        record = {}
         try:
             with transaction.atomic():
+                if existing_changes:
+                    in_the_way = {f'{c["record"]["content_type"]}:{c["record"]["id"]}' for c in find_conflicts(instance)}
+                    for key, edits in existing_changes.items():
+                        if key not in in_the_way or not isinstance(edits, dict):
+                            continue
+                        other_type, other_id = key.rsplit(":", 1)
+                        _, other, _ = _recycle_target(other_type, int(other_id))
+                        changed = apply_changes(other, edits)
+                        save_edited(other, changed)
+                        if changed:
+                            record[key] = changed
+                    # (the loop above only touches records the restore actually collides with)
+                changed = apply_changes(instance, changes)
+                remaining = find_conflicts(instance)
+                if remaining:
+                    raise RestoreConflict(remaining)
+                save_edited(instance, changed)
+                if changed:
+                    record[f"{content_type}:{instance.pk}"] = changed
                 instance.restore()
-                _record_admin_action(
-                    request, "restore_record", f"{content_type}:{instance.pk}"
-                )
+                _record_admin_action(request, "restore_record", f"{content_type}:{instance.pk}", {"changes": record} if record else None)
+        except RestoreInvalid as exc:
+            return Response({"detail": "Some values are not valid.", "errors": exc.errors}, status=400)
+        except RestoreConflict as exc:
+            return Response({
+                "detail": "This record conflicts with an existing record: change one of them.",
+                "conflicts": exc.conflicts,
+            }, status=409)
         except IntegrityError:
             return Response(
-                {"detail": "This record conflicts with an existing active record."},
+                {"detail": "This record conflicts with an existing record.", "conflicts": find_conflicts(instance)},
                 status=409,
             )
         return Response({"success": True, "content_type": content_type, "id": instance.pk})
