@@ -169,8 +169,15 @@ def build_feed(user):
     if student:
         exams = exams.exclude(status="draft")
     for ex in exams:
+        # An exam sits in the calendar when students can take it, not on the day it was created.
+        if ex.opens_at:
+            start, end = ex.opens_at, ex.closes_at or ex.opens_at + timedelta(minutes=ex.time_limit or 60)
+        elif ex.closes_at:
+            start, end = ex.closes_at - timedelta(minutes=ex.time_limit or 60), ex.closes_at
+        else:
+            start, end = ex.created_at, None
         events.append(_event(
-            "exam", ex.id, f"Exam: {ex.title}", ex.created_at, kind="exam",
+            "exam", ex.id, f"Exam: {ex.title}", start, kind="exam", end=end,
             description=ex.description, source="exam", status=ex.status, course_id=ex.course_id,
         ))
 

@@ -2,6 +2,7 @@
 html.dark .bg-amber-100 { background-color: color-mix(in srgb, var(--color-amber-500) 20%, var(--dk-card)); }
 html.dark .bg-amber-200 { background-color: color-mix(in srgb, var(--color-amber-500) 28%, var(--dk-card)); }
 html.dark .bg-amber-50 { background-color: color-mix(in srgb, var(--color-amber-500) 14%, var(--dk-card)); }
+html.dark .bg-amber-50\/30 { background-color: color-mix(in srgb, color-mix(in srgb, var(--color-amber-500) 14%, var(--dk-card)) 30%, transparent); }
 html.dark .bg-amber-50\/70 { background-color: color-mix(in srgb, color-mix(in srgb, var(--color-amber-500) 14%, var(--dk-card)) 70%, transparent); }
 html.dark .bg-blue-100 { background-color: color-mix(in srgb, var(--color-blue-500) 20%, var(--dk-card)); }
 html.dark .bg-blue-100\/20 { background-color: color-mix(in srgb, color-mix(in srgb, var(--color-blue-500) 20%, var(--dk-card)) 20%, transparent); }
@@ -48,6 +49,7 @@ html.dark .bg-white\/80 { background-color: color-mix(in srgb, var(--dk-card) 80
 html.dark .bg-yellow-100 { background-color: color-mix(in srgb, var(--color-yellow-500) 20%, var(--dk-card)); }
 html.dark .bg-yellow-100\/50 { background-color: color-mix(in srgb, color-mix(in srgb, var(--color-yellow-500) 20%, var(--dk-card)) 50%, transparent); }
 html.dark .border-amber-200 { border-color: color-mix(in srgb, var(--color-amber-500) 38%, transparent); }
+html.dark .border-amber-300 { border-color: color-mix(in srgb, var(--color-amber-500) 48%, transparent); }
 html.dark .border-blue-100 { border-color: color-mix(in srgb, var(--color-blue-500) 30%, transparent); }
 html.dark .border-blue-200 { border-color: color-mix(in srgb, var(--color-blue-500) 38%, transparent); }
 html.dark .border-blue-200\/50 { border-color: color-mix(in srgb, color-mix(in srgb, var(--color-blue-500) 38%, transparent) 50%, transparent); }
@@ -109,6 +111,7 @@ html.dark .text-green-600 { color: var(--color-green-300); }
 html.dark .text-green-600\/80 { color: color-mix(in srgb, var(--color-green-300) 80%, transparent); }
 html.dark .text-green-700 { color: var(--color-green-300); }
 html.dark .text-green-800 { color: var(--color-green-300); }
+html.dark .text-green-900 { color: var(--color-green-300); }
 html.dark .text-indigo-600 { color: var(--color-indigo-300); }
 html.dark .text-indigo-700 { color: var(--color-indigo-300); }
 html.dark .text-orange-600 { color: var(--color-orange-300); }
@@ -135,6 +138,7 @@ html.dark .focus\:border-blue-300:focus { border-color: color-mix(in srgb, var(-
 html.dark .group:hover .group-hover\:bg-blue-50 { background-color: color-mix(in srgb, var(--color-blue-500) 14%, var(--dk-card)); }
 html.dark .group:hover .group-hover\:text-blue-600 { color: var(--color-blue-300); }
 html.dark .group:hover .group-hover\:text-green-800 { color: var(--color-green-300); }
+html.dark .hover\:bg-amber-50:hover { background-color: color-mix(in srgb, var(--color-amber-500) 14%, var(--dk-card)); }
 html.dark .hover\:bg-blue-100:hover { background-color: color-mix(in srgb, var(--color-blue-500) 20%, var(--dk-card)); }
 html.dark .hover\:bg-blue-100\/50:hover { background-color: color-mix(in srgb, color-mix(in srgb, var(--color-blue-500) 20%, var(--dk-card)) 50%, transparent); }
 html.dark .hover\:bg-blue-50:hover { background-color: color-mix(in srgb, var(--color-blue-500) 14%, var(--dk-card)); }

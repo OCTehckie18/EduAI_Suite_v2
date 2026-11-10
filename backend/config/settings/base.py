@@ -168,10 +168,15 @@ CORS_ALLOW_CREDENTIALS = True
 # they are ported from the previous backend.
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+# Where Google sends the user back after they allow calendar access. It must be listed as an
+# authorised redirect URI on the Google OAuth client.
 GOOGLE_CALENDAR_REDIRECT_URI = os.getenv(
     'GOOGLE_CALENDAR_REDIRECT_URI',
-    'http://localhost:8000/api/v1/auth/google-calendar/callback',
+    'http://localhost:8000/api/v1/calendar/google/callback',
 )
+# Key that encrypts the stored Google refresh tokens (a Fernet key: python -c "from cryptography.fernet
+# import Fernet; print(Fernet.generate_key().decode())"). Required outside development.
+CALENDAR_TOKEN_KEY = os.getenv('CALENDAR_TOKEN_KEY', '')
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 REDIS_URL = os.getenv('REDIS_URL', '')
 
