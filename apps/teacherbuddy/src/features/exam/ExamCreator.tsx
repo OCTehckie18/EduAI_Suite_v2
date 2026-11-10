@@ -15,7 +15,10 @@ interface Choice {
 
 type QuestionType = "mcq" | "fill_blank" | "long_answer";
 
+interface PatternRow { type: string; marks: number; count: number }
+
 interface Question {
+  id?: number;
   question_text: string;
   question_type: QuestionType | string;
   points: number;
@@ -28,6 +31,22 @@ interface Question {
 }
 
 const TYPE_LABELS: Record<string, string> = { mcq: "Multiple choice", fill_blank: "Fill in the blanks", long_answer: "Long answer" };
+const SHORT_TYPE: Record<string, string> = { mcq: "MCQ", fill_blank: "Fill in the blanks", long_answer: "Long answer" };
+const marksText = (n: number) => `${n} mark${n === 1 ? "" : "s"}`;
+
+/** The (type, marks) groups in the pool, with how many questions each holds. */
+const poolGroups = (questions: Question[]) => {
+  const counts = new Map<string, { type: string; marks: number; in_pool: number }>();
+  for (const q of questions) {
+    if (Number.isNaN(q.points)) continue;
+    const key = `${q.question_type}|${q.points}`;
+    const group = counts.get(key) ?? { type: q.question_type, marks: q.points, in_pool: 0 };
+    group.in_pool += 1;
+    counts.set(key, group);
+  }
+  const order = ["mcq", "fill_blank", "long_answer"];
+  return [...counts.values()].sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type) || a.marks - b.marks);
+};
 const BLANKS = /_{3,}\d*/g;
 const blankCount = (text: string) => (text.match(BLANKS) ?? []).length;
 const emptyChoices = (): Choice[] => Array.from({ length: 4 }, () => ({ choice_text: "", is_correct: false }));
@@ -73,7 +92,9 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
   const [attempts, setAttempts] = useState(initialData?.attempts_allowed || 1);
   const [opensAt, setOpensAt] = useState(toLocalInput(initialData?.opens_at));
   const [closesAt, setClosesAt] = useState(toLocalInput(initialData?.closes_at));
-  const [randomize, setRandomize] = useState(initialData?.randomize_questions || false);
+  // Each student's paper is shuffled unless the teacher switches it off (older exams keep their setting).
+  const [randomize, setRandomize] = useState<boolean>(initialData ? !!initialData.randomize_questions : true);
+  const [pattern, setPattern] = useState<PatternRow[]>(initialData?.pattern || []);
   const [questions, setQuestions] = useState<Question[]>(initialData?.questions || []);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -349,6 +370,17 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
       }
     }
 
+    const groups = poolGroups(cleanedQuestions as Question[]);
+    for (let i = 0; i < pattern.length && !locked; i++) {
+      const row = pattern[i];
+      if (!Number.isInteger(row.count) || row.count < 1) { setError(`Paper pattern row ${i + 1}: choose how many questions to draw.`); return; }
+      const group = groups.find((g) => g.type === row.type && g.marks === row.marks);
+      if (status === "published" && (group?.in_pool ?? 0) < row.count) {
+        setError(`Paper pattern row ${i + 1}: it draws ${row.count} ${SHORT_TYPE[row.type]} question(s) worth ${marksText(row.marks)}, but the pool has ${group?.in_pool ?? 0}.`);
+        return;
+      }
+    }
+
     const examData: any = {
       title,
       description,
@@ -360,8 +392,10 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
       randomize_questions: randomize,
       status: status,
     };
-    // A locked exam's questions are not sent at all, so saving settings can never touch them.
-    if (!locked) examData.questions = cleanedQuestions;
+    // Once students have attempted the exam only new questions may be added, and the pattern is fixed.
+    // Saving settings alone sends no questions at all, so it can never touch the pool.
+    if (!locked || questions.some((q) => q.id === undefined)) examData.questions = cleanedQuestions;
+    if (!locked) examData.pattern = pattern;
 
     setIsSaving(true);
     onSave(examData).then(success => {
@@ -479,7 +513,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                         checked={randomize}
                         onChange={(e) => setRandomize(e.target.checked)}
                       />
-                      <span className="text-xs font-semibold text-slate-600">Randomize</span>
+                      <span className="text-xs font-semibold text-slate-600">Shuffle each student's paper</span>
                     </label>
                   </div>
                 </div>
@@ -487,7 +521,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
             </section>
 
             {/* ── Import Section with Tabs ── */}
-            {!locked && <section className="rounded-2xl bg-blue-50 border border-blue-100 overflow-hidden">
+            <section className="rounded-2xl bg-blue-50 border border-blue-100 overflow-hidden">
               {/* Tab Switcher */}
               <div className="flex border-b border-blue-100">
                 <button
@@ -596,26 +630,97 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                   </>
                 )}
               </div>
-            </section>}
+            </section>
           </div>
 
           {/* Right Column: Questions */}
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-                Questions ({questions.length})
-              </h3>
-              {!locked && <button
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
+                  Question pool ({questions.length} question{questions.length === 1 ? "" : "s"})
+                </h3>
+                {questions.length > 0 && <p className="mt-0.5 text-[11px] text-slate-500">
+                  {Object.entries(SHORT_TYPE).map(([type, label]) => [label, questions.filter((q) => q.question_type === type).length] as const).filter(([, n]) => n > 0).map(([label, n]) => `${n} ${label}`).join(" · ")}
+                </p>}
+              </div>
+              <button
                 onClick={() => addQuestion()}
                 className="btn btn-outline text-xs py-1.5 px-3 flex items-center gap-1.5"
               >
                 <Plus size={14} /> Add Question
-              </button>}
+              </button>
             </div>
+
+            {/* Paper pattern: how one student's paper is drawn from the pool */}
+            <section className="rounded-2xl border border-slate-200 bg-white/40 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-sm font-bold text-slate-700">Paper pattern</h4>
+                <span className="text-xs font-bold text-blue-600">
+                  {pattern.length === 0
+                    ? `Everyone gets all ${questions.length} questions (${questions.reduce((sum, q) => sum + (Number.isNaN(q.points) ? 0 : q.points), 0)} marks)`
+                    : `${pattern.reduce((sum, row) => sum + (Number.isNaN(row.marks) || Number.isNaN(row.count) ? 0 : row.marks * row.count), 0)} marks per paper, ${pattern.reduce((sum, row) => sum + (Number.isNaN(row.count) ? 0 : row.count), 0)} questions`}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">Upload a big pool, then choose how many questions of each kind and mark value each student gets. Every paper has the same total marks. Leave the pattern empty to give everyone every question.</p>
+              <fieldset disabled={locked} className="space-y-2 min-w-0">
+                {pattern.map((row, i) => {
+                  const groups = poolGroups(questions);
+                  const group = groups.find((g) => g.type === row.type && g.marks === row.marks);
+                  const inPool = group?.in_pool ?? 0;
+                  const fresh = inPool - (Number.isNaN(row.count) ? 0 : row.count);
+                  const options = group ? groups : [...groups, { type: row.type, marks: row.marks, in_pool: 0 }];
+                  return (
+                    <div key={i} className="flex flex-wrap items-center gap-2">
+                      <select
+                        aria-label={`Pattern row ${i + 1} group`}
+                        className="text-xs py-1.5 px-2 rounded-lg border border-slate-200"
+                        value={`${row.type}|${row.marks}`}
+                        onChange={(e) => { const [type, marks] = e.target.value.split("|"); setPattern(pattern.map((r, k) => (k === i ? { ...r, type, marks: parseFloat(marks) } : r))); }}
+                      >
+                        {options.map((g) => <option key={`${g.type}|${g.marks}`} value={`${g.type}|${g.marks}`}>{SHORT_TYPE[g.type]} · {marksText(g.marks)} · {g.in_pool} in pool</option>)}
+                      </select>
+                      <label className="flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                        Draw
+                        <input
+                          type="number" min={1}
+                          aria-label={`Pattern row ${i + 1} count`}
+                          className="w-16 text-xs py-1 px-2 rounded-lg border border-slate-200"
+                          value={Number.isNaN(row.count) ? "" : row.count}
+                          onChange={(e) => setPattern(pattern.map((r, k) => (k === i ? { ...r, count: e.target.value === "" ? NaN : parseInt(e.target.value, 10) } : r)))}
+                        />
+                      </label>
+                      <span className={`text-[11px] font-semibold ${inPool < row.count ? "text-red-600" : fresh < row.count ? "text-amber-700" : "text-green-700"}`}>
+                        {inPool < row.count
+                          ? `Only ${inPool} in the pool`
+                          : fresh < row.count
+                            ? `A reset student would see repeated questions (${Math.max(fresh, 0)} fresh left)`
+                            : `${inPool} in pool, enough for resets`}
+                      </span>
+                      {!locked && <button type="button" onClick={() => setPattern(pattern.filter((_, k) => k !== i))} className="ml-auto text-slate-300 hover:text-red-500" aria-label={`Remove pattern row ${i + 1}`}><X size={14} /></button>}
+                    </div>
+                  );
+                })}
+              </fieldset>
+              {!locked && (
+                <button
+                  type="button"
+                  disabled={poolGroups(questions).length === 0}
+                  onClick={() => {
+                    const unused = poolGroups(questions).find((g) => !pattern.some((r) => r.type === g.type && r.marks === g.marks));
+                    if (unused) setPattern([...pattern, { type: unused.type, marks: unused.marks, count: 1 }]);
+                  }}
+                  className="text-[11px] font-bold text-blue-600 hover:underline disabled:opacity-40 flex items-center gap-1"
+                >
+                  <Plus size={10} /> Add a pattern row
+                </button>
+              )}
+              {pattern.length === 0 && poolGroups(questions).length === 0 && <p className="text-[11px] text-slate-400">Add questions to the pool first; the pattern lists the kinds you have.</p>}
+            </section>
 
             {locked && (
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                Students have already attempted this exam, so its questions can no longer be changed. You can still edit the title, time limit, attempts and other settings.
+                Students have already attempted this exam. A question that has been on a paper cannot be changed or removed, and the pattern is fixed, but you can add new questions to the pool (for resets) and edit the title, time limit, attempts and other settings.
               </div>
             )}
 
@@ -650,9 +755,10 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                 <p className="text-xs">Start by adding one manually or uploading a file.</p>
               </div>
             ) : (
-              <fieldset disabled={locked} className="space-y-4 min-w-0">
+              <div className="space-y-4 min-w-0">
                 {questions.map((q, qi) => (
                   <GlassCard key={qi} padding="md" className="border border-slate-200/50 relative group">
+                    <fieldset disabled={locked && q.id !== undefined} className="contents">
                     <button 
                       onClick={() => removeQuestion(qi)}
                       className="absolute top-4 right-4 text-slate-300 hover:text-red-500 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
@@ -778,9 +884,10 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                         </div>}
                       </div>
                     </div>
+                    </fieldset>
                   </GlassCard>
                 ))}
-              </fieldset>
+              </div>
             )}
           </div>
         </div>
