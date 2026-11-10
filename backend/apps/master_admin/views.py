@@ -783,4 +783,8 @@ class TeacherApprovalDecisionView(APIView):
                 request, f"{self.decision}_teacher", f"accounts.user:{teacher.pk}",
                 {"reason": teacher.rejection_reason} if self.decision == "reject" else None,
             )
-        return Response(_application_payload(teacher))
+        payload = _application_payload(teacher)
+        if self.decision == "approve" and request.data.get("add_to_roster"):
+            from apps.accounts import staff_roster
+            payload["added_to_roster"] = staff_roster.add_teacher_to_roster(teacher) is not None
+        return Response(payload)

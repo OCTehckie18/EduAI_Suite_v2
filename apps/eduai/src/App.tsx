@@ -4,6 +4,7 @@ import logo from "../../logo/eduai_logo.png";
 import { LoginScreen } from "./Login";
 import { ThemeToggle } from "./shared/ThemeToggle";
 import { RosterPanel } from "./RosterPanel";
+import { StaffRosterPanel } from "./StaffRosterPanel";
 import { StructurePanel } from "./StructurePanel";
 import { UniversityPanel } from "./UniversityPanel";
 import { ApprovalsPanel } from "./panels/ApprovalsPanel";
@@ -30,7 +31,7 @@ const NAV: { heading: string; items: TabDef[] }[] = [
   ] },
   { heading: "People", items: [
     { tab: "roster", label: "Student roster", title: "Student roster", subtitle: "Admitted students who may sign up on EduGames", Icon: GraduationCap, color: "text-lime-600", search: true },
-    { tab: "approvals", label: "Teacher approvals", title: "Teacher approvals", subtitle: "Review teachers who applied on TeacherBuddy", Icon: UserCheck, color: "text-amber-600", search: true },
+    { tab: "approvals", label: "Teacher roster", title: "Teacher roster", subtitle: "Listed teachers are approved on sign-in", Icon: UserCheck, color: "text-amber-600", search: true },
     { tab: "users", label: "Users", title: "Users", subtitle: "Every account across the platform", Icon: Users, color: "text-sky-600", search: true },
   ] },
   { heading: "Maintenance", items: [
@@ -92,7 +93,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
     campuses: <CampusPanel key={refreshKey} search={search} onChanged={loadOverview} />,
     structure: <StructurePanel key={refreshKey} search={search} onChanged={loadOverview} />,
     roster: <RosterPanel key={refreshKey} search={search} />,
-    approvals: <ApprovalsPanel key={refreshKey} search={search} onChanged={loadOverview} />,
+    approvals: <div key={refreshKey} className="space-y-6"><ApprovalsPanel search={search} onChanged={loadOverview} /><StaffRosterPanel search={search} onChanged={loadOverview} /></div>,
     users: <UsersPanel key={refreshKey} search={search} onChanged={loadOverview} />,
     recycle_bin: <RecycleBinPanel key={refreshKey} search={search} onChanged={loadOverview} />,
   }[tab];

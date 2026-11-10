@@ -18,7 +18,7 @@ from rest_framework.views import APIView
 
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
 
-from . import roster
+from . import roster, staff_roster
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +133,17 @@ class GoogleLoginView(APIView):
             # that stays unusable until the master admin approves it. Existing accounts never
             # change role here.
             applying = request.data.get("app") == "teacherbuddy"
-            if applying:
+            listed = staff_roster.entry_for_email(email) if applying else None
+            if listed is not None and not listed.user_id:
+                # A teacher on the university's list is approved as soon as they sign in.
+                user = staff_roster.provision_teacher(listed)
+                changed = [field for field, value in (("first_name", claims.get("given_name", "")), ("last_name", claims.get("family_name", ""))) if value and not getattr(user, field)]
+                for field, value in (("first_name", claims.get("given_name", "")), ("last_name", claims.get("family_name", ""))):
+                    if field in changed:
+                        setattr(user, field, value)
+                user.avatar_url = claims.get("picture", "")
+                user.save()
+            elif applying:
                 user = User.objects.create_user(
                     email=email,
                     role=User.Role.TEACHER,
@@ -161,6 +171,7 @@ class GoogleLoginView(APIView):
             if changed:
                 user.save(update_fields=changed)
             roster.link_account_to_roster(user)
+            staff_roster.link_account_to_roster(user)
         return Response(_auth_response(user), status=status.HTTP_200_OK)
 
 
@@ -179,6 +190,7 @@ class PasswordLoginView(APIView):
         if user is None or not user.is_active or not user.check_password(password):
             return Response({"detail": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
         roster.link_account_to_roster(user)
+        staff_roster.link_account_to_roster(user)
         return Response(_auth_response(user), status=status.HTTP_200_OK)
 
 
@@ -206,6 +218,16 @@ class ProfileSetupView(APIView):
     def get(self, request):
         """What the profile page should show: for students, their admission record."""
         user = request.user
+        if user.role == user.Role.TEACHER:
+            listed = staff_roster.entry_for_user(user)
+            if listed is None or (listed.user_id and listed.user_id != user.pk):
+                return Response({"role": user.role, "matched": False})
+            department = listed.department
+            return Response({
+                "role": user.role, "matched": True, "emp_no": listed.emp_no, "name": listed.name,
+                "placement": {"campus": str(department.school.campus), "school": str(department.school), "department": str(department)},
+                "placement_ids": {"campus": department.school.campus_id, "school": department.school_id, "department": department.pk},
+            })
         if user.role != user.Role.STUDENT:
             return Response({"role": user.role, "matched": None})
         entry = roster.entry_for_email(user.email)
@@ -230,6 +252,9 @@ class ProfileSetupView(APIView):
         if requested_role != user.role:
             return Response({"detail": "Roles are assigned by an administrator."}, status=status.HTTP_400_BAD_REQUEST)
         entry = roster.entry_for_email(user.email) if user.role == user.Role.STUDENT else None
+        staff_entry = staff_roster.entry_for_user(user) if user.role == user.Role.TEACHER else None
+        if staff_entry is not None and staff_entry.user_id not in (None, user.pk):
+            staff_entry = None
         if user.role == user.Role.STUDENT:
             # A student's identity and placement come from the admission roster, never from the form.
             if entry is None and not (user.register_no and user.section_id):
@@ -239,6 +264,10 @@ class ProfileSetupView(APIView):
                 if taken.exists():
                     return Response({"detail": "This register number is already linked to another account."}, status=status.HTTP_409_CONFLICT)
             campus, school, department = user.campus, user.school, user.department
+        elif staff_entry is not None:
+            # A listed teacher's department and employee number come from the roster, not the form.
+            department = staff_entry.department
+            school, campus = department.school, department.school.campus
         else:
             try:
                 campus = Campus.objects.get(pk=data.get("campus"))
@@ -258,7 +287,9 @@ class ProfileSetupView(APIView):
         for field in ("first_name", "last_name", "phone_number"):
             if field in data:
                 setattr(user, field, str(data[field] or "").strip())
-        if user.role == user.Role.TEACHER and "emp_no" in data:
+        if staff_entry is not None:
+            user.emp_no = staff_entry.emp_no
+        elif user.role == user.Role.TEACHER and "emp_no" in data:
             user.emp_no = _clean_identifier(data["emp_no"])
         user.set_password(password)
 

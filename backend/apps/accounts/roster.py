@@ -141,7 +141,9 @@ def _normalise_header(value):
     return " ".join(str(value or "").strip().lower().split())
 
 
-def rows_from_file(uploaded_file):
+def rows_from_file(uploaded_file, columns=None, data_sheet=None):
+    columns = columns or TEMPLATE_COLUMNS
+    data_sheet = data_sheet or DATA_SHEET
     name = uploaded_file.name.lower()
     if name.endswith(".csv"):
         text = uploaded_file.read().decode("utf-8-sig")
@@ -150,13 +152,13 @@ def rows_from_file(uploaded_file):
         raw = list(reader)
     elif name.endswith(".xlsx"):
         workbook = load_workbook(uploaded_file, read_only=True, data_only=True)
-        sheet = workbook[DATA_SHEET] if DATA_SHEET in workbook.sheetnames else workbook.worksheets[0]
+        sheet = workbook[data_sheet] if data_sheet in workbook.sheetnames else workbook.worksheets[0]
         rows = sheet.iter_rows(values_only=True)
         headers = [_normalise_header(h) for h in next(rows, ())]
         raw = list(rows)
     else:
         raise ValueError("Only .csv and .xlsx files are supported.")
-    missing = [col for col in TEMPLATE_COLUMNS if col.lower() not in headers]
+    missing = [col for col in columns if col.lower() not in headers]
     if missing:
         raise ValueError("Missing column(s): " + ", ".join(missing) + ". Download the template to see the expected layout.")
     return [
