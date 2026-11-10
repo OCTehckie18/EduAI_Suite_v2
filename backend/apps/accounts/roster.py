@@ -23,6 +23,8 @@ TEMPLATE_COLUMNS = (
     "Register No", "Student Name", "Student Email",
     "Campus Code", "School Code", "Department Code", "Program Code", "Class", "Section",
 )
+DATA_SHEET = "Admitted students"
+GUIDE_SHEET = "How to fill this in"
 NOT_LISTED_MESSAGE = (
     "Your email is not on the admitted-students list. Please contact your department office."
 )
@@ -147,7 +149,8 @@ def rows_from_file(uploaded_file):
         headers = [_normalise_header(h) for h in next(reader, ())]
         raw = list(reader)
     elif name.endswith(".xlsx"):
-        sheet = load_workbook(uploaded_file, read_only=True, data_only=True).active
+        workbook = load_workbook(uploaded_file, read_only=True, data_only=True)
+        sheet = workbook[DATA_SHEET] if DATA_SHEET in workbook.sheetnames else workbook.worksheets[0]
         rows = sheet.iter_rows(values_only=True)
         headers = [_normalise_header(h) for h in next(rows, ())]
         raw = list(rows)
@@ -231,10 +234,57 @@ def _import_row(row, result):
     result.updated += 1
 
 
+def _entry_row(entry):
+    section = entry.section
+    batch = section.batch
+    program = batch.program
+    department = program.department
+    school = department.school
+    return [entry.register_no, entry.name, entry.email, school.campus.code, school.code,
+            department.code, program.code, batch.name, section.name]
+
+
+def _guide_rows():
+    yield ["How to add students"]
+    yield ["1. Add new students below the last row on the first sheet, using the same columns."]
+    yield ["2. Editing a row updates that student. Students who have already signed up cannot be changed from here."]
+    yield ["3. Deleting a row does not remove the student. Use the delete button on the roster screen for that."]
+    yield ["4. Upload this same file. Students already listed stay unchanged."]
+    yield []
+    yield ["Example row"]
+    yield list(TEMPLATE_COLUMNS)
+    yield ["2641001", "Asha Rao", "asha.rao@example.com", "CEN", "SOS", "CSE", "BCA", "2026-29", "A"]
+    yield []
+    yield ["Valid values"]
+    yield ["Campus Code", "School Code", "Department Code", "Program Code", "Class", "Section"]
+    sections = Section.objects.select_related("batch__program__department__school__campus").order_by(
+        "batch__program__department__school__campus__code", "batch__program__department__school__code",
+        "batch__program__department__code", "batch__program__code", "batch__name", "name")
+    for section in sections.iterator():
+        batch = section.batch
+        program = batch.program
+        department = program.department
+        school = department.school
+        yield [school.campus.code, school.code, department.code, program.code, batch.name, section.name]
+
+
+def roster_workbook():
+    """Every student already on the roster, ready to have new rows added below, plus a guide sheet."""
+    workbook = Workbook(write_only=True)
+    data = workbook.create_sheet(DATA_SHEET)
+    data.append(list(TEMPLATE_COLUMNS))
+    entries = AdmittedStudent.objects.select_related(
+        "section__batch__program__department__school__campus"
+    ).order_by("register_no")
+    count = 0
+    for entry in entries.iterator():
+        data.append(_entry_row(entry))
+        count += 1
+    guide = workbook.create_sheet(GUIDE_SHEET)
+    for row in _guide_rows():
+        guide.append(row)
+    return workbook, count
+
+
 def template_workbook():
-    workbook = Workbook()
-    sheet = workbook.active
-    sheet.title = "Admitted students"
-    sheet.append(list(TEMPLATE_COLUMNS))
-    sheet.append(["2641001", "Asha Rao", "asha.rao@example.com", "CEN", "SOS", "CSE", "BCA", "2026-29", "A"])
-    return workbook
+    return roster_workbook()[0]

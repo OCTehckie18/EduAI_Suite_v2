@@ -86,15 +86,15 @@ export function RosterPanel({ search }: { search: string }) {
   const downloadTemplate = async () => {
     try {
       const response = await fetch(`${ROSTER}/template/`, { headers: authHeaders() });
-      if (!response.ok) throw new Error("Could not download the template.");
+      if (!response.ok) throw new Error("Could not download the roster.");
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = "admitted_students_template.xlsx";
+      link.download = `admitted_students_${new Date().toISOString().slice(0, 10)}.xlsx`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not download the template.");
+      toast.error(err instanceof Error ? err.message : "Could not download the roster.");
     }
   };
 
@@ -115,10 +115,11 @@ export function RosterPanel({ search }: { search: string }) {
       <div>
         <h3 className="text-base font-semibold">Admitted Students</h3>
         <p className="mt-1 max-w-xl text-xs text-slate-500">Only students listed here can sign up on EduGames. Their campus, school, department, program, class and section come from this list. Build the structure first, then upload the roster.</p>
+        <p className="mt-1 max-w-xl text-xs text-slate-500">To add students: download the roster, add the new students at the bottom and upload the same file. Students who are not in the file are kept.</p>
         {data && <p className="mt-2 text-xs text-slate-700">{data.total} admitted · {data.signed_up} signed up · {data.total - data.signed_up} not yet</p>}
       </div>
       <div className="flex gap-2">
-        <button onClick={() => void downloadTemplate()} className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-800 hover:text-slate-900"><Download className="h-4 w-4" />Template</button>
+        <button onClick={() => void downloadTemplate()} className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-800 hover:text-slate-900"><Download className="h-4 w-4" />{data && data.total ? "Download roster" : "Download template"}</button>
         <button onClick={() => fileInput.current?.click()} disabled={uploading} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"><Upload className="h-4 w-4" />{uploading ? "Uploading..." : "Upload roster"}</button>
         <input ref={fileInput} type="file" accept=".csv,.xlsx" onChange={upload} className="hidden" />
       </div>
