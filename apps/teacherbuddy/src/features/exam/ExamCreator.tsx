@@ -13,12 +13,39 @@ interface Choice {
   is_correct: boolean;
 }
 
+type QuestionType = "mcq" | "fill_blank" | "long_answer";
+
 interface Question {
   question_text: string;
-  question_type: string;
+  question_type: QuestionType | string;
   points: number;
   choices: Choice[];
+  /** Fill in the blanks: one list of accepted answers per blank. */
+  accepted_answers?: string[][];
+  /** Long answers: marking notes for the teacher; students never see them. */
+  answer_guide?: string;
+  word_limit?: number | null;
 }
+
+const TYPE_LABELS: Record<string, string> = { mcq: "Multiple choice", fill_blank: "Fill in the blanks", long_answer: "Long answer" };
+const BLANKS = /_{3,}\d*/g;
+const blankCount = (text: string) => (text.match(BLANKS) ?? []).length;
+const emptyChoices = (): Choice[] => Array.from({ length: 4 }, () => ({ choice_text: "", is_correct: false }));
+
+/** A question from the server or an import, in the shape the editor works with. */
+const fromServer = (q: any): Question => {
+  const type = q.question_type === "fill_blank" || q.question_type === "long_answer" ? q.question_type : "mcq";
+  const choices: Choice[] = q.choices || [];
+  return {
+    question_text: q.question_text || "",
+    question_type: type,
+    points: q.points || 1,
+    choices: type === "mcq" ? (choices.length < 4 ? [...choices, ...emptyChoices().slice(0, 4 - choices.length)] : choices) : [],
+    accepted_answers: type === "fill_blank" ? q.accepted_answers || [] : undefined,
+    answer_guide: type === "long_answer" ? q.answer_guide || "" : undefined,
+    word_limit: type === "long_answer" ? q.word_limit ?? null : undefined,
+  };
+};
 
 interface ExamCreatorProps {
   onClose: () => void;
@@ -54,6 +81,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
   const [importTab, setImportTab] = useState<"smart" | "excel">("smart");
   const [isImportingExcel, setIsImportingExcel] = useState(false);
   const [importSuccess, setImportSuccess] = useState("");
+  const [importProblems, setImportProblems] = useState<string[]>([]);
   const [coursesState, setCoursesState] = useState<"loading" | "ready" | "failed">("loading");
   // Once a student has attempted the exam its questions are frozen on the server, so they are read-only here.
   const locked = !!initialData?.attempts?.length;
@@ -82,21 +110,31 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
     }
   };
 
-  const addQuestion = () => {
-    setQuestions([
-      ...questions,
-      {
-        question_text: "",
-        question_type: "mcq",
-        points: 1,
-        choices: [
-          { choice_text: "", is_correct: false },
-          { choice_text: "", is_correct: false },
-          { choice_text: "", is_correct: false },
-          { choice_text: "", is_correct: false },
-        ]
-      }
-    ]);
+  const addQuestion = (type: QuestionType = "mcq") => {
+    setQuestions([...questions, changeType({ question_text: "", question_type: "mcq", points: 1, choices: emptyChoices() }, type)]);
+  };
+
+  /** Switch a question to another type, keeping its text and marks and giving it the fields of the new type. */
+  const changeType = (q: Question, type: QuestionType): Question => ({
+    ...q,
+    question_type: type,
+    choices: type === "mcq" ? (q.choices.length ? q.choices : emptyChoices()) : [],
+    accepted_answers: type === "fill_blank" ? q.accepted_answers ?? [] : undefined,
+    answer_guide: type === "long_answer" ? q.answer_guide ?? "" : undefined,
+    word_limit: type === "long_answer" ? q.word_limit ?? null : undefined,
+  });
+
+  const updateQuestion = (index: number, patch: Partial<Question>) => {
+    setQuestions(questions.map((q, i) => (i === index ? { ...q, ...patch } : q)));
+  };
+
+  const setAccepted = (index: number, blank: number, value: string) => {
+    const q = questions[index];
+    const count = blankCount(q.question_text);
+    const next = Array.from({ length: count }, (_, k) => (q.accepted_answers?.[k] ?? []).join(" | "));
+    next[blank] = value;
+    // The text boxes keep what is typed (including a trailing |); it is split into alternatives when saving.
+    updateQuestion(index, { accepted_answers: next.map((text) => (text === "" ? [] : [text])) });
   };
 
   const removeQuestion = (index: number) => {
@@ -145,6 +183,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
     setIsExtracting(true);
     setError("");
     setImportSuccess("");
+    setImportProblems([]);
     const formData = new FormData();
     formData.append("file", file);
 
@@ -164,14 +203,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         // Ensure all extracted questions have at least 4 choices
-        const formatted = data.map(q => ({
-            question_text: q.question_text || "",
-            question_type: "mcq",
-            points: q.points || 1,
-            choices: (q.choices || []).length < 4 
-              ? [...(q.choices || []), ...Array(Math.max(0, 4 - (q.choices || []).length)).fill(0).map(() => ({ choice_text: "", is_correct: false }))]
-              : q.choices
-        }));
+        const formatted = data.map(fromServer);
         setQuestions([...questions, ...formatted]);
         setImportSuccess(` Successfully imported ${formatted.length} questions with AI`);
       } else {
@@ -236,23 +268,17 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
       const data = await response.json();
       if (data.questions && data.questions.length > 0) {
         // Format imported questions to match internal structure
-        const formatted = data.questions.map((q: any) => ({
-          question_text: q.question_text || "",
-          question_type: "mcq",
-          points: q.points || 1,
-          choices: (q.choices || []).length < 4
-            ? [...(q.choices || []), ...Array(Math.max(0, 4 - (q.choices || []).length)).fill(0).map(() => ({ choice_text: "", is_correct: false }))]
-            : q.choices
-        }));
+        const formatted = data.questions.map(fromServer);
         setQuestions([...questions, ...formatted]);
-        
         let msg = ` Successfully imported ${data.imported_count} questions`;
         if (data.errors && data.errors.length > 0) {
-          msg += ` (${data.errors.length} row(s) skipped)`;
+          msg += `, ${data.errors.length} row(s) skipped (listed below)`;
         }
         setImportSuccess(msg);
+        setImportProblems(data.errors || []);
       } else {
         setError("No valid questions found in the spreadsheet.");
+        setImportProblems(data.errors || []);
       }
     } catch (err: any) {
       console.error("Excel import failed", err);
@@ -298,16 +324,29 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
     const cleanedQuestions = questions.map((q) => ({
       ...q,
       question_text: q.question_text.trim(),
-      choices: q.choices
-        .map((c) => ({ ...c, choice_text: c.choice_text.trim() }))
-        .filter((c) => c.choice_text !== ""),
+      choices: q.question_type === "mcq"
+        ? q.choices.map((c) => ({ ...c, choice_text: c.choice_text.trim() })).filter((c) => c.choice_text !== "")
+        : [],
+      // Alternatives are typed as "a | b" in one box per blank.
+      accepted_answers: q.question_type === "fill_blank"
+        ? (q.accepted_answers ?? []).map((group) => group.flatMap((text) => text.split("|")).map((text) => text.trim()).filter(Boolean))
+        : undefined,
     }));
     for (let i = 0; i < cleanedQuestions.length; i++) {
       const q = cleanedQuestions[i];
       if (!q.question_text) { setError(`Question ${i + 1} has no text.`); return; }
-      if (Number.isNaN(q.points) || q.points <= 0) { setError(`Question ${i + 1}: points must be more than 0.`); return; }
-      if (q.choices.length < 2) { setError(`Question ${i + 1} needs at least two filled-in options.`); return; }
-      if (q.choices.filter((c) => c.is_correct).length !== 1) { setError(`Question ${i + 1}: mark exactly one correct option.`); return; }
+      if (Number.isNaN(q.points) || q.points <= 0) { setError(`Question ${i + 1}: marks must be more than 0.`); return; }
+      if (q.question_type === "fill_blank") {
+        const blanks = blankCount(q.question_text);
+        if (blanks < 1) { setError(`Question ${i + 1}: write ___ where each blank goes.`); return; }
+        const given = q.accepted_answers ?? [];
+        if (given.length !== blanks || given.some((group) => group.length === 0)) { setError(`Question ${i + 1}: give at least one accepted answer for each of the ${blanks} blank(s).`); return; }
+      } else if (q.question_type === "long_answer") {
+        if (q.word_limit != null && (!Number.isInteger(q.word_limit) || q.word_limit < 1 || q.word_limit > 5000)) { setError(`Question ${i + 1}: the word limit must be a whole number from 1 to 5000.`); return; }
+      } else {
+        if (q.choices.length < 2) { setError(`Question ${i + 1} needs at least two filled-in options.`); return; }
+        if (q.choices.filter((c) => c.is_correct).length !== 1) { setError(`Question ${i + 1}: mark exactly one correct option.`); return; }
+      }
     }
 
     const examData: any = {
@@ -514,7 +553,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                     <div className="flex items-start gap-2 p-2.5 rounded-xl bg-blue-100/50 border border-blue-200/50">
                       <Table size={14} className="text-blue-600 mt-0.5 shrink-0" />
                       <p className="text-[10px] text-blue-700 leading-relaxed">
-                        Download the template, fill in your questions (Kahoot-style), then re-upload. Correct answers are pre-marked.
+                        Download the template and fill in one row per question. The Type column (MCQ, Fill in the blanks or Long answer) decides which other columns to fill, and Marks is set on every row. The first sheet of the file is read; a second sheet explains each column.
                       </p>
                     </div>
 
@@ -567,7 +606,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                 Questions ({questions.length})
               </h3>
               {!locked && <button
-                onClick={addQuestion}
+                onClick={() => addQuestion()}
                 className="btn btn-outline text-xs py-1.5 px-3 flex items-center gap-1.5"
               >
                 <Plus size={14} /> Add Question
@@ -589,6 +628,12 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                   <X size={12} />
                 </button>
               </div>
+            )}
+
+            {importProblems.length > 0 && (
+              <ul className="max-h-40 overflow-y-auto list-disc space-y-1 rounded-xl border border-amber-200 bg-amber-50 p-3 pl-6 text-xs text-amber-900">
+                {importProblems.map((problem) => <li key={problem}>{problem}</li>)}
+              </ul>
             )}
 
             {error && (
@@ -628,8 +673,19 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                           value={q.question_text}
                           onChange={(e) => updateQuestionText(qi, e.target.value)}
                         />
+                        <div className="flex flex-wrap items-center gap-4">
                         <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
-                          Points
+                          Type
+                          <select
+                            className="text-xs py-1 px-2 rounded-lg border border-slate-200"
+                            value={q.question_type}
+                            onChange={(e) => setQuestions(questions.map((item, i) => (i === qi ? changeType(item, e.target.value as QuestionType) : item)))}
+                          >
+                            {Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                          </select>
+                        </label>
+                        <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                          Marks
                           <input
                             type="number"
                             min={0.5}
@@ -639,8 +695,49 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                             onChange={(e) => updatePoints(qi, e.target.value === "" ? NaN : parseFloat(e.target.value))}
                           />
                         </label>
+                        </div>
                         
-                        <div className="space-y-2">
+
+
+                        {q.question_type === "fill_blank" && (
+                          <div className="space-y-2">
+                            <p className="text-[11px] text-slate-500">Write ___ in the question where each blank goes. Spelling is not case sensitive. All blanks must be right to earn the marks.</p>
+                            {blankCount(q.question_text) === 0 && <p className="text-xs text-amber-700">No blank yet: type ___ in the question.</p>}
+                            {Array.from({ length: blankCount(q.question_text) }, (_, blank) => (
+                              <label key={blank} className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                                Blank {blank + 1}
+                                <input
+                                  className="flex-1 text-xs py-2 px-3 rounded-xl border bg-slate-50 border-transparent focus:bg-white focus:border-blue-300"
+                                  placeholder="Accepted answers, separated by |  (for example: 100 | one hundred)"
+                                  value={(q.accepted_answers?.[blank] ?? []).join(" | ")}
+                                  onChange={(e) => setAccepted(qi, blank, e.target.value)}
+                                />
+                              </label>
+                            ))}
+                          </div>
+                        )}
+
+                        {q.question_type === "long_answer" && (
+                          <div className="space-y-2">
+                            <p className="text-[11px] text-slate-500">Students type their answer. You mark it after the exam.</p>
+                            <textarea
+                              className="w-full text-xs py-2 px-3 rounded-xl border bg-slate-50 border-transparent focus:bg-white focus:border-blue-300 min-h-[60px]"
+                              placeholder="Marking notes or model answer (students never see this)"
+                              value={q.answer_guide ?? ""}
+                              onChange={(e) => updateQuestion(qi, { answer_guide: e.target.value })}
+                            />
+                            <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                              Word limit (optional)
+                              <input
+                                type="number" min={1} max={5000}
+                                className="w-24 text-xs py-1 px-2 rounded-lg border border-slate-200"
+                                value={q.word_limit ?? ""}
+                                onChange={(e) => updateQuestion(qi, { word_limit: e.target.value === "" ? null : parseInt(e.target.value, 10) })}
+                              />
+                            </label>
+                          </div>
+                        )}
+                        {q.question_type === "mcq" && <div className="space-y-2">
                           {q.choices.map((choice, ci) => (
                             <div key={ci} className="flex items-center gap-3">
                               <button 
@@ -678,7 +775,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                           >
                             <Plus size={10} /> Add Option
                           </button>
-                        </div>
+                        </div>}
                       </div>
                     </div>
                   </GlassCard>

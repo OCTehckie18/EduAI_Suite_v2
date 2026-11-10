@@ -180,7 +180,7 @@ def build_feed(user):
             score = f" · Score: {at.score:g}" if at.score is not None else ""
             events.append(_event(
                 "attempt", at.id, f"Attempted: {at.exam.title}", at.start_time, kind="exam",
-                end=at.end_time, description=f"Status: {at.status}{score}",
+                end=at.end_time, description=f"Status: {'awaiting marking' if at.status == 'pending_review' else at.status}{score}",
                 source="activity", status=at.status, course_id=at.exam.course_id,
             ))
 

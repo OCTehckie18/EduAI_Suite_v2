@@ -20,7 +20,9 @@ def workbook_file(rows, name="q.xlsx"):
     return SimpleUploadedFile(name, buffer.getvalue())
 
 
-HEADER = ["Question", "Option A", "Option B", "Option C", "Option D", "Correct (A-D)", "Points"]
+HEADER = ["Question", "Option A", "Option B", "Option C", "Option D", "Correct (A-D)", "Points"]  # the older layout still imports
+NEW_HEADER = ["Type", "Question", "Option A", "Option B", "Option C", "Option D", "Option E", "Option F",
+              "Correct Option", "Accepted Answers", "Marks", "Answer Guide", "Word Limit"]
 
 
 class ImportBase(APITestCase):
@@ -38,14 +40,15 @@ class TemplateTests(ImportBase):
         response = self.client.get(reverse("exam-template"))
         self.assertEqual(response.status_code, 200)
         sheet = load_workbook(io.BytesIO(response.content)).active
-        self.assertEqual([c.value for c in sheet[1]], HEADER)
+        self.assertEqual([c.value for c in sheet[1]], NEW_HEADER)
 
     def test_the_template_round_trips_through_the_importer(self):
         template = self.client.get(reverse("exam-template")).content
         response = self.client.post(reverse("exam-import-excel"), {"file": SimpleUploadedFile("t.xlsx", template)}, format="multipart")
         body = response.json()
-        self.assertEqual((response.status_code, body["imported_count"], body["errors"]), (200, 2, []))
+        self.assertEqual((response.status_code, body["imported_count"], body["errors"]), (200, 4, []))
         self.assertEqual([c["is_correct"] for c in body["questions"][0]["choices"]], [False, True, False, False])
+        self.assertEqual([q["question_type"] for q in body["questions"]], ["mcq", "fill_blank", "fill_blank", "long_answer"])
 
 
 class ImportExcelTests(ImportBase):
@@ -120,3 +123,44 @@ class ExtractTests(ImportBase):
     def test_a_file_with_no_readable_text_and_wrong_types_are_refused(self):
         self.assertEqual(self.post(SimpleUploadedFile("scan.pdf", b"%PDF-1.4 not really")).status_code, 400)
         self.assertEqual(self.post(SimpleUploadedFile("paper.txt", b"hello")).status_code, 400)
+
+
+class TypedImportTests(ImportBase):
+    def rows(self, *rows):
+        body = self.upload("exam-import-excel", [NEW_HEADER, *rows]).json()
+        return body
+
+    def test_each_type_imports_with_its_marks(self):
+        body = self.rows(
+            ["MCQ", "2+2?", "3", "4", None, None, None, None, "B", None, 1, None, None],
+            ["Fill in the blanks", "___ boils at ___.", None, None, None, None, None, None, None, "water|H2O;100", 3, None, None],
+            ["Long answer", "Explain.", None, None, None, None, None, None, None, None, 6, "Notes", 150],
+        )
+        self.assertEqual(body["errors"], [])
+        mcq_q, blank_q, long_q = body["questions"]
+        self.assertEqual((mcq_q["points"], len(mcq_q["choices"])), (1.0, 2))
+        self.assertEqual((blank_q["question_type"], blank_q["accepted_answers"], blank_q["points"]), ("fill_blank", [["water", "H2O"], ["100"]], 3.0))
+        self.assertEqual((long_q["question_type"], long_q["choices"], long_q["answer_guide"], long_q["word_limit"], long_q["points"]), ("long_answer", [], "Notes", 150, 6.0))
+
+    def test_rows_that_break_the_rules_are_reported_by_number_and_the_rest_still_import(self):
+        body = self.rows(
+            ["Long answer", "With options", "a", "b", None, None, None, None, None, None, 4, None, None],
+            ["Fill in the blanks", "A blank ___", None, None, None, None, None, None, "A", "x", 1, None, None],
+            ["Fill in the blanks", "No gap", None, None, None, None, None, None, None, "x", 1, None, None],
+            ["Fill in the blanks", "Two ___ and ___", None, None, None, None, None, None, None, "x", 1, None, None],
+            ["Long answer", "Wrong", None, None, None, None, None, None, None, "x", 1, None, None],
+            ["Long answer", "No marks", None, None, None, None, None, None, None, None, None, None, None],
+            ["Essay", "Bad type", None, None, None, None, None, None, None, None, 1, None, None],
+            ["MCQ", "Fine", "a", "b", None, None, None, None, "A", None, 1, None, None],
+            ["MCQ", "With accepted", "a", "b", None, None, None, None, "A", "x", 1, None, None],
+        )
+        self.assertEqual(body["imported_count"], 1)
+        errors = " | ".join(body["errors"])
+        for expected in ("Row 2: a long-answer question cannot have options", "Row 3: a fill in the blanks question cannot have a correct option",
+                         "Row 4: write ___", "Row 5 has 2 blanks", "Row 6: a long-answer question cannot have accepted answers",
+                         "Row 7: marks are required", "Row 8: the type 'Essay'", "Row 10: a multiple-choice question cannot have accepted answers"):
+            self.assertIn(expected, errors)
+
+    def test_old_sheets_without_a_type_column_are_multiple_choice_worth_one_mark(self):
+        body = self.upload("exam-import-excel", [["Question", "Option A", "Option B", "Correct"], ["Q?", "a", "b", "A"]]).json()
+        self.assertEqual((body["imported_count"], body["questions"][0]["question_type"], body["questions"][0]["points"]), (1, "mcq", 1.0))

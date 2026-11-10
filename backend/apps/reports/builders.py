@@ -71,8 +71,11 @@ def build_class_report(classroom):
         attempts = list(ExamAttempt.objects.filter(exam=exam))
         done = [a.score for a in attempts if a.status == "submitted" and a.score is not None]
         flagged = sum(1 for a in attempts if a.status == "flagged")
+        waiting = sum(1 for a in attempts if a.status == "pending_review")
         mean = round(sum(done) / len(done), 1) if done else None
         extra = f", {flagged} flagged for leaving the exam" if flagged else ""
+        if waiting:
+            extra += f", {waiting} awaiting marking"
         lines.append(f"- {exam.title or 'Untitled'}: {len(done)} completed, average {_pct(mean)}{extra}")
 
     ranked = sorted(averages.items(), key=lambda pair: pair[1])
@@ -126,6 +129,8 @@ def build_student_report(student, courses):
             result = _pct(attempt.score)
         elif attempt.status == "flagged":
             result = f"Flagged for leaving the exam ({attempt.flag_reason or 'no reason recorded'}); scored 0%"
+        elif attempt.status == "pending_review":
+            result = "Awaiting marking"
         elif attempt.status == "expired":
             result = "Timed out without a score"
         else:

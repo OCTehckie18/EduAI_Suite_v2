@@ -475,7 +475,7 @@ export const ExamsPage: React.FC = () => {
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                           <Users size={16} className="text-blue-600" />
-                          Student Submissions ({attempts.length})
+                          Student Submissions ({attempts.length}){attempts.some((a: any) => a.status === "pending_review") && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Needs marking ({attempts.filter((a: any) => a.status === "pending_review").length})</span>}
                         </h3>
                         <button onClick={() => fetchAttempts(selectedExam.id)} className="text-blue-600 text-xs hover:underline flex items-center gap-1">
                           <RefreshCw size={12} /> Refresh
@@ -519,14 +519,14 @@ export const ExamsPage: React.FC = () => {
                                 <div className="text-right">
                                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-0.5" style={{ fontSize: '9px' }}>Score</p>
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-lg font-black text-blue-600">{attempt.status === "flagged" ? "Flagged: cheating" : attempt.status === "expired" ? "Timed out" : attempt.status === "in_progress" ? "In progress" : `${attempt.score ?? 0}%`}</span>
+                                    <span className="text-lg font-black text-blue-600">{attempt.status === "flagged" ? "Flagged: cheating" : attempt.status === "expired" ? "Timed out" : attempt.status === "in_progress" ? "In progress" : attempt.status === "pending_review" ? "Needs marking" : `${attempt.score ?? 0}%`}</span>
                                   </div>
                                 </div>
                                 <button
                                   onClick={() => fetchAttemptDetail(selectedExam.id, attempt.id)}
                                   className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors"
                                 >
-                                  {loadingDetail ? "..." : "View Sheet"}
+                                  {loadingDetail ? "..." : attempt.status === "pending_review" ? "Mark answers" : "View Sheet"}
                                 </button>
                               </div>
                             </div>
@@ -540,7 +540,7 @@ export const ExamsPage: React.FC = () => {
 
               {/* Answer Sheet Viewer Modal */}
               {selectedAttempt && (
-                <AnswerSheet attempt={selectedAttempt} onClose={() => setSelectedAttempt(null)} />
+                <AnswerSheet key={selectedAttempt.id} attempt={selectedAttempt} onClose={() => setSelectedAttempt(null)} onMarked={() => { if (selectedExam) void fetchAttempts(selectedExam.id); }} />
               )}
             </>
           ) : (

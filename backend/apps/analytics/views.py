@@ -126,7 +126,7 @@ def _exam_results(classrooms_qs):
     rows = (
         Exam.objects.filter(course__in=classrooms_qs).select_related("course")
         .annotate(
-            finished=Count("attempts", filter=Q(attempts__status="submitted")),
+            finished=Count("attempts", filter=Q(attempts__status__in=["submitted", "pending_review"])),
             flagged=Count("attempts", filter=Q(attempts__status="flagged")),
             average=Avg("attempts__score", filter=Q(attempts__status="submitted")),
         ).order_by("-created_at")[:3]

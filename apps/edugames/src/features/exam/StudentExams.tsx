@@ -114,6 +114,7 @@ export const StudentExams: React.FC = () => {
             const scores = finished.filter((a) => a.status === "submitted" && a.score != null).map((a) => a.score as number);
             const bestScore = scores.length ? Math.max(...scores) : null;
             const flagged = myAttempts.some((a) => a.status === "flagged");
+            const awaiting = myAttempts.some((a) => a.status === "pending_review");
             const outOfAttempts = flagged || (!inProgress && finished.length >= (exam.attempts_allowed ?? 1));
             const notOpen = !inProgress && exam.availability === "upcoming";
             const ended = !inProgress && exam.availability === "ended";
@@ -126,7 +127,7 @@ export const StudentExams: React.FC = () => {
                         <p className="text-xs font-bold uppercase tracking-widest text-blue-500">
                             {exam.course_code || `COURSE-${exam.course_id}`}
                         </p>
-                        <span className="badge badge-blue text-[10px]">{flagged ? "Flagged" : inProgress ? "In progress" : outOfAttempts ? "Done" : notOpen ? "Not open yet" : ended ? "Closed" : "Open"}</span>
+                        <span className="badge badge-blue text-[10px]">{flagged ? "Flagged" : inProgress ? "In progress" : awaiting ? "Awaiting marking" : outOfAttempts ? "Done" : notOpen ? "Not open yet" : ended ? "Closed" : "Open"}</span>
                     </div>
                     <h2 className="text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>{exam.title}</h2>
                     {exam.course_name && (
@@ -142,6 +143,7 @@ export const StudentExams: React.FC = () => {
                         Attempts: {finished.length} of {exam.attempts_allowed ?? 1}
                         {bestScore != null && <> · Best score: <strong>{bestScore}%</strong></>}
                       </p>
+                      {awaiting && <p className="mt-1 text-xs font-semibold text-amber-800">Submitted, awaiting marking. Your teacher will mark your written answers.</p>}
                       {(exam.opens_at || exam.closes_at) && (
                         <p className="mt-1 text-xs">
                           {exam.opens_at && <>Opens {fmt(exam.opens_at)}</>}
