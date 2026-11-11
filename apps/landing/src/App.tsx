@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { logoSrc, logoVariant, useDocumentTitle, useUniversity } from "./shared/university";
+import { logoSrc, logoVariant, portalName, useDocumentTitle, useUniversity } from "./shared/university";
 import { API_BASE_URL } from "./shared/utils/apiConfig";
 import { portals } from "./portals";
 import { Header } from "./components/Header";
@@ -32,7 +32,9 @@ export default function App() {
   const uploaded = logoSrc(university);
   const logo = uploaded ?? FALLBACK_LOGO;
   const variant = uploaded ? logoVariant(university) : "light";
-  const list = portals();
+  // Portal names as the university calls them.
+  const names = { students: portalName(university, "edugames", ""), teachers: portalName(university, "teacherbuddy", ""), admin: portalName(university, "master_admin", "") };
+  const list = portals().map((p) => (names[p.id] ? { ...p, name: names[p.id], action: `Open ${names[p.id]}` } : p));
   const [students, teachers] = list;
 
   return (
@@ -40,7 +42,7 @@ export default function App() {
       <a href="#portals" className="skip-link">Skip to the portals</a>
       <Header name={name} shortName={university.short_name || name} logo={logo} logoVariant={variant} email={university.contact_email} />
       <main>
-        <Hero universityName={university.name} students={students} teachers={teachers} backendUp={backendUp} />
+        <Hero universityName={university.name} students={students} teachers={teachers} backendUp={backendUp} headline={university.look?.landing?.headline} text={university.look?.landing?.text} />
         <Portals list={list} />
         <Features />
         <Journey />

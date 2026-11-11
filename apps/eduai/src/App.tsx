@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, Menu, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
+import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, Menu, Paintbrush, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
 import logo from "../../logo/eduai_logo.png";
 import { LoginScreen } from "./Login";
 import { ThemeToggle } from "./shared/ThemeToggle";
 import { RosterPanel } from "./RosterPanel";
 import { StaffRosterPanel } from "./StaffRosterPanel";
 import { StructurePanel } from "./StructurePanel";
+import { LookPanel } from "./LookPanel";
 import { UniversityPanel } from "./UniversityPanel";
 import { ApprovalsPanel } from "./panels/ApprovalsPanel";
 import { CampusPanel } from "./panels/CampusPanel";
@@ -14,7 +15,7 @@ import { RecycleBinPanel } from "./panels/RecycleBinPanel";
 import { UsersPanel } from "./panels/UsersPanel";
 import { API_ENDPOINTS } from "./shared/apiConfig";
 import { requestJson } from "./shared/request";
-import { UniversityBadge, useDocumentTitle } from "./shared/university";
+import { PortalName, UniversityBadge, useDocumentTitle } from "./shared/university";
 import { AdminUser, Overview, TabKey } from "./types";
 import { Avatar, UIProvider } from "./ui";
 
@@ -26,6 +27,7 @@ const NAV: { heading: string; items: TabDef[] }[] = [
   ] },
   { heading: "Institution", items: [
     { tab: "university", label: "University", title: "University settings", subtitle: "Name, logo and contact details shown across every portal", Icon: Landmark, color: "text-yellow-700", search: false },
+    { tab: "look", label: "Look & feel", title: "Look and feel", subtitle: "Fonts, corners, portal names and sign-in pages for every portal", Icon: Paintbrush, color: "text-orange-600", search: false },
     { tab: "campuses", label: "Campuses", title: "Campuses", subtitle: "The campuses of your university", Icon: Building2, color: "text-emerald-600", search: true },
     { tab: "structure", label: "Structure", title: "Institution structure", subtitle: "Schools, departments, programs, classes and sections", Icon: Layers, color: "text-teal-600", search: true },
   ] },
@@ -90,6 +92,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
   const panel = {
     overview: <OverviewPanel overview={overview} loadFailed={overviewError} onRetry={refresh} onNavigate={go} refreshKey={refreshKey} />,
     university: <UniversityPanel />,
+    look: <LookPanel />,
     campuses: <CampusPanel key={refreshKey} search={search} onChanged={loadOverview} />,
     structure: <StructurePanel key={refreshKey} search={search} onChanged={loadOverview} />,
     roster: <RosterPanel key={refreshKey} search={search} />,
@@ -106,7 +109,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
           <div className="mb-8 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-blue to-brand-gold shadow-lg shadow-rose-900/30"><img src={logo} alt="EduAI Suite" className="h-8 w-8 object-contain" /></div>
-              <div><h1 className="text-lg font-bold text-slate-900">EduAI Suite</h1><span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700">Master Admin</span></div>
+              <div><h1 className="text-lg font-bold text-slate-900">EduAI Suite</h1><span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700"><PortalName portal="master_admin" fallback="Master Admin" /></span></div>
             </div>
             <button onClick={() => setMenuOpen(false)} className="rounded-lg p-1 text-slate-500 hover:text-slate-900 lg:hidden" aria-label="Close menu"><X className="h-5 w-5" /></button>
           </div>
@@ -158,7 +161,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
 }
 
 export default function App() {
-  useDocumentTitle("Master Admin");
+  useDocumentTitle("Master Admin", "master_admin");
   const [user, setUser] = useState<AdminUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 

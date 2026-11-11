@@ -5,10 +5,13 @@ import { GoogleLogin } from "@react-oauth/google";
 import logo from "../../../../logo/eduai_logo.png";
 import { useAuthStore } from "../../store/useAuthStore";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
-import { logoSrc, logoVariant, useUniversity } from "../../shared/university";
+import { logoSrc, logoVariant, portalName, signInBackground, signInPage, siteLinks, useUniversity } from "../../shared/university";
 
 export const AuthPage: React.FC = () => {
   const uni = useUniversity();
+  const page = signInPage(uni, "teacherbuddy");
+  const appName = portalName(uni, "teacherbuddy", "TeacherBuddy");
+  const links = siteLinks(uni);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [username, setUsername] = useState("");
@@ -113,7 +116,7 @@ export const AuthPage: React.FC = () => {
   return (
     <div className="min-h-screen flex w-full">
       {/* ── Left Panel ── */}
-      <div className="hidden lg:flex w-1/2 flex-col justify-between p-12 relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0f1e45 0%,var(--color-brand-blue-dark) 50%,var(--color-brand-blue) 100%)" }}>
+      <div className="hidden lg:flex w-1/2 flex-col justify-between p-12 relative overflow-hidden" style={{ background: signInBackground(page) }}>
         {/* Decorative circles */}
         <div className="absolute -top-20 -left-20 w-80 h-80 rounded-full" style={{ background: "color-mix(in srgb, var(--color-brand-gold) 8%, transparent)" }} />
         <div className="absolute -bottom-20 -right-20 w-96 h-96 rounded-full" style={{ background: "color-mix(in srgb, var(--color-brand-blue) 25%, transparent)" }} />
@@ -126,30 +129,34 @@ export const AuthPage: React.FC = () => {
               <img src={logoSrc(uni) ?? logo} data-variant={logoVariant(uni)} alt={uni.name || "EduAI Suite"} className="w-full h-full object-contain" />
             </div>
             <div>
-              <p className="text-white font-black text-xl tracking-tight" style={{ fontFamily: "var(--font-display)" }}>TeacherBuddy</p>
+              <p className="text-white font-black text-xl tracking-tight" style={{ fontFamily: "var(--font-display)" }}>{appName}</p>
               <p className="text-[11px] font-semibold tracking-widest uppercase" style={{ color: "var(--color-brand-gold)" }}>
                 {uni.name || "EduAI Suite"}
               </p>
             </div>
           </div>
 
+          {page.headline ? <h1 className="text-4xl font-black text-white leading-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>{page.headline}</h1> : (
           <h1 className="text-4xl font-black text-white leading-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
             Empowering<br />
             <span style={{ color: "var(--color-brand-gold)" }}>Educators.</span>
           </h1>
+          )}
+          {page.text ? <p className="text-white/70 text-base leading-relaxed max-w-sm">{page.text}</p> : (
           <p className="text-white/60 text-base leading-relaxed max-w-sm">
             AI-powered academic management and insight tools for faculty and administrators{uni.name ? ` at ${uni.name}` : ""}.
           </p>
+          )}
         </div>
 
         {/* Feature Highlights */}
         <div className="space-y-4 relative">
-          {[
+          {(page.highlights.length ? page.highlights.map((h) => ({ mark: h.title.slice(0, 2).toUpperCase(), title: h.title, desc: h.text })) : [
             { mark: "AI", title: "AI Evaluation", desc: "Automated subjective answer scoring with teacher review" },
             { mark: "RD", title: "Risk Detection", desc: "Early warning system for student dropout risk" },
             { mark: "LA", title: "Live Analytics", desc: "Real-time performance dashboards and trend analysis" },
             { mark: "CS", title: "Content Studio", desc: "AI-generated lesson plans and interactive quizzes" },
-          ].map(f => (
+          ]).map(f => (
             <div key={f.title} className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-base"
                 style={{ background: "rgba(255,255,255,0.08)" }}>
@@ -163,9 +170,12 @@ export const AuthPage: React.FC = () => {
           ))}
         </div>
 
-        <p className="text-white/30 text-xs">
-          © 2026 {uni.name || "EduAI Suite"} · Excellence · Service · Knowledge
-        </p>
+        <div className="space-y-1">
+          <p className="text-white/50 text-xs">
+            © {new Date().getFullYear()} {uni.name || "EduAI Suite"}{page.motto ? ` · ${page.motto}` : ""}
+          </p>
+          {links.length > 0 && <p className="flex flex-wrap gap-3 text-xs">{links.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" className="text-white/70 underline hover:text-white">{label}</a>)}</p>}
+        </div>
       </div>
 
       {/* ── Right Panel ── */}
@@ -178,7 +188,7 @@ export const AuthPage: React.FC = () => {
                 <img src={logoSrc(uni) ?? logo} data-variant={logoVariant(uni)} alt={uni.name || "EduAI Suite"} className="w-full h-full object-contain" />
               </div>
               <div>
-                <p className="font-black text-sm" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-display)" }}>TeacherBuddy</p>
+                <p className="font-black text-sm" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-display)" }}>{appName}</p>
                 <p className="text-[10px]" style={{ color: "var(--color-text-muted)" }}>{uni.name || "EduAI Suite"}</p>
               </div>
             </div>

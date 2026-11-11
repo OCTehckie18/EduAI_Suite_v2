@@ -25,6 +25,7 @@ html.dark .text-emerald-700 { color: var(--color-emerald-300); }
 html.dark .text-emerald-800 { color: var(--color-emerald-300); }
 html.dark .text-emerald-900 { color: var(--color-emerald-300); }
 html.dark .text-lime-600 { color: var(--color-lime-300); }
+html.dark .text-orange-600 { color: var(--color-orange-300); }
 html.dark .text-rose-600 { color: var(--color-rose-300); }
 html.dark .text-rose-700 { color: var(--color-rose-300); }
 html.dark .text-rose-800 { color: var(--color-rose-300); }

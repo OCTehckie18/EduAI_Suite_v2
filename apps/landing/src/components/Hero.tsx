@@ -3,7 +3,7 @@ import { usePointerVars } from "../effects";
 import type { Portal } from "../portals";
 import { FloatingCard, LiveQuizWindow } from "./Mockups";
 
-export function Hero({ universityName, students, teachers, backendUp }: { universityName: string; students: Portal; teachers: Portal; backendUp: boolean | null }) {
+export function Hero({ universityName, students, teachers, backendUp, headline = "", text = "" }: { universityName: string; students: Portal; teachers: Portal; backendUp: boolean | null; headline?: string; text?: string }) {
   const ref = usePointerVars<HTMLElement>();
 
   return (
@@ -20,7 +20,7 @@ export function Hero({ universityName, students, teachers, backendUp }: { univer
             Classes, exams and live quizzes in one place
           </p>
           <h1 id="welcome" className="mt-6 text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-5xl xl:text-6xl">
-            {universityName ? (
+            {headline ? headline : universityName ? (
               <>
                 {universityName}{" "}
                 <span className="gradient-text block">digital campus</span>
@@ -32,7 +32,7 @@ export function Hero({ universityName, students, teachers, backendUp }: { univer
             )}
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/75 sm:text-xl">
-            Sign in to your classes, games and exams. Teachers run the class, students hand in work and play along, and the administration keeps everyone on the right roster.
+            {text || <>Sign in to your classes, games and exams. Teachers run the class, students hand in work and play along, and the administration keeps everyone on the right roster.</>}
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <a href={students.url} className="btn-primary group inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-bold text-white">
