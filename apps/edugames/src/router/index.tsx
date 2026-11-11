@@ -1,3 +1,4 @@
+import { ModuleGate } from "../shared/university";
 import React from "react";
 import { createBrowserRouter } from "react-router-dom";
 import { StudentShell } from "../layouts/StudentShell";
@@ -43,23 +44,23 @@ export const router = createBrowserRouter([
       { index: true, element: <StudentDashboard /> },
       { path: "classroom", element: <StudentClassrooms /> },
       { path: "exams", element: <StudentExams /> },
-      { path: "games/chain-answer", element: <ChainAnswerGamePage /> },
-      { path: "games/chain-answer/:sessionId", element: <ChainAnswerGamePage /> },
-      { path: "games/quiz/play", element: <QuizController /> },
+      { path: "games/chain-answer", element: <ModuleGate module="chain_answer"><ChainAnswerGamePage /></ModuleGate> },
+      { path: "games/chain-answer/:sessionId", element: <ModuleGate module="chain_answer"><ChainAnswerGamePage /></ModuleGate> },
+      { path: "games/quiz/play", element: <ModuleGate module="live_quizzes"><QuizController /></ModuleGate> },
       { path: "games", element: <GamesPage /> },
-      { path: "games/word-cloud", element: <WordCloudPlayerPage /> },
+      { path: "games/word-cloud", element: <ModuleGate module="word_cloud"><WordCloudPlayerPage /></ModuleGate> },
       // Slido has no server part yet, so these screens would only show errors.
       { path: "games/slido/submit", element: <ConstructionPage title="Slido presentations" /> },
       { path: "games/slido/join", element: <ConstructionPage title="Slido live polls" /> },
       { path: "games/slido/live/:pin", element: <ConstructionPage title="Slido live polls" /> },
-      { path: "games/trello", element: <TrelloBoardsPage /> },
-      { path: "games/trello/:boardId", element: <TrelloBoardView /> },
-      { path: "trello", element: <TrelloBoardsPage /> },
-      { path: "trello/:boardId", element: <TrelloBoardView /> },
-      { path: "forms", element: <StudentForms /> },
+      { path: "games/trello", element: <ModuleGate module="trello"><TrelloBoardsPage /></ModuleGate> },
+      { path: "games/trello/:boardId", element: <ModuleGate module="trello"><TrelloBoardView /></ModuleGate> },
+      { path: "trello", element: <ModuleGate module="trello"><TrelloBoardsPage /></ModuleGate> },
+      { path: "trello/:boardId", element: <ModuleGate module="trello"><TrelloBoardView /></ModuleGate> },
+      { path: "forms", element: <ModuleGate module="forms"><StudentForms /></ModuleGate> },
       { path: "progress", element: <MyProgressPage /> },
       { path: "calendar", element: <StudentCalendar /> },
-      { path: "appointments", element: <AppointmentBookingPage /> },
+      { path: "appointments", element: <ModuleGate module="appointments"><AppointmentBookingPage /></ModuleGate> },
       { path: "*", element: <ConstructionPage /> },
     ],
   },

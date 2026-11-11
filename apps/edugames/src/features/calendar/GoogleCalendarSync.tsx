@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Cloud, RefreshCw } from "lucide-react";
+import { useModule } from "../../shared/university";
 
 interface GoogleStatus {
   configured: boolean;
@@ -30,6 +31,7 @@ const ago = (iso: string | null) => {
 
 /** Connects the user's Google Calendar: EduAI keeps a separate calendar in their Google account up to date. */
 export const GoogleCalendarSync: React.FC<{ calendarBase: string }> = ({ calendarBase }) => {
+  const enabled = useModule("google_calendar");
   const [status, setStatus] = useState<GoogleStatus | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -117,7 +119,7 @@ export const GoogleCalendarSync: React.FC<{ calendarBase: string }> = ({ calenda
     }
   };
 
-  if (!status) return null;
+  if (!enabled || !status) return null;
 
   const warn = status.needs_reconnect || status.status === "error";
   return (

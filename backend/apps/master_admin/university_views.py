@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from apps.core.permissions import IsMasterAdmin
 from apps.institution import look as look_rules
+from apps.institution import modules as module_rules
 from apps.institution.models import UniversityAsset, UniversityProfile
 from apps.institution.university import clean_details, clear_logo, save_logo, university_payload
 
@@ -143,3 +144,26 @@ class UniversityLookAssetView(APIView):
             profile.save(update_fields=["look", "updated_at"])
             _record_admin_action(request, "remove_university_asset", "institution.universityprofile:1", {"slot": slot})
         return Response(university_payload(profile))
+
+
+class UniversityModulesView(APIView):
+    """Switch modules on or off for the whole university."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def get(self, request):
+        return Response({"modules": module_rules.module_catalog(UniversityProfile.load().modules)})
+
+    def put(self, request):
+        profile = UniversityProfile.load()
+        states, errors = module_rules.clean_modules(request.data, profile.modules)
+        if errors:
+            first_field, message = next(iter(errors.items()))
+            return Response({"detail": message, "errors": errors, "field": first_field}, status=400)
+        before = module_rules.module_states(profile.modules)
+        profile.modules = states
+        with transaction.atomic():
+            profile.save(update_fields=["modules", "updated_at"])
+            changed = {key: states[key] for key in states if states[key] != before[key]}
+            _record_admin_action(request, "update_university_modules", "institution.universityprofile:1", {"changed": changed})
+        module_rules.forget_cache()
+        return Response({"modules": module_rules.module_catalog(states), "university": university_payload(profile)})

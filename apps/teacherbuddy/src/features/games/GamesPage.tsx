@@ -1,3 +1,4 @@
+import { moduleOn, useUniversity, type ModuleKey } from "../../shared/university";
 import React, { useEffect, useState } from "react";
 import {
   Gamepad2,
@@ -16,6 +17,10 @@ import { GameMonitoringPage } from "./GameMonitoringPage";
 import { WordCloudHostComponent } from "../tools/WordCloudHostComponent";
 import { GamesHistoryList } from "./GamesHistoryList";
 
+// Which module each game card belongs to, so cards of switched-off modules are hidden.
+const GAME_MODULES: Record<string, ModuleKey> = {
+  "chain-answer": "chain_answer", "word-cloud-battle": "word_cloud", "quiz-battle-royale": "live_quizzes", "trello-projects": "trello",
+};
 const gameCategories = [
   {
     id: "chain-answer",
@@ -80,6 +85,7 @@ const gameCategories = [
 ];
 
 export const GamesPage: React.FC = () => {
+  const university = useUniversity();
   const navigate = useNavigate();
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -272,7 +278,7 @@ export const GamesPage: React.FC = () => {
         <>
           {/* Grid of game types */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {gameCategories.map((category) => (
+            {gameCategories.filter((category) => !GAME_MODULES[category.id] || moduleOn(university, GAME_MODULES[category.id])).map((category) => (
               <motion.div
                 key={category.id}
                 whileHover={{ scale: 1.02 }}

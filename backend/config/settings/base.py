@@ -70,6 +70,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Refuses the API of any module the university switched off (Master Admin > Modules).
+    'apps.institution.modules.ModuleSwitchMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'

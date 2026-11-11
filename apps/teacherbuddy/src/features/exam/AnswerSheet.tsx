@@ -1,3 +1,4 @@
+import { useModule } from "../../shared/university";
 import React, { useState } from "react";
 import { 
   CheckCircle2, XCircle, AlertCircle, 
@@ -31,6 +32,7 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt: initialAttemp
   const [suggesting, setSuggesting] = useState<number | null>(null);
   const [markError, setMarkError] = useState("");
   const [saved, setSaved] = useState("");
+  const aiTools = useModule("ai_exam_tools");
   if (!attempt) return null;
 
   const questions: any[] = attempt.exam?.questions ?? [];
@@ -226,7 +228,7 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt: initialAttemp
                                 />
                                 <span className="text-blue-700">out of {question.points}</span>
                               </label>
-                              {question.question_type === "long_answer" && answered(question) && (
+                              {aiTools && question.question_type === "long_answer" && answered(question) && (
                                 <button type="button" disabled={suggesting === question.id} onClick={() => void suggest(question.id)} className="rounded-lg border border-blue-300 bg-white px-3 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-50">
                                   {suggesting === question.id ? "Thinking..." : "Suggest a mark with AI"}
                                 </button>

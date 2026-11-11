@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, Menu, Paintbrush, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
+import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, Menu, Paintbrush, ToggleRight, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
 import logo from "../../logo/eduai_logo.png";
 import { LoginScreen } from "./Login";
 import { ThemeToggle } from "./shared/ThemeToggle";
@@ -7,6 +7,7 @@ import { RosterPanel } from "./RosterPanel";
 import { StaffRosterPanel } from "./StaffRosterPanel";
 import { StructurePanel } from "./StructurePanel";
 import { LookPanel } from "./LookPanel";
+import { ModulesPanel } from "./ModulesPanel";
 import { UniversityPanel } from "./UniversityPanel";
 import { ApprovalsPanel } from "./panels/ApprovalsPanel";
 import { CampusPanel } from "./panels/CampusPanel";
@@ -28,6 +29,7 @@ const NAV: { heading: string; items: TabDef[] }[] = [
   { heading: "Institution", items: [
     { tab: "university", label: "University", title: "University settings", subtitle: "Name, logo and contact details shown across every portal", Icon: Landmark, color: "text-yellow-700", search: false },
     { tab: "look", label: "Look & feel", title: "Look and feel", subtitle: "Fonts, corners, portal names and sign-in pages for every portal", Icon: Paintbrush, color: "text-orange-600", search: false },
+    { tab: "modules", label: "Modules", title: "Modules", subtitle: "Switch off what your university does not use", Icon: ToggleRight, color: "text-emerald-600", search: false },
     { tab: "campuses", label: "Campuses", title: "Campuses", subtitle: "The campuses of your university", Icon: Building2, color: "text-emerald-600", search: true },
     { tab: "structure", label: "Structure", title: "Institution structure", subtitle: "Schools, departments, programs, classes and sections", Icon: Layers, color: "text-teal-600", search: true },
   ] },
@@ -93,6 +95,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
     overview: <OverviewPanel overview={overview} loadFailed={overviewError} onRetry={refresh} onNavigate={go} refreshKey={refreshKey} />,
     university: <UniversityPanel />,
     look: <LookPanel />,
+    modules: <ModulesPanel />,
     campuses: <CampusPanel key={refreshKey} search={search} onChanged={loadOverview} />,
     structure: <StructurePanel key={refreshKey} search={search} onChanged={loadOverview} />,
     roster: <RosterPanel key={refreshKey} search={search} />,

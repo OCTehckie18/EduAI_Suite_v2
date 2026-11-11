@@ -30,9 +30,15 @@ import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { tokenIsFresh } from "../shared/utils/installAuthFetch";
 import { ThemeToggle } from "../shared/ThemeToggle";
 import { ProfileModal } from "../shared/components/ProfileModal";
-import { PortalName, UniversityBadge } from "../shared/university";
+import { PortalName, UniversityBadge, moduleOn, useUniversity, type ModuleKey } from "../shared/university";
 
 // uncomment to view the modesl
+// Entries that belong to a module the university can switch off. Game Studio goes once every game is off.
+const NAV_MODULES: Record<string, ModuleKey[]> = {
+  "/games": ["live_quizzes", "chain_answer", "word_cloud", "trello"],
+  "/appointments": ["appointments"], "/reports": ["reports"], "/mail": ["mail"],
+};
+
 const navItems = [
   {
     icon: LayoutDashboard,
@@ -116,6 +122,8 @@ const formatRelativeTime = (date: string | Date) => {
 };
 
 export const DashboardShell: React.FC = () => {
+  const shellUniversity = useUniversity();
+  const navItemOn = (href: string) => !NAV_MODULES[href] || NAV_MODULES[href].some((key) => moduleOn(shellUniversity, key));
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   // Open by default on desktop; a closed drawer on phones and half-width windows.
   const [sidebarOpen, setSidebarOpen] = useState(isDesktop);
@@ -679,7 +687,7 @@ export const DashboardShell: React.FC = () => {
         }}
       >
         <nav className="flex-1 overflow-y-auto py-4 pr-3 space-y-1 custom-scrollbar">
-          {navItems.map((item) => (
+          {navItems.filter((item) => navItemOn(item.href)).map((item) => (
             <NavLink
               key={item.href}
               to={item.href}

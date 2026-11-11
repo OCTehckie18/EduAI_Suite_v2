@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useState } from "react";
 import { applyBrand } from "./brand";
 import { applyLook } from "./look";
@@ -27,6 +28,8 @@ export interface University {
   tertiary_color_dark?: string;
   /** Fonts, corners, portal names, sign-in pages ... (missing on an old cached copy). */
   look?: Look;
+  /** Module switches ({forms: false, ...}); missing means on. */
+  modules?: Record<string, boolean>;
 }
 
 const EMPTY: University = {
@@ -154,6 +157,36 @@ export function UniversityBadge({ className = "", labelClassName = "" }: { class
     <div className={`flex items-center gap-2 ${className}`} title={university.name}>
       {src && <img src={src} data-variant={logoVariant(university)} alt={university.name ? `${university.name} logo` : "University logo"} className="logo-chip h-8 max-w-[120px] object-contain" />}
       {label && <span className={`hidden max-w-[140px] truncate text-xs font-semibold lg:block ${labelClassName}`}>{label}</span>}
+    </div>
+  );
+}
+
+/** Modules a university can switch off (Master Admin > Modules). Anything not listed as off is on. */
+export type ModuleKey =
+  | "live_quizzes" | "chain_answer" | "word_cloud" | "trello" | "appointments" | "forms"
+  | "mail" | "reports" | "omr" | "ai_assistant" | "ai_exam_tools" | "google_calendar";
+
+const MODULE_LABELS: Record<ModuleKey, string> = {
+  live_quizzes: "Live quizzes", chain_answer: "The chain answer game", word_cloud: "Word cloud", trello: "Project boards",
+  appointments: "Appointments", forms: "Forms", mail: "Mail students", reports: "Reports", omr: "OMR answer sheets",
+  ai_assistant: "The AI assistant", ai_exam_tools: "AI exam tools", google_calendar: "Google Calendar sync",
+};
+
+export const moduleOn = (university: University, key: ModuleKey) => university.modules?.[key] !== false;
+
+export function useModule(key: ModuleKey): boolean {
+  return moduleOn(useUniversity(), key);
+}
+
+/** Shows a page only while its module is on; otherwise a short note instead of the feature. */
+export function ModuleGate({ module, children }: { module: ModuleKey; children: React.ReactNode }) {
+  const university = useUniversity();
+  if (moduleOn(university, module)) return <>{children}</>;
+  const who = university.short_name || university.name || "this university";
+  return (
+    <div className="mx-auto max-w-md px-6 py-16 text-center" role="status">
+      <h1 className="text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>Not in use here</h1>
+      <p className="mt-2 text-sm" style={{ color: "var(--color-text-secondary)" }}>{MODULE_LABELS[module]} is switched off at {who}. Ask your administration if you need it.</p>
     </div>
   );
 }

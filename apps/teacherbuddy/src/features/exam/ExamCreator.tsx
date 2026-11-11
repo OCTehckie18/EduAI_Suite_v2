@@ -1,3 +1,4 @@
+import { useModule } from "../../shared/university";
 import React, { useState } from "react";
 import { 
   X, Plus, Trash2, Upload, FileText, Settings, 
@@ -99,7 +100,8 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
   const [isExtracting, setIsExtracting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
-  const [importTab, setImportTab] = useState<"smart" | "excel">("smart");
+  const aiTools = useModule("ai_exam_tools");
+  const [importTab, setImportTab] = useState<"smart" | "excel">(aiTools ? "smart" : "excel");
   const [isImportingExcel, setIsImportingExcel] = useState(false);
   const [importSuccess, setImportSuccess] = useState("");
   const [importProblems, setImportProblems] = useState<string[]>([]);
@@ -524,7 +526,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
             <section className="rounded-2xl bg-blue-50 border border-blue-100 overflow-hidden">
               {/* Tab Switcher */}
               <div className="flex border-b border-blue-100">
-                <button
+                {aiTools && <button
                   onClick={() => setImportTab("smart")}
                   className={`flex-1 py-2.5 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
                     importTab === "smart" 
@@ -533,7 +535,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
                   }`}
                 >
                   Smart Import
-                </button>
+                </button>}
                 <button
                   onClick={() => setImportTab("excel")}
                   className={`flex-1 py-2.5 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
@@ -548,7 +550,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
 
               <div className="p-4 space-y-3">
                 {/* ── Smart Import Tab ── */}
-                {importTab === "smart" && (
+                {aiTools && importTab === "smart" && (
                   <>
                     <div className="flex items-start gap-2 p-2.5 rounded-xl bg-blue-100/50 border border-blue-200/50">
                       <p className="text-[10px] text-blue-700 leading-relaxed">
