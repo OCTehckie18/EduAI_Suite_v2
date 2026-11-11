@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, Gamepad2, LayoutDashboard, ClipboardList, CalendarClock, LogOut, ChevronRight, Menu, Calendar, FileSignature, TrendingUp } from "lucide-react";
 import logo from "../../../logo/eduai_logo.png";
@@ -27,6 +27,7 @@ export const StudentShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(isDesktop);
   const location = useLocation();
   const [profileOpen, setProfileOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const { logout, role } = useAuthStore();
   const navigate = useNavigate();
@@ -41,6 +42,21 @@ export const StudentShell: React.FC = () => {
   useEffect(() => {
     if (!isDesktop) setSidebarOpen(false);
   }, [location.pathname, isDesktop]);
+
+  // The account menu closes when you click anywhere else or press Escape.
+  useEffect(() => {
+    if (!profileOpen) return;
+    const onPointer = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) setProfileOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setProfileOpen(false); };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [profileOpen]);
 
   useEffect(() => {
     if (!role || !localStorage.getItem("token")) {
@@ -124,9 +140,11 @@ export const StudentShell: React.FC = () => {
             <ThemeToggle />
             <NotificationBell />
             {/* Profile */}
-            <div className="relative">
+            <div className="relative" ref={profileMenuRef}>
               <button
                 onClick={() => setProfileOpen(o => !o)}
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
                 className="flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full transition-all hover:bg-slate-100 border border-slate-200/80"
               >
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow bg-emerald-500">
@@ -139,10 +157,10 @@ export const StudentShell: React.FC = () => {
               </button>
 
               {profileOpen && (
-                <div className="glass-card absolute right-0 top-12 w-52 z-50 overflow-hidden animate-fade-in py-1">
+                <div className="glass-card absolute right-0 top-12 w-72 max-w-[calc(100vw-1.5rem)] z-50 overflow-hidden animate-fade-in py-1">
                   <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                    <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{user?.name || "Student"}</p>
-                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>{user?.email || ""}</p>
+                    <p className="text-sm font-bold break-words" style={{ color: 'var(--color-text-primary)' }}>{user?.name || "Student"}</p>
+                    <p className="text-[11px] mt-0.5 break-all" style={{ color: 'var(--color-text-secondary)' }}>{user?.email || ""}</p>
                     <span className="badge mt-2" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>Student</span>
                   </div>
                   <button
