@@ -6,7 +6,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { DESKTOP_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import { ProfileModal } from "../shared/components/ProfileModal";
-import { PortalName, UniversityBadge, moduleOn, useUniversity, type ModuleKey } from "../shared/university";
+import { PortalName, UniversityBadge, moduleOn, rulesOf, useUniversity, type ModuleKey } from "../shared/university";
 import { NotificationBell } from "../shared/components/NotificationBell";
 import { ThemeToggle } from "../shared/ThemeToggle";
 
@@ -40,7 +40,8 @@ export const StudentShell: React.FC = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
 
-  const remainingTime = useSessionTimeout(900000);
+  const sessionMinutes = rulesOf(useUniversity()).signin.session_minutes;
+  const remainingTime = useSessionTimeout(sessionMinutes * 60000);
 
   useEffect(() => {
     setSidebarOpen(isDesktop);

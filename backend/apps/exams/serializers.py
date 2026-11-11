@@ -60,7 +60,7 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
         model = ExamAttempt
         fields = [
             "id", "student_id", "student_name", "student_email", "score", "earned_points", "total_points",
-            "status", "flag_reason", "start_time", "end_time", "expires_at", "remaining_seconds", "answers", "exam",
+            "status", "flag_reason", "warnings", "start_time", "end_time", "expires_at", "remaining_seconds", "answers", "exam",
             "paper",
         ]
 

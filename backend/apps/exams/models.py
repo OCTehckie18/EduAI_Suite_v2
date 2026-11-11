@@ -73,6 +73,8 @@ class ExamAttempt(models.Model):
     earned_points = models.FloatField(null=True, blank=True)
     # Set when the attempt was ended for leaving the exam (status "flagged").
     flag_reason = models.CharField(max_length=200, blank=True, default="")
+    # Times the student left the exam when the university's rules only warn for it.
+    warnings = models.PositiveSmallIntegerField(default=0)
     total_points = models.FloatField(null=True, blank=True)
 
     class Meta:

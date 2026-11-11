@@ -30,7 +30,7 @@ import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { tokenIsFresh } from "../shared/utils/installAuthFetch";
 import { ThemeToggle } from "../shared/ThemeToggle";
 import { ProfileModal } from "../shared/components/ProfileModal";
-import { PortalName, UniversityBadge, moduleOn, useUniversity, type ModuleKey } from "../shared/university";
+import { PortalName, UniversityBadge, moduleOn, rulesOf, useUniversity, type ModuleKey } from "../shared/university";
 
 // uncomment to view the modesl
 // Entries that belong to a module the university can switch off. Game Studio goes once every game is off.
@@ -147,7 +147,8 @@ export const DashboardShell: React.FC = () => {
   const [user, setUser] = useState<any>(null);
 
   // Call session timeout hook (15 minutes = 900,000 ms)
-  const remainingTime = useSessionTimeout(900000);
+  const sessionMinutes = rulesOf(useUniversity()).signin.session_minutes;
+  const remainingTime = useSessionTimeout(sessionMinutes * 60000);
 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);

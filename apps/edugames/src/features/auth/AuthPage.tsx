@@ -6,13 +6,14 @@ import logo from "../../../../logo/eduai_logo.png";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
-import { logoSrc, logoVariant, portalName, signInBackground, signInPage, siteLinks, useUniversity } from "../../shared/university";
+import { logoSrc, logoVariant, portalName, rulesOf, signInBackground, signInPage, siteLinks, useUniversity } from "../../shared/university";
 
 export const AuthPage: React.FC = () => {
   const uni = useUniversity();
   const page = signInPage(uni, "edugames");
   const appName = portalName(uni, "edugames", "EduGames");
   const links = siteLinks(uni);
+  const signin = rulesOf(uni).signin;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [username, setUsername] = useState("");
@@ -213,6 +214,7 @@ export const AuthPage: React.FC = () => {
               </div>
             ) : (
               <div className="flex flex-col items-center gap-4">
+                {signin.methods !== "password" && <>
                 {/* Google Sign-In Button */}
                 <div className="w-full flex justify-center">
                   <GoogleLogin
@@ -226,18 +228,23 @@ export const AuthPage: React.FC = () => {
                   />
                 </div>
 
-                {uni.email_domain && (
+                </>}
+                {(signin.allowed_domains.length > 0 || uni.email_domain) && (
                   <p className="text-xs text-center mt-1" style={{ color: "var(--color-text-muted)" }}>
-                    Use your <strong>@{uni.email_domain}</strong> email to sign in
+                    Use your <strong>{signin.allowed_domains.length ? signin.allowed_domains.map((d) => `@${d}`).join(" or ") : `@${uni.email_domain}`}</strong> email to sign in
                   </p>
                 )}
 
+                {signin.methods === "both" && <>
                 <div className="w-full flex items-center gap-3 my-1">
                   <div className="h-px flex-1" style={{ background: "var(--color-border)" }} />
                   <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>or use saved credentials</span>
                   <div className="h-px flex-1" style={{ background: "var(--color-border)" }} />
                 </div>
 
+                </>}
+
+                {signin.methods !== "google" && (
                 <form onSubmit={handlePasswordLogin} className="w-full space-y-3">
                   <input
                     type="text"
@@ -266,6 +273,7 @@ export const AuthPage: React.FC = () => {
                     Sign in with password
                   </button>
                 </form>
+                )}
 
               </div>
             )}

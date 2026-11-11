@@ -30,6 +30,12 @@ export interface University {
   look?: Look;
   /** Module switches ({forms: false, ...}); missing means on. */
   modules?: Record<string, boolean>;
+  /** Exam, sign-in and account rules (missing on an old cached copy). */
+  rules?: {
+    exam?: Partial<Omit<PublicRules["exam"], "events">> & { events?: Partial<PublicRules["exam"]["events"]> };
+    signin?: Partial<PublicRules["signin"]>;
+    accounts?: { student_can_edit?: Partial<PublicRules["accounts"]["student_can_edit"]> };
+  };
 }
 
 const EMPTY: University = {
@@ -189,4 +195,31 @@ export function ModuleGate({ module, children }: { module: ModuleKey; children: 
       <p className="mt-2 text-sm" style={{ color: "var(--color-text-secondary)" }}>{MODULE_LABELS[module]} is switched off at {who}. Ask your administration if you need it.</p>
     </div>
   );
+}
+
+/** The university's rules the portals follow (Master Admin > Rules). Defaults are the platform's own behaviour. */
+export type ExamEvent = "tab_hidden" | "window_blur" | "fullscreen_exit" | "page_unload";
+export interface PublicRules {
+  exam: { events: Record<ExamEvent, "end" | "warn" | "ignore">; warnings_allowed: number; rules_text: string; reset_by: "teachers" | "admins" };
+  signin: { methods: "both" | "google" | "password"; allowed_domains: string[]; session_minutes: number };
+  accounts: { student_can_edit: { name: boolean; phone: boolean; password: boolean } };
+}
+
+export const DEFAULT_PUBLIC_RULES: PublicRules = {
+  exam: { events: { tab_hidden: "end", window_blur: "end", fullscreen_exit: "end", page_unload: "end" }, warnings_allowed: 2, rules_text: "", reset_by: "teachers" },
+  signin: { methods: "both", allowed_domains: [], session_minutes: 15 },
+  accounts: { student_can_edit: { name: true, phone: true, password: true } },
+};
+
+export const rulesOf = (university: University): PublicRules => {
+  const r = university.rules;
+  return {
+    exam: { ...DEFAULT_PUBLIC_RULES.exam, ...r?.exam, events: { ...DEFAULT_PUBLIC_RULES.exam.events, ...r?.exam?.events } },
+    signin: { ...DEFAULT_PUBLIC_RULES.signin, ...r?.signin },
+    accounts: { student_can_edit: { ...DEFAULT_PUBLIC_RULES.accounts.student_can_edit, ...r?.accounts?.student_can_edit } },
+  };
+};
+
+export function useRules(): PublicRules {
+  return rulesOf(useUniversity());
 }

@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from apps.classrooms.models import Classroom, Enrollment
 from apps.core.permissions import IsTeacher
 from apps.core.services import course_student_ids, notify, record_student_activity
+from apps.institution import rules as university_rules
 from .grading import (
     MAX_GUIDE, MAX_TEXT_ANSWER, MAX_WORD_LIMIT, clean_accepted_answers, count_blanks, fill_blank_is_correct,
 )
@@ -637,7 +638,19 @@ class ExamAttemptViolationView(APIView):
             if attempt.student_id != request.user.pk:
                 return _forbidden()
             if attempt.status == "in_progress":
-                _finish(attempt, score=0.0, earned=0.0, total=_total_points(attempt), final_status="flagged", flag_reason=VIOLATIONS[kind])
+                exam_rules = university_rules.current()["exam"]
+                action = exam_rules["events"].get(kind, "end")
+                if action == "warn":
+                    # The university only warns for this: the attempt ends once the warnings run out.
+                    attempt.warnings += 1
+                    if attempt.warnings > exam_rules["warnings_allowed"]:
+                        reason = f"{VIOLATIONS[kind]} (after {exam_rules['warnings_allowed']} warning{'s' if exam_rules['warnings_allowed'] != 1 else ''})"
+                        _finish(attempt, score=0.0, earned=0.0, total=_total_points(attempt), final_status="flagged", flag_reason=reason[:200])
+                    else:
+                        attempt.save(update_fields=["warnings"])
+                elif action == "end":
+                    _finish(attempt, score=0.0, earned=0.0, total=_total_points(attempt), final_status="flagged", flag_reason=VIOLATIONS[kind])
+                # "ignore": the university does not count this event
         return Response(ExamAttemptSerializer(attempt).data)
 
 
