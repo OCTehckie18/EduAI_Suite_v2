@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .look import look_payload
+from .modules import module_states
 from .models import UniversityProfile
 
 MAX_LOGO_BYTES = 2 * 1024 * 1024
@@ -65,6 +66,8 @@ def university_payload(profile):
             if profile.logo_dark_updated_at else None
         ),
         "look": look_payload(profile),
+        # Which modules are on, so every portal can hide the ones the university switched off.
+        "modules": module_states(profile.modules),
     }
 
 

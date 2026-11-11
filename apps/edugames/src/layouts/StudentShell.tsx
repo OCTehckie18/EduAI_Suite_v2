@@ -6,9 +6,15 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { DESKTOP_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import { ProfileModal } from "../shared/components/ProfileModal";
-import { PortalName, UniversityBadge } from "../shared/university";
+import { PortalName, UniversityBadge, moduleOn, useUniversity, type ModuleKey } from "../shared/university";
 import { NotificationBell } from "../shared/components/NotificationBell";
 import { ThemeToggle } from "../shared/ThemeToggle";
+
+// Entries that belong to a module the university can switch off. EduGames goes once every game is off.
+const NAV_MODULES: Record<string, ModuleKey[]> = {
+  "/games": ["live_quizzes", "chain_answer", "word_cloud", "trello"],
+  "/appointments": ["appointments"], "/forms": ["forms"],
+};
 
 const studentNavItems = [
   { icon: LayoutDashboard, label: "My Dashboard", href: "/", end: true },
@@ -23,6 +29,7 @@ const studentNavItems = [
 
 export const StudentShell: React.FC = () => {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const shellUniversity = useUniversity();
   // Desktop: expanded/collapsed rail. Below 1024px: drawer open/closed (closed by default).
   const [sidebarOpen, setSidebarOpen] = useState(isDesktop);
   const location = useLocation();
@@ -97,7 +104,7 @@ export const StudentShell: React.FC = () => {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {studentNavItems.map((item) => (
+          {studentNavItems.filter((item) => !NAV_MODULES[item.href] || NAV_MODULES[item.href].some((key) => moduleOn(shellUniversity, key))).map((item) => (
             <NavLink key={item.href} to={item.href} end={item.end} aria-label={item.label} title={sidebarOpen ? undefined : item.label} className={({ isActive }: { isActive: boolean }) => `nav-item ${isActive ? "nav-item-active" : ""}`}>
               {({ isActive }: { isActive: boolean }) => (
                 <>

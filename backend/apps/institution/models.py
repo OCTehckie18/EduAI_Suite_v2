@@ -182,6 +182,8 @@ class UniversityProfile(TimeStampedModel):
     # Look and feel beyond colours (fonts, corners, portal names, sign-in pages ...). Validated by
     # institution/look.py; anything missing falls back to the default there.
     look = models.JSONField(default=dict, blank=True)
+    # Modules switched on or off ({"forms": false, ...}); anything missing is on. See institution/modules.py.
+    modules = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return self.name or "University (not configured)"

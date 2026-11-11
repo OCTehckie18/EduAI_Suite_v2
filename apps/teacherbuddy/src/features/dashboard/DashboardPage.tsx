@@ -1,3 +1,4 @@
+import { useModule } from "../../shared/university";
 import React, { useEffect, useState } from "react";
 import {
   Users, BrainCircuit, AlertTriangle, TrendingUp, BookOpen,
@@ -28,6 +29,9 @@ const iconMap: Record<string, any> = {
 };
 
 export const DashboardPage: React.FC = () => {
+  const appointmentsOn = useModule("appointments");
+  const reportsOn = useModule("reports");
+  const mailOn = useModule("mail");
   const { user: authUser } = useAuthStore();
   const [data, setData] = useState<any>(null);
 
@@ -168,15 +172,15 @@ export const DashboardPage: React.FC = () => {
         <Link to="/exams" className="glass-card flex items-center gap-3 p-3 transition hover:-translate-y-0.5">
           <Plus size={16} className="text-blue-600" /><span className="text-xs font-bold">Create Exam</span>
         </Link>
-        <Link to="/mail" className="glass-card flex items-center gap-3 p-3 transition hover:-translate-y-0.5">
+        {mailOn && <Link to="/mail" className="glass-card flex items-center gap-3 p-3 transition hover:-translate-y-0.5">
           <Mail size={16} className="text-indigo-600" /><span className="text-xs font-bold">Send Mail</span>
-        </Link>
-        <Link to="/reports" className="glass-card flex items-center gap-3 p-3 transition hover:-translate-y-0.5">
+        </Link>}
+        {reportsOn && <Link to="/reports" className="glass-card flex items-center gap-3 p-3 transition hover:-translate-y-0.5">
           <FileText size={16} className="text-amber-600" /><span className="text-xs font-bold">Generate Report</span>
-        </Link>
-        <Link to="/appointments" className="glass-card flex items-center gap-3 p-3 transition hover:-translate-y-0.5">
+        </Link>}
+        {appointmentsOn && <Link to="/appointments" className="glass-card flex items-center gap-3 p-3 transition hover:-translate-y-0.5">
           <Calendar size={16} className="text-emerald-600" /><span className="text-xs font-bold">Appointments</span>
-        </Link>
+        </Link>}
       </div>
 
       {/* Stats Grid */}
@@ -412,6 +416,7 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        {appointmentsOn && (
         <GlassCard padding="sm">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2"><Calendar size={15} className="text-amber-600" /><h3 className="section-title text-sm">Pending Appointments</h3></div>
@@ -433,7 +438,9 @@ export const DashboardPage: React.FC = () => {
             ))}
           </div>
         </GlassCard>
+        )}
 
+        {reportsOn && (
         <GlassCard padding="sm">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2"><FileText size={15} className="text-blue-600" /><h3 className="section-title text-sm">Recent Reports</h3></div>
@@ -448,7 +455,9 @@ export const DashboardPage: React.FC = () => {
             ))}
           </div>
         </GlassCard>
+        )}
 
+        {mailOn && (
         <GlassCard padding="sm">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2"><Mail size={15} className="text-indigo-600" /><h3 className="section-title text-sm">Mail Activity</h3></div>
@@ -458,6 +467,7 @@ export const DashboardPage: React.FC = () => {
           <p className="text-xs text-muted-foreground">emails sent this week</p>
           <p className="mt-3 text-[10px] text-muted-foreground">Last sent: {mailStats.lastSentAt ? new Date(mailStats.lastSentAt).toLocaleString() : "No mail history"}</p>
         </GlassCard>
+        )}
 
         <GlassCard padding="sm" className="xl:col-span-2">
           <div className="mb-3 flex items-center justify-between">
