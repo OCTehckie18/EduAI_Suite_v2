@@ -203,10 +203,6 @@ export const StudentShell: React.FC = () => {
         )}
       </main>
 
-      {/* Overlay to close dropdowns */}
-      {profileOpen && (
-        <div className="fixed inset-0 z-30" onClick={() => setProfileOpen(false)} />
-      )}
     </div>
   );
 };
