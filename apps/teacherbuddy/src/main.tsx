@@ -31,7 +31,7 @@ initTheme();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <BrandingTitle app="TeacherBuddy" />
+      <BrandingTitle app="TeacherBuddy" portal="teacherbuddy" />
       <RouterProvider router={router} />
     </GoogleOAuthProvider>
   </StrictMode>,

@@ -20,7 +20,7 @@
 }
 
 :root {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans, 'Inter', sans-serif);
   color-scheme: light;
 
   --color-surface-base: #f8fafc;
@@ -54,7 +54,7 @@ body {
 }
 
 .font-display {
-  font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+  font-family: var(--font-display, 'Poppins', 'Inter', system-ui, sans-serif);
 }
 
 .text-primary {

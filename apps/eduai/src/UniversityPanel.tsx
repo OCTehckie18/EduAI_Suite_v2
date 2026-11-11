@@ -57,7 +57,8 @@ function ModePreview({ mode, colors, lightLogo, darkLogo, label }: { mode: Varia
   const logo = mode === "dark" ? darkLogo ?? lightLogo : lightLogo;
   const onTile = mode === "dark" && !darkLogo;
   const vars = { "--pv-page": surface.page, "--pv-card": surface.card, "--pv-text": surface.text, "--pv-sub": surface.sub, "--pv-line": surface.line, "--pv-fill": fill, "--pv-brand": text, "--pv-accent": accent, "--pv-gold": gold } as CSSProperties;
-  const buttonContrast = contrastRatio("#ffffff", fill);
+  const onBrand = palette["--color-on-brand"] ?? "#ffffff";
+  const buttonContrast = contrastRatio(onBrand, fill);
   const textContrast = contrastRatio(text, surface.card);
   const ok = (value: number) => value >= 4.5;
   return <figure className="min-w-0 flex-1 overflow-hidden rounded-xl border" style={{ ...vars, background: "var(--pv-page)", borderColor: "var(--pv-line)" }}>
@@ -73,7 +74,7 @@ function ModePreview({ mode, colors, lightLogo, darkLogo, label }: { mode: Varia
         <p className="text-sm font-bold" style={{ color: "var(--pv-text)" }}>Data Structures</p>
         <p className="text-xs" style={{ color: "var(--pv-sub)" }}>12 of 13 graded · <span className="font-semibold" style={{ color: "var(--pv-brand)" }}>Open class</span></p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <span className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ background: "var(--pv-fill)", color: "#ffffff" }}>Primary button</span>
+          <span className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ background: "var(--pv-fill)", color: onBrand }}>Primary button</span>
           <span className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ background: "var(--pv-gold)", color: "#1f2937" }}>Highlight</span>
           <span className="rounded-lg border-2 px-3 py-1.5 text-xs font-semibold" style={{ borderColor: "var(--pv-accent)", color: "var(--pv-text)", background: "var(--pv-card)" }}>Focused field</span>
         </div>

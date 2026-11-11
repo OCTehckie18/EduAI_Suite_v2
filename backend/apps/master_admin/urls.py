@@ -1,6 +1,8 @@
 from django.urls import path
 
-from .university_views import UniversityDetailView, UniversityLogoUploadView
+from .university_views import (
+    UniversityDetailView, UniversityLogoUploadView, UniversityLookAssetView, UniversityLookResetView, UniversityLookView,
+)
 from .staff_roster_views import (
     StaffRosterDetailView, StaffRosterImportView, StaffRosterListView, StaffRosterTemplateView,
 )
@@ -40,6 +42,9 @@ urlpatterns = [
     path("roster/<int:pk>/", RosterDetailView.as_view(), name="master-admin-roster-detail"),
     path("university/", UniversityDetailView.as_view(), name="master-admin-university"),
     path("university/logo/", UniversityLogoUploadView.as_view(), name="master-admin-university-logo"),
+    path("university/look/", UniversityLookView.as_view(), name="master-admin-university-look"),
+    path("university/look/reset/", UniversityLookResetView.as_view(), name="master-admin-university-look-reset"),
+    path("university/look/assets/<str:slot>/", UniversityLookAssetView.as_view(), name="master-admin-university-look-asset"),
     path("overview/", MasterAdminOverviewView.as_view(),
          name="master-admin-overview"),
     path("recycle-bin/", RecycleBinListView.as_view(),

@@ -32,7 +32,7 @@ initTheme();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <BrandingTitle app="EduGames" />
+      <BrandingTitle app="EduGames" portal="edugames" />
       <RouterProvider router={router} />
     </GoogleOAuthProvider>
   </StrictMode>,

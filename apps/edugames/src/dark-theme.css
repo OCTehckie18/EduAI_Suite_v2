@@ -133,6 +133,15 @@ html.dark .bg-brand-accent,
 html.dark .hover\:bg-brand-accent:hover { background-color: var(--color-brand-accent-fill); }
 html.dark .glass-card-dark { background: var(--color-brand-blue-fill); }
 
+/* Text on brand fills: white by default, near-black when a university picks a light brand colour */
+:root { --color-on-brand: #ffffff; --color-on-accent: #ffffff; }
+.btn-primary,
+.btn-primary .text-white,
+:is(.bg-brand-blue, .hover\:bg-brand-blue:hover, .glass-card-dark):is(.text-white, :not([class*="text-"])),
+:is(.bg-brand-blue, .glass-card-dark) .text-white { color: var(--color-on-brand) !important; }
+.bg-brand-accent:is(.text-white, :not([class*="text-"])),
+.bg-brand-accent .text-white { color: var(--color-on-accent) !important; }
+
 /* Status and brand colours written straight into a screen's inline style, used as text */
 html.dark :is([style^="color: rgb(38, 71, 150)"], [style*="; color: rgb(38, 71, 150)"]) { color: var(--color-brand-blue) !important; }
 html.dark :is([style^="color: rgb(15, 118, 110)"], [style*="; color: rgb(15, 118, 110)"]) { color: var(--color-brand-accent) !important; }

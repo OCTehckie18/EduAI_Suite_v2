@@ -30,7 +30,7 @@ import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { tokenIsFresh } from "../shared/utils/installAuthFetch";
 import { ThemeToggle } from "../shared/ThemeToggle";
 import { ProfileModal } from "../shared/components/ProfileModal";
-import { UniversityBadge } from "../shared/university";
+import { PortalName, UniversityBadge } from "../shared/university";
 
 // uncomment to view the modesl
 const navItems = [
@@ -321,7 +321,7 @@ export const DashboardShell: React.FC = () => {
                 className="text-[10px] font-semibold uppercase tracking-widest mt-0.5"
                 style={{ color: "var(--color-brand-gold)" }}
               >
-                TeacherBuddy
+                <PortalName portal="teacherbuddy" fallback="TeacherBuddy" />
               </p>
             </div>
           </div>

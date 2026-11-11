@@ -6,7 +6,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { DESKTOP_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import { ProfileModal } from "../shared/components/ProfileModal";
-import { UniversityBadge } from "../shared/university";
+import { PortalName, UniversityBadge } from "../shared/university";
 import { NotificationBell } from "../shared/components/NotificationBell";
 import { ThemeToggle } from "../shared/ThemeToggle";
 
@@ -90,7 +90,7 @@ export const StudentShell: React.FC = () => {
           </div>
           {sidebarOpen && (
             <div className="overflow-hidden">
-              <p className="text-white font-bold text-[13px] leading-tight whitespace-nowrap font-display">EduGames Portal</p>
+              <p className="text-white font-bold text-[13px] leading-tight whitespace-nowrap font-display"><PortalName portal="edugames" fallback="EduGames Portal" /></p>
               <p className="text-[9.5px] font-semibold uppercase tracking-widest whitespace-nowrap" style={{ color: "var(--color-brand-gold)" }}>Student View</p>
             </div>
           )}

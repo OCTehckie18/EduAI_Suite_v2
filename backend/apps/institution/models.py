@@ -179,6 +179,9 @@ class UniversityProfile(TimeStampedModel):
     primary_color_dark = models.CharField(max_length=7, blank=True, default="")
     secondary_color_dark = models.CharField(max_length=7, blank=True, default="")
     tertiary_color_dark = models.CharField(max_length=7, blank=True, default="")
+    # Look and feel beyond colours (fonts, corners, portal names, sign-in pages ...). Validated by
+    # institution/look.py; anything missing falls back to the default there.
+    look = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return self.name or "University (not configured)"
@@ -190,3 +193,19 @@ class UniversityProfile(TimeStampedModel):
         if profile is None:
             profile = cls.objects.create(pk=1)
         return profile
+
+
+class UniversityAsset(TimeStampedModel):
+    """A file the university uploaded for its look: a font, the tab icon or a sign-in background.
+
+    Each lives in one slot (for example ``heading_font`` or ``signin_background:edugames``); uploading
+    to a slot replaces what was there.
+    """
+
+    slot = models.CharField(max_length=60, unique=True)
+    filename = models.CharField(max_length=150, blank=True)
+    content_type = models.CharField(max_length=60)
+    data = models.BinaryField()
+
+    def __str__(self):
+        return f"{self.slot} ({self.filename})"

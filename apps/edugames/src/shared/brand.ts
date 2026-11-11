@@ -51,6 +51,12 @@ const textOnDark = (hex: string) => {
 };
 
 /** The three brand colours, plus optional ones chosen for dark mode (empty means "work it out from the light colour"). */
+/** White text on ``fill`` when that reads well (4.5:1), else whichever of white or near-black reads better. */
+export const onFill = (fill: string) => {
+  if (contrast("#ffffff", fill) >= 4.5) return "#ffffff";
+  return contrast("#0b1220", fill) > contrast("#ffffff", fill) ? "#0b1220" : "#ffffff";
+};
+
 export interface BrandColors {
   primary_color?: string; secondary_color?: string; tertiary_color?: string;
   primary_color_dark?: string; secondary_color_dark?: string; tertiary_color_dark?: string;
@@ -97,6 +103,9 @@ export function brandPalette(colors: BrandColors, dark: boolean): Record<string,
     "--color-brand-accent-light": lighten(t, 0.16),
     "--color-brand-accent-dark": darken(tBase, 0.25),
     "--color-brand-accent-pale": dark ? mix(tBase, DARK_CARD, 0.8) : lighten(t0, 0.9),
+    // Text on brand fills: white while it stays readable, otherwise near-black (for light custom colours).
+    "--color-on-brand": onFill(fill),
+    "--color-on-accent": onFill(dark ? dt ?? forDark(t0) : t0),
   };
 }
 

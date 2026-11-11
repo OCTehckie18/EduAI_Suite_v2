@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { applyBrand } from "./brand";
+import { applyLook } from "./look";
+import type { Look, Portal, SignInPage } from "./look";
 import { useTheme } from "./theme";
 import { API_BASE_URL } from "./apiConfig";
 
@@ -23,6 +25,8 @@ export interface University {
   primary_color_dark?: string;
   secondary_color_dark?: string;
   tertiary_color_dark?: string;
+  /** Fonts, corners, portal names, sign-in pages ... (missing on an old cached copy). */
+  look?: Look;
 }
 
 const EMPTY: University = {
@@ -43,12 +47,14 @@ const readCache = (): University => {
 
 let current: University = readCache();
 applyBrand(current); // paint the saved colours before the first render, so there is no flash of the default theme
+applyLook(current.look, API_BASE_URL, current.logo_url);
 let inflight: Promise<void> | null = null;
 const listeners = new Set<(value: University) => void>();
 
 const publish = (next: University) => {
   current = next;
   applyBrand(next);
+  applyLook(next.look, API_BASE_URL, next.logo_url);
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(next));
   } catch {
@@ -93,16 +99,48 @@ export const logoSrc = (university: University): string | null => {
   return path ? `${API_BASE_URL}${path}` : null;
 };
 
-export function useDocumentTitle(app: string) {
+/** The portal's name as the university calls it (for example "Student Hub" instead of "EduGames"). */
+export const portalName = (university: University, portal: Portal, fallback: string) =>
+  university.look?.portal_names?.[portal]?.trim() || fallback;
+
+const NO_PAGE: SignInPage = { headline: "", text: "", motto: "", highlights: [], background: { kind: "brand", colour: "" } };
+
+/** What the university chose for a portal's sign-in page (empty values mean "use the portal's own text"). */
+export const signInPage = (university: University, portal: Portal): SignInPage => university.look?.signin?.[portal] ?? NO_PAGE;
+
+/** The help, privacy and terms links shown at the foot of the sign-in pages. */
+export const siteLinks = (university: University): [string, string][] => {
+  const links = university.look?.links;
+  const all: [string, string | undefined][] = [["Help", links?.help], ["Privacy", links?.privacy], ["Terms of use", links?.terms]];
+  return all.filter((entry): entry is [string, string] => Boolean(entry[1]));
+};
+
+/** CSS background for a sign-in panel: the university's image or colour, else a gradient of its brand colours. */
+export const signInBackground = (page: SignInPage): string => {
+  if (page.background.kind === "image" && page.background.url) {
+    return `linear-gradient(rgba(11,18,32,0.55), rgba(11,18,32,0.55)), url("${API_BASE_URL}${page.background.url}") center / cover no-repeat`;
+  }
+  if (page.background.kind === "colour" && page.background.colour) return page.background.colour;
+  return "linear-gradient(135deg, var(--color-brand-blue-dark) 0%, var(--color-brand-blue-fill) 100%)";
+};
+
+export function useDocumentTitle(app: string, portal?: Portal) {
   const university = useUniversity();
   const label = university.short_name || university.name;
+  const name = portal ? portalName(university, portal, app) : app;
   useEffect(() => {
-    document.title = label ? `${label} · ${app}` : app;
-  }, [label, app]);
+    document.title = label ? `${label} · ${name}` : name;
+  }, [label, name]);
 }
 
-export function BrandingTitle({ app }: { app: string }) {
-  useDocumentTitle(app);
+/** The portal's name, as the university calls it, kept up to date when it changes. */
+export function PortalName({ portal, fallback }: { portal: Portal; fallback: string }) {
+  const university = useUniversity();
+  return <>{portalName(university, portal, fallback)}</>;
+}
+
+export function BrandingTitle({ app, portal }: { app: string; portal?: Portal }) {
+  useDocumentTitle(app, portal);
   return null;
 }
 

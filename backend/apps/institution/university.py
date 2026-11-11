@@ -12,6 +12,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .look import look_payload
 from .models import UniversityProfile
 
 MAX_LOGO_BYTES = 2 * 1024 * 1024
@@ -63,6 +64,7 @@ def university_payload(profile):
             f"/institution/university/logo/?variant=dark&v={int(profile.logo_dark_updated_at.timestamp())}"
             if profile.logo_dark_updated_at else None
         ),
+        "look": look_payload(profile),
     }
 
 

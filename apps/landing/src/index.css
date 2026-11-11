@@ -24,7 +24,7 @@
   --text-dim: #5b6779;
   --line: #e2e8f0;
   --hero-base: #050913;
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: var(--font-sans, "Inter", system-ui, sans-serif);
   scroll-behavior: smooth;
 }
 
