@@ -53,6 +53,8 @@ class StudentRisk:
     missing_items: list = field(default_factory=list)  # {title, due, course_id, assignment_id}
     late: list = field(default_factory=list)
     flags: list = field(default_factory=list)
+    # The university's risk settings (Master Admin > Rules); the defaults reproduce the constants above.
+    cfg: dict = field(default_factory=lambda: {"safe_mark": MARKS_SAFE, "floor_mark": MARKS_FLOOR, "weights": {"marks": MARKS_POINTS, "missing": MISSING_POINTS, "trend": TREND_POINTS, "integrity": FLAG_POINTS}})
     cleared: int = 0  # flags a teacher cleared by resetting the attempt
 
     # ---- the signals --------------------------------------------------------------
@@ -82,15 +84,17 @@ class StudentRisk:
     # ---- the score ----------------------------------------------------------------
     def parts(self):
         marks = 0.0
+        safe, floor, weights = self.cfg["safe_mark"], self.cfg["floor_mark"], self.cfg["weights"]
         current = self.recent_average
-        if current is not None and current < MARKS_SAFE:
-            marks = MARKS_POINTS * min(1.0, (MARKS_SAFE - current) / (MARKS_SAFE - MARKS_FLOOR))
-        missing = MISSING_POINTS * len(self.missing) / self.past_due if self.past_due else 0.0
-        late = min(LATE_POINTS, LATE_POINT_EACH * len(self.late))
+        if current is not None and current < safe:
+            marks = weights["marks"] * min(1.0, (safe - current) / (safe - floor))
+        missing = weights["missing"] * len(self.missing) / self.past_due if self.past_due else 0.0
+        # Late work is part of the "missing" share, so it is capped by that weight too.
+        late = min(LATE_POINTS * weights["missing"] / MISSING_POINTS, LATE_POINT_EACH * len(self.late))
         trend = 0.0
         if self.slope is not None and self.slope < 0:
-            trend = min(TREND_POINTS, -self.slope * 1.5)
-        flags = min(FLAG_POINTS, FLAG_POINTS * len(self.flags))
+            trend = min(weights["trend"], -self.slope * 1.5)
+        flags = min(weights["integrity"], weights["integrity"] * len(self.flags))
         return {"marks": round(marks, 1), "missing": round(missing + late, 1), "trend": round(trend, 1), "integrity": round(flags, 1)}
 
     @property
@@ -197,10 +201,13 @@ def _as_datetime(value):
 def analyse(classrooms, now=None):
     """{student_id: StudentRisk} for everyone actively enrolled in `classrooms`."""
     now = now or timezone.now()
+    from apps.institution import rules as university_rules
+
+    cfg = university_rules.current()["risk"]
     course_ids = [c.pk for c in classrooms]
     risks = {}
     for e in Enrollment.objects.filter(classroom_id__in=course_ids, is_active=True, student__role=User.Role.STUDENT).select_related("student"):
-        risk = risks.setdefault(e.student_id, StudentRisk(student=e.student))
+        risk = risks.setdefault(e.student_id, StudentRisk(student=e.student, cfg=cfg))
         risk.course_ids.add(e.classroom_id)
     if not risks:
         return risks

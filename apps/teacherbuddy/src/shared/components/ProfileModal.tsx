@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { API_ENDPOINTS } from "../utils/apiConfig";
+import { useRules } from "../university";
 
 interface HierarchyItem {
   id: number;
@@ -31,6 +32,8 @@ const authHeaders = () => ({
 });
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) => {
+  const studentRules = useRules().accounts.student_can_edit;
+  const studentProfile = (role?: string) => role === "student";
   const [profile, setProfile] = useState<ProfileUser | null>(null);
   const [form, setForm] = useState({ first_name: "", last_name: "", phone_number: "", register_no: "", emp_no: "", password: "", current_password: "" });
   const [error, setError] = useState("");
@@ -64,15 +67,22 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) 
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    const student = studentProfile(profile?.role);
+    const canEditName = !student || studentRules.name;
+    const canEditPhone = !student || studentRules.phone;
+    const canEditPassword = !student || studentRules.password;
     setSaving(true);
     setError("");
     setMessage("");
     const { password, current_password, register_no, emp_no, ...fields } = form;
     const body: Record<string, string> = { ...fields };
+    // Leave out what the university does not let students change, so the rest still saves.
+    if (!canEditName) { delete body.first_name; delete body.last_name; }
+    if (!canEditPhone) delete body.phone_number;
     // Identifiers are fixed once set; only an administrator can change them.
     if (!profile?.register_no && register_no) body.register_no = register_no;
     if (!profile?.emp_no && emp_no) body.emp_no = emp_no;
-    if (password) {
+    if (password && canEditPassword) {
       body.password = password;
       body.current_password = current_password;
     }
@@ -115,14 +125,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) 
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label className="block text-xs font-semibold text-slate-500">First name
-                <input className={`${inputClass} mt-1`} value={form.first_name} onChange={set("first_name")} />
+                <input className={`${inputClass} mt-1 disabled:opacity-60`} value={form.first_name} onChange={set("first_name")} disabled={isStudent && !studentRules.name} />
               </label>
               <label className="block text-xs font-semibold text-slate-500">Last name
-                <input className={`${inputClass} mt-1`} value={form.last_name} onChange={set("last_name")} />
+                <input className={`${inputClass} mt-1 disabled:opacity-60`} value={form.last_name} onChange={set("last_name")} disabled={isStudent && !studentRules.name} />
               </label>
             </div>
             <label className="block text-xs font-semibold text-slate-500">Phone number
-              <input className={`${inputClass} mt-1`} value={form.phone_number} onChange={set("phone_number")} />
+              <input className={`${inputClass} mt-1 disabled:opacity-60`} value={form.phone_number} onChange={set("phone_number")} disabled={isStudent && !studentRules.phone} />
             </label>
             {isStudent && (
               <label className="block text-xs font-semibold text-slate-500">Register number
@@ -134,9 +144,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) 
                 <input className={`${inputClass} mt-1`} value={form.emp_no} onChange={set("emp_no")} disabled={Boolean(profile.emp_no)} />
               </label>
             )}
-            <label className="block text-xs font-semibold text-slate-500">New password (leave blank to keep current)
+            {!(isStudent && !studentRules.password) && <label className="block text-xs font-semibold text-slate-500">New password (leave blank to keep current)
               <input type="password" minLength={6} className={`${inputClass} mt-1`} value={form.password} onChange={set("password")} autoComplete="new-password" />
-            </label>
+            </label>}
+            {isStudent && (!studentRules.name || !studentRules.phone || !studentRules.password) && (
+              <p className="text-xs text-slate-500">Some details can only be changed by your university's administration.</p>
+            )}
             {form.password && (
               <label className="block text-xs font-semibold text-slate-500">Current password
                 <input type="password" required className={`${inputClass} mt-1`} value={form.current_password} onChange={set("current_password")} autoComplete="current-password" />

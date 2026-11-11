@@ -184,6 +184,8 @@ class UniversityProfile(TimeStampedModel):
     look = models.JSONField(default=dict, blank=True)
     # Modules switched on or off ({"forms": false, ...}); anything missing is on. See institution/modules.py.
     modules = models.JSONField(default=dict, blank=True)
+    # Exam, sign-in, account and risk rules; validated by institution/rules.py, missing values use the default.
+    rules = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return self.name or "University (not configured)"

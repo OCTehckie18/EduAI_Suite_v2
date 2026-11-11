@@ -1,3 +1,4 @@
+import { useRules } from "../../shared/university";
 import React, { useState, useEffect } from "react";
 import {
   ClipboardList, Clock, Users, Plus, CheckCircle2, AlertCircle,
@@ -26,6 +27,9 @@ const statusStyle: Record<string, { color: string; bg: string; label: string }> 
 export const ExamsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user: authUser, logout } = useAuthStore();
+  // The university may keep resets for its administration (Master Admin > Rules).
+  const resetByAdmins = useRules().exam.reset_by === "admins";
+  const canReset = !resetByAdmins || /admin/i.test(String(authUser?.role ?? ""));
   const [examsList, setExamsList] = useState<any[]>([]);
   const [selectedExam, setSelectedExam] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "review" | "resets">("overview");
@@ -574,7 +578,7 @@ export const ExamsPage: React.FC = () => {
                                 >
                                   {loadingDetail ? "..." : attempt.status === "pending_review" ? "Mark answers" : "View Sheet"}
                                 </button>
-                                {attempt.status !== "in_progress" && (
+                                {attempt.status !== "in_progress" && canReset && (
                                   <button
                                     onClick={() => { setResetTarget(attempt); setResetError(""); }}
                                     className="px-3 py-1.5 bg-white border border-amber-300 text-amber-800 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-amber-50 transition-colors"

@@ -18,6 +18,8 @@ from rest_framework.views import APIView
 
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
 
+from apps.institution import rules as university_rules
+
 from . import roster, staff_roster
 
 logger = logging.getLogger(__name__)
@@ -128,6 +130,13 @@ class GoogleLoginView(APIView):
         # through EduGames and an administrator grants every other role.
         User = get_user_model()
         user = User.all_objects.filter(email__iexact=email).first()
+        rules = university_rules.current()
+        master = user is not None and user.role == User.Role.MASTER_ADMIN  # never locked out by these rules
+        if not master and rules["signin"]["methods"] == "password":
+            return Response({"detail": "Google sign-in is switched off at this university. Sign in with your password."}, status=status.HTTP_403_FORBIDDEN)
+        if not master and not university_rules.domain_allowed(email, rules["signin"]["allowed_domains"]):
+            allowed = ", ".join("@" + d for d in rules["signin"]["allowed_domains"])
+            return Response({"detail": f"Use your university Google account ({allowed})."}, status=status.HTTP_403_FORBIDDEN)
         if user is None:
             # Signing in on the teacher app is an application: it creates a teacher account
             # that stays unusable until the master admin approves it. Existing accounts never
@@ -143,6 +152,14 @@ class GoogleLoginView(APIView):
                         setattr(user, field, value)
                 user.avatar_url = claims.get("picture", "")
                 user.save()
+            elif applying and rules["accounts"]["teacher_approval"] == "roster_only":
+                return Response({"detail": "Only teachers on the university's teacher list can sign in. Please contact the administration."}, status=status.HTTP_403_FORBIDDEN)
+            elif applying and rules["accounts"]["teacher_approval"] == "domain_auto":
+                # Anyone signing in from the university's own domains is approved as a teacher.
+                user = User.objects.create_user(
+                    email=email, role=User.Role.TEACHER, approval_status=User.ApprovalStatus.APPROVED,
+                    first_name=claims.get("given_name", ""), last_name=claims.get("family_name", ""), avatar_url=claims.get("picture", ""),
+                )
             elif applying:
                 user = User.objects.create_user(
                     email=email,
@@ -189,6 +206,8 @@ class PasswordLoginView(APIView):
         user = User.objects.filter(email__iexact=username).first() or User.objects.filter(register_no__iexact=username).first() or User.objects.filter(emp_no__iexact=username).first()
         if user is None or not user.is_active or not user.check_password(password):
             return Response({"detail": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
+        if user.role != User.Role.MASTER_ADMIN and university_rules.current()["signin"]["methods"] == "google":
+            return Response({"detail": "Password sign-in is switched off at this university. Use Sign in with Google."}, status=status.HTTP_403_FORBIDDEN)
         roster.link_account_to_roster(user)
         staff_roster.link_account_to_roster(user)
         return Response(_auth_response(user), status=status.HTTP_200_OK)
@@ -320,6 +339,13 @@ class CurrentUserView(APIView):
         user = request.user
         data = request.data
         changed = []
+        if user.role == user.Role.STUDENT:
+            # The university decides what students may change about themselves.
+            allowed = university_rules.current()["accounts"]["student_can_edit"]
+            blocked = [label for key, fields, label in (("name", ("first_name", "last_name"), "your name"), ("phone", ("phone_number",), "your phone number"), ("password", ("password",), "your password"))
+                       if not allowed[key] and any(f in data for f in fields)]
+            if blocked:
+                return Response({"detail": f"At this university you cannot change {', '.join(blocked)} here. Please contact the administration."}, status=status.HTTP_403_FORBIDDEN)
         for field in self.EDITABLE_FIELDS:
             if field not in data:
                 continue

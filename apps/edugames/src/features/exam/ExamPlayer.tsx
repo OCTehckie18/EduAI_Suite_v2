@@ -6,6 +6,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { GlassCard } from "../../shared/components/GlassCard";
 import { AnswerSheet } from "./AnswerSheet";
+import { useRules, type ExamEvent, type PublicRules } from "../../shared/university";
 
 import { API_BASE_URL } from "../../shared/utils/apiConfig";
 interface Choice {
@@ -54,8 +55,38 @@ interface ExamPlayerProps {
 
 
 
+// How the rules describe each way of leaving the exam.
+const EVENT_WORDS: Record<ExamEvent, string> = {
+  tab_hidden: "switching tabs or opening a new tab or window",
+  window_blur: "switching windows or desktops",
+  fullscreen_exit: "pressing Esc to leave full screen",
+  page_unload: "refreshing or closing the page",
+};
+const joinWords = (items: string[]) => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")}, or ${items[items.length - 1]}`);
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** The rules shown before the exam, written from the university's settings. */
+function examRuleLines(rules: PublicRules["exam"]): string[] {
+  if (rules.rules_text.trim()) return rules.rules_text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const events = Object.keys(EVENT_WORDS) as ExamEvent[];
+  const ends = events.filter((e) => rules.events[e] === "end").map((e) => EVENT_WORDS[e]);
+  const warns = events.filter((e) => rules.events[e] === "warn").map((e) => EVENT_WORDS[e]);
+  const lines = ["The exam runs in full screen and cannot be paused."];
+  if (ends.length) lines.push(`${capital(joinWords(ends))} ends the exam immediately.`);
+  if (warns.length) lines.push(`${capital(joinWords(warns))} gives you a warning. After ${rules.warnings_allowed} warning${rules.warnings_allowed === 1 ? "" : "s"}, the next one ends the exam.`);
+  if (ends.length || warns.length) lines.push("An ended attempt is recorded as cheating: failed, score 0, and you cannot retake the exam.");
+  lines.push("Close other programs and silence notifications first, so nothing steals focus.");
+  lines.push(`If something goes wrong on your computer, such as a power cut or a crash, tell your ${rules.reset_by === "admins" ? "administration" : "teacher"}. They can reset your attempt.`);
+  return lines;
+}
+
 export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClose }) => {
   const navigate = useNavigate();
+  const examRules = useRules().exam;
+  const examRulesRef = useRef(examRules);
+  examRulesRef.current = examRules;
+  // A warning the university's rules give instead of ending the attempt.
+  const [warning, setWarning] = useState<{ kind: string; count: number } | null>(null);
   // The student's own paper arrives when the attempt starts (drawn from the exam's pool, in their order).
   // Until then only the number of questions is known, so the intro is shown and the paper is empty.
   const [paper, setPaper] = useState<Question[]>(exam.questions ?? []);
@@ -138,7 +169,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({ type: kind }),
         });
-        if (response.ok) return;
+        if (response.ok) return await response.json().catch(() => null);
       } catch {
         /* retry */
       }
@@ -146,17 +177,40 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
     }
   };
 
-  const reportViolation = (kind: string) => {
-    if (!armedRef.current || doneRef.current) return;
-    armedRef.current = false;
+  const endAsFlagged = (kind: string, reason?: string) => {
     doneRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
-    const attempt = attemptIdRef.current;
-    try { localStorage.removeItem(`exam-draft-${attempt}`); } catch { /* ignore */ }
-    setFlagReason(VIOLATION_TEXT[kind] || "You left the exam.");
+    try { localStorage.removeItem(`exam-draft-${attemptIdRef.current}`); } catch { /* ignore */ }
+    setWarning(null);
+    setFlagReason(reason || VIOLATION_TEXT[kind] || "You left the exam.");
     setPhase("flagged");
     leaveFullscreen();
+  };
+
+  const reportViolation = (kind: string) => {
+    if (!armedRef.current || doneRef.current) return;
+    const action = examRulesRef.current.events[kind as ExamEvent] ?? "end";
+    if (action === "ignore") return; // the university does not count this
+    armedRef.current = false;
+    const attempt = attemptIdRef.current;
+    if (action === "warn") {
+      // The server counts the warnings and decides when they have run out.
+      if (attempt) void sendViolation(attempt, kind).then((data) => {
+        if (data?.status === "flagged") endAsFlagged(kind, data.flag_reason);
+        else setWarning({ kind, count: data?.warnings ?? 1 });
+      });
+      return;
+    }
+    endAsFlagged(kind);
     if (attempt) void sendViolation(attempt, kind);
+  };
+
+  const resumeAfterWarning = async () => {
+    if (!fullscreenElement()) {
+      try { await enterFullscreen(); } catch { /* the student can still continue; leaving again counts */ }
+    }
+    setWarning(null);
+    setTimeout(() => { if (!doneRef.current) armedRef.current = true; }, 1500);
   };
 
   // Watch for anything that means the student left the exam.
@@ -424,11 +478,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-2">
             <p className="font-bold flex items-center gap-2"><ShieldAlert size={16} /> Strict exam rules</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>The exam runs in <strong>full screen</strong> and cannot be paused.</li>
-              <li>Switching tabs, opening a new tab or window, switching windows or desktops, pressing Esc to leave full screen, or refreshing the page <strong>ends the exam immediately</strong>.</li>
-              <li>That attempt is recorded as <strong>cheating: failed, score 0</strong>, and you cannot retake the exam.</li>
-              <li>Close other programs and silence notifications first, so nothing steals focus.</li>
-              <li>If something goes wrong on your computer, such as a power cut or a crash, tell your teacher. They can reset your attempt.</li>
+              {examRuleLines(examRules).map((line) => <li key={line}>{line}</li>)}
             </ul>
           </div>
 
@@ -504,6 +554,16 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col animate-fade-in">
+      {warning && (
+        <div role="alertdialog" aria-modal="true" aria-label="Exam warning" className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 text-center text-slate-800 shadow-2xl">
+            <ShieldAlert className="mx-auto text-amber-600" size={40} />
+            <h2 className="text-lg font-bold">Warning {warning.count} of {examRules.warnings_allowed}</h2>
+            <p className="text-sm text-slate-600">{VIOLATION_TEXT[warning.kind] || "You left the exam."} {warning.count >= examRules.warnings_allowed ? "Next time, the exam ends and is recorded as cheating." : "If it keeps happening, the exam ends and is recorded as cheating."}</p>
+            <button onClick={() => void resumeAfterWarning()} className="btn btn-primary w-full py-3 font-bold">Back to the exam</button>
+          </div>
+        </div>
+      )}
       {/* Error Overlay */}
       {error && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[60] w-full max-w-md px-4">

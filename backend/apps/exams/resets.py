@@ -15,7 +15,9 @@ from apps.core.services import notify
 
 from .models import Exam, ExamAttempt, ExamReset
 from .paper import attempt_questions
-from .views import _bad, _can_manage, _forbidden
+from apps.institution import rules as university_rules
+
+from .views import _bad, _can_manage, _forbidden, _is_admin
 
 MAX_REASON = 500
 
@@ -70,6 +72,8 @@ class ExamAttemptResetView(APIView):
             )
             if not _can_manage(request.user, attempt.exam.course):
                 return _forbidden()
+            if university_rules.current()["exam"]["reset_by"] == "admins" and not _is_admin(request.user):
+                return Response({"detail": "At this university only the administration can reset exam attempts."}, status=status.HTTP_403_FORBIDDEN)
             if attempt.status == "in_progress":
                 return Response(
                     {"detail": "This attempt is still in progress. Reset it once the student has finished or been flagged."},
