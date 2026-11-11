@@ -19,6 +19,10 @@ export interface University {
   primary_color: string;
   secondary_color: string;
   tertiary_color: string;
+  /** Optional colours for dark mode; empty means they are worked out from the light ones. */
+  primary_color_dark?: string;
+  secondary_color_dark?: string;
+  tertiary_color_dark?: string;
 }
 
 const EMPTY: University = {

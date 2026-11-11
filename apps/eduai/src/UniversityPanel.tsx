@@ -8,12 +8,19 @@ import { PanelCard, useConfirm, useToast } from "./ui";
 
 const ENDPOINT = `${API_BASE_URL}/master-admin/university`;
 
-type Details = Pick<University, "name" | "short_name" | "email_domain" | "contact_email" | "phone" | "website" | "address" | "primary_color" | "secondary_color" | "tertiary_color">;
+type Details = Pick<University, "name" | "short_name" | "email_domain" | "contact_email" | "phone" | "website" | "address" | "primary_color" | "secondary_color" | "tertiary_color" | "primary_color_dark" | "secondary_color_dark" | "tertiary_color_dark">;
 
 const COLOR_FIELDS: { key: "primary_color" | "secondary_color" | "tertiary_color"; label: string; hint: string }[] = [
   { key: "primary_color", label: "Primary", hint: "Main buttons, headings and active tabs. Must be dark enough for white text." },
   { key: "secondary_color", label: "Secondary", hint: "Highlights and decorative accents." },
   { key: "tertiary_color", label: "Tertiary", hint: "Focus rings and small interactive accents." },
+];
+
+/** Dark mode has its own colours. Left on "Automatic" they are worked out from the light ones. */
+const DARK_COLOR_FIELDS: { key: "primary_color_dark" | "secondary_color_dark" | "tertiary_color_dark"; label: string; automatic: string; hint: string }[] = [
+  { key: "primary_color_dark", label: "Primary (dark mode)", automatic: "--color-brand-blue", hint: "Buttons, headings and links on dark screens. White text sits on buttons in this colour." },
+  { key: "secondary_color_dark", label: "Secondary (dark mode)", automatic: "--color-brand-gold", hint: "Highlights and decorative accents on dark screens." },
+  { key: "tertiary_color_dark", label: "Tertiary (dark mode)", automatic: "--color-brand-accent", hint: "Focus rings and small accents on dark screens." },
 ];
 
 const FIELDS: { key: keyof Details; label: string; placeholder: string; multiline?: boolean; hint?: string }[] = [
@@ -113,7 +120,7 @@ export function UniversityPanel() {
 
   const apply = (data: University) => {
     setLocal(data);
-    setForm({ name: data.name, short_name: data.short_name, email_domain: data.email_domain, contact_email: data.contact_email, phone: data.phone, website: data.website, address: data.address, primary_color: data.primary_color, secondary_color: data.secondary_color, tertiary_color: data.tertiary_color });
+    setForm({ name: data.name, short_name: data.short_name, email_domain: data.email_domain, contact_email: data.contact_email, phone: data.phone, website: data.website, address: data.address, primary_color: data.primary_color, secondary_color: data.secondary_color, tertiary_color: data.tertiary_color, primary_color_dark: data.primary_color_dark ?? "", secondary_color_dark: data.secondary_color_dark ?? "", tertiary_color_dark: data.tertiary_color_dark ?? "" });
     setUniversity(data);
   };
 
@@ -212,7 +219,7 @@ export function UniversityPanel() {
       </div>
       <div className="border-t border-slate-200 pt-4">
         <h3 className="text-base font-semibold">Brand colours</h3>
-        <p className="mt-1 text-xs text-slate-500">Used across TeacherBuddy, EduGames and this portal, in light and dark mode. You choose the light-mode colours; dark mode uses lighter shades of them, worked out automatically so text stays readable on dark screens.</p>
+        <p className="mt-1 text-xs text-slate-500">Used across TeacherBuddy, EduGames and this portal, in light and dark mode. You choose the light-mode colours here, and the dark-mode colours below. Dark mode can use lighter shades worked out automatically, or colours you pick yourself.</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-3">
           {COLOR_FIELDS.map((field) => <label key={field.key} className="block text-sm text-slate-700">{field.label}
             <span className="mt-1 flex items-center gap-2">
@@ -221,6 +228,23 @@ export function UniversityPanel() {
             </span>
             <span className="mt-1 block text-xs text-slate-500">{field.hint}</span>
           </label>)}
+        </div>
+        <h4 className="mt-5 text-sm font-semibold">Dark mode colours</h4>
+        <p className="mt-1 text-xs text-slate-500">Leave a colour on Automatic and EduAI picks a lighter shade of the light-mode colour so text stays readable. Or choose your own: it is used exactly as you pick it, and the preview below shows how readable it is.</p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-3">
+          {DARK_COLOR_FIELDS.map((field) => {
+            const custom = form[field.key];
+            const auto = brandPalette({ ...form, primary_color_dark: "", secondary_color_dark: "", tertiary_color_dark: "" }, true)[field.automatic];
+            return <label key={field.key} className="block text-sm text-slate-700">{field.label}
+              <span className="mt-1 flex items-center gap-2">
+                <input type="color" value={custom || auto} onChange={(e) => setForm({ ...form, [field.key]: e.target.value })} className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-slate-300 bg-white p-1" aria-label={`${field.label} colour`} />
+                <input value={custom} placeholder="Automatic" maxLength={7} onChange={(e) => setForm({ ...form, [field.key]: e.target.value })} className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-900" aria-label={`${field.label} colour code`} />
+              </span>
+              <span className="mt-1 flex items-start justify-between gap-2 text-xs text-slate-500"><span>{field.hint}</span>
+                {custom && <button type="button" onClick={() => setForm({ ...form, [field.key]: "" })} className="shrink-0 font-semibold text-brand-blue hover:underline">Use automatic</button>}
+              </span>
+            </label>;
+          })}
         </div>
         <div className="mt-4" aria-label="Colour preview">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Preview, before saving</p>

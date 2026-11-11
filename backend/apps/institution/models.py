@@ -175,6 +175,10 @@ class UniversityProfile(TimeStampedModel):
     primary_color = models.CharField(max_length=7, default="#0b4a87")
     secondary_color = models.CharField(max_length=7, default="#e8792b")
     tertiary_color = models.CharField(max_length=7, default="#0f766e")
+    # Optional colours for dark mode. Empty means "work them out from the light colours automatically".
+    primary_color_dark = models.CharField(max_length=7, blank=True, default="")
+    secondary_color_dark = models.CharField(max_length=7, blank=True, default="")
+    tertiary_color_dark = models.CharField(max_length=7, blank=True, default="")
 
     def __str__(self):
         return self.name or "University (not configured)"

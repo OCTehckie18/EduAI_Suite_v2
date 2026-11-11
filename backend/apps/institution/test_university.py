@@ -201,3 +201,45 @@ class DarkModeLogoTests(APITestCase):
         teacher = User.objects.create_user(email="t@x.com", password="pw", role="TEACHER")
         self.client.force_authenticate(teacher)
         self.assertEqual(self.client.post(LOGO, {"file": image_file(), "variant": "dark"}, format="multipart").status_code, 403)
+
+
+class DarkModeColourTests(APITestCase):
+    """The university can choose its own dark-mode colours instead of the automatic shades."""
+
+    def setUp(self):
+        self.master = User.objects.create_user(email="m@x.com", password="pw", role="MASTER_ADMIN")
+        self.client.force_authenticate(self.master)
+
+    def test_they_start_empty_which_means_automatic(self):
+        body = self.client.get(PUBLIC).json()
+        self.assertEqual((body["primary_color_dark"], body["secondary_color_dark"], body["tertiary_color_dark"]), ("", "", ""))
+
+    def test_dark_colours_are_saved_normalised_and_public(self):
+        response = self.client.put(DETAILS, {"primary_color_dark": "#7DA2FF", "secondary_color_dark": "#F2C94C", "tertiary_color_dark": "#56CCF2"}, format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.client.force_authenticate(None)
+        body = self.client.get(PUBLIC).json()
+        self.assertEqual((body["primary_color_dark"], body["secondary_color_dark"], body["tertiary_color_dark"]), ("#7da2ff", "#f2c94c", "#56ccf2"))
+        # the light colours are untouched
+        self.assertEqual(body["primary_color"], "#0b4a87")
+
+    def test_emptying_a_dark_colour_goes_back_to_automatic(self):
+        self.client.put(DETAILS, {"primary_color_dark": "#7da2ff"}, format="json")
+        response = self.client.put(DETAILS, {"primary_color_dark": ""}, format="json")
+        self.assertEqual((response.status_code, response.json()["primary_color_dark"]), (200, ""))
+
+    def test_any_valid_colour_is_allowed_with_no_contrast_rule(self):
+        # The light primary must suit white text, but dark mode is the university's own choice.
+        response = self.client.put(DETAILS, {"primary_color_dark": "#ffee99", "secondary_color_dark": "#000000"}, format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+
+    def test_invalid_dark_colours_are_refused_naming_the_field(self):
+        for bad in ("red", "#fff", "#12345g", "7da2ff", "url(x)"):
+            response = self.client.put(DETAILS, {"tertiary_color_dark": bad}, format="json")
+            self.assertEqual((response.status_code, response.json()["field"]), (400, "tertiary_color_dark"), bad)
+        self.assertEqual(UniversityProfile.load().tertiary_color_dark, "")
+
+    def test_only_a_master_admin_can_change_them(self):
+        teacher = User.objects.create_user(email="t@x.com", password="pw", role="TEACHER")
+        self.client.force_authenticate(teacher)
+        self.assertEqual(self.client.put(DETAILS, {"primary_color_dark": "#7da2ff"}, format="json").status_code, 403)

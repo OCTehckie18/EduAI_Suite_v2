@@ -50,7 +50,11 @@ const textOnDark = (hex: string) => {
   return "#ffffff";
 };
 
-export interface BrandColors { primary_color?: string; secondary_color?: string; tertiary_color?: string }
+/** The three brand colours, plus optional ones chosen for dark mode (empty means "work it out from the light colour"). */
+export interface BrandColors {
+  primary_color?: string; secondary_color?: string; tertiary_color?: string;
+  primary_color_dark?: string; secondary_color_dark?: string; tertiary_color_dark?: string;
+}
 
 let last: BrandColors = {};
 
@@ -60,30 +64,39 @@ export function brandPalette(colors: BrandColors, dark: boolean): Record<string,
   const p0 = pick(colors.primary_color, DEFAULTS.primary_color);
   const s0 = pick(colors.secondary_color, DEFAULTS.secondary_color);
   const t0 = pick(colors.tertiary_color, DEFAULTS.tertiary_color);
+  // Colours the university chose for dark mode win over the automatic shades.
+  const chosen = (value: string | undefined) => (dark && value && HEX.test(value) ? value : null);
+  const dp = chosen(colors.primary_color_dark);
+  const ds = chosen(colors.secondary_color_dark);
+  const dt = chosen(colors.tertiary_color_dark);
   // In dark mode one colour cannot be both readable text on a dark card and a button fill
   // under white text, so the fill gets its own variable.
-  const p = dark ? textOnDark(p0) : p0;
-  const t = dark ? textOnDark(t0) : t0;
-  const s = s0;
-  const fill = dark ? forDark(p0) : p0;
+  const p = dark ? dp ?? textOnDark(p0) : p0;
+  const t = dark ? dt ?? textOnDark(t0) : t0;
+  const s = dark ? ds ?? s0 : s0;
+  const fill = dark ? dp ?? forDark(p0) : p0;
+  // What the tints and shades are worked out from in this mode.
+  const pBase = dp ?? p0;
+  const sBase = ds ?? s0;
+  const tBase = dt ?? t0;
   return {
     "--color-brand-blue": p,
     "--color-brand-blue-fill": fill,
     "--color-brand-blue-fill-2": dark ? darken(fill, 0.14) : lighten(p0, 0.16), // second gradient stop
-    "--color-brand-accent-fill": dark ? forDark(t0) : t0,
+    "--color-brand-accent-fill": dark ? dt ?? forDark(t0) : t0,
     "--color-brand-blue-mid": lighten(p, 0.06),
     "--color-brand-blue-light": lighten(p, 0.16),
-    "--color-brand-blue-dark": darken(p0, 0.28), // sidebars and gradients stay deep in both modes
-    "--color-brand-blue-pale": dark ? mix(p0, DARK_CARD, 0.78) : lighten(p0, 0.92),
+    "--color-brand-blue-dark": darken(pBase, 0.28), // sidebars and gradients stay deep in both modes
+    "--color-brand-blue-pale": dark ? mix(pBase, DARK_CARD, 0.78) : lighten(p0, 0.92),
     "--color-brand-gold": s,
     "--color-brand-gold-light": lighten(s, 0.12),
     "--color-brand-gold-bright": lighten(s, 0.28),
     "--color-brand-gold-dark": dark ? lighten(s, 0.1) : darken(s, 0.2),
-    "--color-brand-gold-pale": dark ? mix(s0, DARK_CARD, 0.82) : lighten(s, 0.9),
+    "--color-brand-gold-pale": dark ? mix(sBase, DARK_CARD, 0.82) : lighten(s, 0.9),
     "--color-brand-accent": t,
     "--color-brand-accent-light": lighten(t, 0.16),
-    "--color-brand-accent-dark": darken(t0, 0.25),
-    "--color-brand-accent-pale": dark ? mix(t0, DARK_CARD, 0.8) : lighten(t0, 0.9),
+    "--color-brand-accent-dark": darken(tBase, 0.25),
+    "--color-brand-accent-pale": dark ? mix(tBase, DARK_CARD, 0.8) : lighten(t0, 0.9),
   };
 }
 

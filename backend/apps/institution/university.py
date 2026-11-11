@@ -21,6 +21,8 @@ ALLOWED_LOGO_FORMATS = {"PNG", "JPEG", "WEBP"}  # SVG is refused: it can carry s
 
 TEXT_LIMITS = {"name": 150, "short_name": 30, "email_domain": 100, "contact_email": 254, "phone": 30, "website": 200, "address": 500}
 COLOR_FIELDS = ("primary_color", "secondary_color", "tertiary_color")
+# Dark-mode colours are the university's own choice: any valid colour, or empty for the automatic shade.
+DARK_COLOR_FIELDS = ("primary_color_dark", "secondary_color_dark", "tertiary_color_dark")
 COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
 MIN_PRIMARY_CONTRAST = 4.5  # white text sits on the primary colour, so it must be dark enough to read
 DOMAIN_PATTERN = re.compile(r"^(?=.{1,100}$)([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$")
@@ -49,6 +51,9 @@ def university_payload(profile):
         "primary_color": profile.primary_color,
         "secondary_color": profile.secondary_color,
         "tertiary_color": profile.tertiary_color,
+        "primary_color_dark": profile.primary_color_dark,
+        "secondary_color_dark": profile.secondary_color_dark,
+        "tertiary_color_dark": profile.tertiary_color_dark,
         # Relative to the API base; the version makes browsers refetch after a new upload.
         "logo_url": (
             f"/institution/university/logo/?v={int(profile.logo_updated_at.timestamp())}"
@@ -110,6 +115,14 @@ def clean_details(data):
         value = value.lower()
         if field == "primary_color" and contrast_with_white(value) < MIN_PRIMARY_CONTRAST:
             errors[field] = "The primary colour is too light: white button text would be hard to read. Choose a darker shade."
+            continue
+        cleaned[field] = value
+    for field in DARK_COLOR_FIELDS:
+        if field not in data:
+            continue
+        value = str(data.get(field) or "").strip().lower()
+        if value and not COLOR_PATTERN.match(value):
+            errors[field] = "Choose a colour in #rrggbb form, such as #7da2ff, or leave it empty for the automatic shade."
             continue
         cleaned[field] = value
     return cleaned, errors
