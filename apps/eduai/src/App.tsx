@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, FileText, Languages, ListChecks, Menu, Megaphone, Paintbrush, Award, Scale, ToggleRight, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
 import logo from "../../logo/eduai_logo.png";
 import { LoginScreen } from "./Login";
+import { CommandPalette } from "./CommandPalette";
 import { ThemeToggle } from "./shared/ThemeToggle";
 import { RosterPanel } from "./RosterPanel";
 import { StaffRosterPanel } from "./StaffRosterPanel";
@@ -77,6 +78,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
   const [loading, setLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const pendingSearch = useRef("");
 
   const loadOverview = useCallback(async () => {
     setLoading(true);
@@ -92,15 +94,20 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
 
   useEffect(() => { void loadOverview(); }, [loadOverview]);
   useEffect(() => {
-    const onHash = () => { setTab(tabFromHash()); setSearch(""); };
+    const onHash = () => { setTab(tabFromHash()); setSearch(pendingSearch.current); pendingSearch.current = ""; };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  const go = (next: TabKey) => {
-    window.location.hash = UNIVERSITY_TABS.includes(next) && next !== "university" ? `university/${next}` : next;
+  // ``query`` opens a page already searched (from Ctrl+K); the hashchange that follows must not clear it.
+  const go = (next: TabKey, query = "") => {
+    const hash = UNIVERSITY_TABS.includes(next) && next !== "university" ? `university/${next}` : next;
+    const searchable = TABS.find((item) => item.tab === next)?.search ?? false;
+    pendingSearch.current = searchable ? query : "";
+    if (window.location.hash.replace("#", "") === hash) pendingSearch.current = "";
+    window.location.hash = hash;
     setTab(next);
-    setSearch("");
+    setSearch(searchable ? query : "");
     setMenuOpen(false);
   };
   const refresh = () => { void loadOverview(); setRefreshKey((key) => key + 1); };
@@ -176,12 +183,14 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
             </div>
           )}
           <button onClick={refresh} disabled={loading} className="rounded-xl border border-slate-300 p-2 text-slate-700 hover:text-slate-900 disabled:opacity-50" title="Refresh" aria-label="Refresh"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></button>
+          <button onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))} className="flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:text-slate-900" aria-label="Search everything (Ctrl K)" title="Search everything (Ctrl K)"><Search className="h-4 w-4" /><span className="hidden lg:inline">Search</span><kbd className="hidden rounded border border-slate-300 px-1 text-[10px] lg:inline">Ctrl K</kbd></button>
           <ThemeToggle />
           <UniversityBadge labelClassName="text-slate-800" />
           <div className="flex items-center gap-2"><Avatar name={displayName} /><div className="hidden text-left leading-tight md:block"><p className="max-w-[10rem] truncate text-xs font-semibold text-slate-900">{displayName}</p><p className="text-[11px] text-slate-500">Master Admin</p></div></div>
           <button onClick={onSignOut} className="flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:text-slate-900"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">Sign out</span></button>
         </header>
         <NoticeBanner />
+        <CommandPalette tabs={TABS.map((item) => ({ tab: item.tab, label: item.label, subtitle: item.subtitle }))} onGo={go} />
         <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-8">
           {inUniversity && <div role="tablist" aria-label="University settings" className="mb-6 flex gap-1 overflow-x-auto border-b border-slate-200">
             {UNIVERSITY_TABS.map((key) => <button key={key} role="tab" aria-selected={tab === key} onClick={() => go(key)} className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition ${tab === key ? "border-brand-blue text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}>{TAB_LABELS[key]}</button>)}
