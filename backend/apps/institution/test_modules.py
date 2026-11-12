@@ -88,3 +88,21 @@ class ModuleSwitchTests(APITestCase):
             self.assertEqual(module_for_path(path), key, path)
         for path in ("/api/v1/exams/4/attempts/9/mark", "/api/v1/exams/", "/api/v1/calendar/events", "/api/v1/master-admin/university/", "/api/v1/formsy"):
             self.assertIsNone(module_for_path(path), path)
+
+
+class SlidoModuleTests(APITestCase):
+    """Slido is kept but unfinished: a Master Admin can switch it off, and every spelling of its API then closes."""
+
+    def setUp(self):
+        self.master = User.objects.create_user(email="m@x.com", password="pw", role="MASTER_ADMIN")
+        self.client.force_authenticate(self.master)
+
+    def test_slido_is_a_module_and_starts_on(self):
+        self.assertIn("slido", MODULES)
+        self.assertTrue(self.client.get(PUBLIC).json()["modules"]["slido"])
+
+    def test_switched_off_it_is_refused_on_every_path(self):
+        self.client.put(MODULES_URL, {"slido": False}, format="json")
+        for path in ("/api/v1/slido/polls/", "/api/slido/polls/", "/slido/polls/", "/api/v1/api/slido/polls/"):
+            self.assertEqual(module_for_path(path), "slido", path)
+            self.assertEqual(self.client.get(path).status_code, 404, path)

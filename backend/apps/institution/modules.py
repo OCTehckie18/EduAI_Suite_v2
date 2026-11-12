@@ -23,6 +23,7 @@ MODULES = {
     "ai_assistant": ("AI assistant", "Teachers and students", "Chat with an AI about your classes.", (r"ai/",)),
     "ai_exam_tools": ("AI exam tools", "Teachers", "Read questions from a PDF or Word paper, and suggest marks for long answers.",
                       (r"exams/extract$", r"exams/\d+/attempts/\d+/suggest-mark$")),
+    "slido": ("Slido polls and Q&A", "Teachers and students", "Live polling and Q&A for presentations. Still under construction: switch it off to hide it from every portal.", (r"slido/",)),
     "google_calendar": ("Google Calendar sync", "Everyone", "Copy each person's EduAI calendar into their Google Calendar.", (r"calendar/google",)),
 }
 

@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 // Which module each game card belongs to, so cards of switched-off modules are hidden.
 const GAME_MODULES: Record<string, ModuleKey> = {
-  "chain-answer": "chain_answer", "word-cloud-battle": "word_cloud", "quiz-battle-royale": "live_quizzes", "trello-projects": "trello",
+  "chain-answer": "chain_answer", "word-cloud-battle": "word_cloud", "quiz-battle-royale": "live_quizzes", "trello-projects": "trello", "slido-polling": "slido",
 };
 const gameCategories = [
   {
@@ -50,14 +50,15 @@ const gameCategories = [
   //   icon: Users,
   //   color: "from-pink-400 to-rose-500",
   // },
-  // {
-  //   id: "slido-polling",
-  //   title: "Slido — Live Polling & Q&A",
-  //   description:
-  //     "Live polling and Q&A integrated into presentations. Engage students in real-time feedback.",
-  //   icon: BarChart,
-  //   color: "from-blue-400 to-blue-500",
-  // },
+  {
+    id: "slido-polling",
+    title: "Slido: Live Polling & Q&A",
+    description:
+      "Live polling and Q&A for presentations, so you can give feedback in real time.",
+    icon: BarChart,
+    color: "from-blue-400 to-blue-500",
+    underConstruction: true,
+  },
   // {
   //   id: "slido-join",
   //   title: "Join Live Session",
@@ -157,9 +158,7 @@ export const GamesPage: React.FC = () => {
               } else if (category.id === "word-cloud-battle") {
                 navigate("/games/word-cloud");
               } else if (category.id === "slido-polling") {
-                navigate("/games/slido/submit");
-              } else if (category.id === "slido-join") {
-                navigate("/games/slido/join");
+                // under construction: the tile says so and opens nothing
               } else {
                 setSelectedGame(category.id);
               }
@@ -176,6 +175,11 @@ export const GamesPage: React.FC = () => {
                 >
                   <category.icon size={24} />
                 </div>
+                {(category as { underConstruction?: boolean }).underConstruction && (
+                  <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-amber-800">
+                    <HardHat size={12} /> Under construction
+                  </span>
+                )}
                 <h3
                   className="text-lg font-bold mb-2"
                   style={{ color: "var(--color-text-primary)" }}
