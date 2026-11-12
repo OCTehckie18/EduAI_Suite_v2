@@ -94,6 +94,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             await self.refuse(CLOSE_NOT_FOUND, "No game found with that PIN. Check it and try again.")
             return
 
+        # Hosting and previewing are for the quiz's own teacher (or a Master Admin), as in the REST API and the other
+        # live-game sockets: any teacher knowing a PIN must not be able to start, skip or end someone else's game.
+        if self.user_type in {"teacher", "teacher_player"} and not await self.may_host():
+            await self.close(code=CLOSE_FORBIDDEN)
+            return
+
         if self.user_type == "teacher_player" and not await self.test_run_exists():
             await self.close(code=CLOSE_FORBIDDEN)
             return
@@ -371,6 +377,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         )
 
     # ---- database --------------------------------------------------------
+
+    @database_sync_to_async
+    def may_host(self):
+        if getattr(self.user, "role", "") == "MASTER_ADMIN" or self.user.is_superuser:
+            return True
+        return QuizSession.objects.filter(pin=self.pin, quiz__teacher_id=self.user.pk).exists()
 
     @database_sync_to_async
     def session_exists(self):

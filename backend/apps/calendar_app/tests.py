@@ -58,13 +58,13 @@ class CalendarSyncTests(APITestCase):
         Exam.objects.create(course=self.course, title="Midterm", status="published")
         Exam.objects.create(course=self.course, title="Secret draft", status="draft")
         Appointment.objects.create(
-            student_name="Sam", student_email="s1@example.com", teacher_name="Tara Teach",
+            student_name="Sam", student_email="s1@example.com", teacher_name="Tara Teach", teacher=self.teacher,
             time_slot=f"{self.tomorrow_date} 10:30", agenda="Project help", status="approved")
         Appointment.objects.create(
-            student_name="Sam", student_email="s1@example.com", teacher_name="Tara Teach",
+            student_name="Sam", student_email="s1@example.com", teacher_name="Tara Teach", teacher=self.teacher,
             time_slot="2030-02-02 09:00", agenda="Declined", status="rejected")
         Appointment.objects.create(
-            student_name="Stranger", student_email="s2@example.com", teacher_name="Other Prof",
+            student_name="Stranger", student_email="s2@example.com", teacher_name="Other Prof", teacher=self.other_teacher,
             time_slot="2030-03-03 09:00", agenda="Not yours", status="approved")
 
     def feed(self, user):
