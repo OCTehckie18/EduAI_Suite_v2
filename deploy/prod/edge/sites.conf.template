@@ -1,0 +1,29 @@
+# One server block per portal, chosen by host name. The names come from deploy/prod/.env.
+
+server {
+  listen 80 default_server;
+  server_name ${LANDING_HOST};
+  root /srv/landing;
+  include /etc/nginx/snippets/app.conf;
+}
+
+server {
+  listen 80;
+  server_name ${ADMIN_HOST};
+  root /srv/admin;
+  include /etc/nginx/snippets/app.conf;
+}
+
+server {
+  listen 80;
+  server_name ${TEACHER_HOST};
+  root /srv/teacher;
+  include /etc/nginx/snippets/app.conf;
+}
+
+server {
+  listen 80;
+  server_name ${STUDENT_HOST};
+  root /srv/student;
+  include /etc/nginx/snippets/app.conf;
+}

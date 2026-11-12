@@ -1,0 +1,148 @@
+# One university's production installation: database, cache, API, live games, background sync and the web front.
+#
+#   cp .env.example .env     (fill in every value)
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#
+# The edge listens on port 80 and chooses the portal by host name. Put TLS in front of it: either your own load
+# balancer, or the bundled Caddy (add `--profile tls`). See README.md.
+
+x-backend: &backend
+  build:
+    context: ../../backend
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    DJANGO_SETTINGS_MODULE: config.settings.production
+    DATABASE_URL: postgres://eduai:${POSTGRES_PASSWORD}@db:5432/eduai_suite
+    DATABASE_SSL_REQUIRE: "False"          # the database is on the private network of this compose file
+    REDIS_URL: redis://redis:6379/0
+  volumes:
+    - uploads:/app/uploads
+    - media:/app/media
+    - local_uploads:/app/local_uploads
+    - static:/app/staticfiles
+  depends_on:
+    db: { condition: service_healthy }
+    redis: { condition: service_healthy }
+    migrate: { condition: service_completed_successfully }
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eduai_suite
+      POSTGRES_USER: eduai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    command: postgres -c max_connections=${POSTGRES_MAX_CONNECTIONS:-200} -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-256MB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eduai -d eduai_suite"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Only keys that expire (cache, rate limits, game messages) may be evicted if memory runs out.
+    command: redis-server --maxmemory ${REDIS_MAXMEMORY:-256mb} --maxmemory-policy volatile-lru --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Runs once at every start: database migrations and the static files for the admin pages.
+  migrate:
+    <<: *backend
+    restart: "no"
+    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput"
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  # The HTTP API.
+  web:
+    <<: *backend
+    command: gunicorn config.wsgi:application -c gunicorn.conf.py
+    healthcheck:
+      # Sends an allowed host name and the https marker, as nginx does, so the check passes the host and redirect rules.
+      test: ["CMD", "python", "-c", "import os, urllib.request as u; u.urlopen(u.Request('http://127.0.0.1:8000/api/v1/health/', headers={'Host': os.environ['LANDING_HOST'], 'X-Forwarded-Proto': 'https'}), timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Live games over websockets (quiz, word cloud, chain answer).
+  realtime:
+    <<: *backend
+    command: daphne -b 0.0.0.0 -p 8001 --proxy-headers config.asgi:application
+
+  # Sends calendar changes to users' Google calendars (see docs/google-calendar-setup.md).
+  calendar_worker:
+    <<: *backend
+    command: python manage.py sync_google_calendars --watch
+
+  # The four portals and the routing of /api, /ws and /uploads.
+  edge:
+    build:
+      context: ../../apps
+      dockerfile: ../deploy/prod/edge/Dockerfile
+      additional_contexts:
+        edgeconf: ./edge
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+        VITE_EDUGAMES_URL: ${PUBLIC_SCHEME:-https}://${STUDENT_HOST}
+        VITE_TEACHERBUDDY_URL: ${PUBLIC_SCHEME:-https}://${TEACHER_HOST}
+        VITE_ADMIN_URL: ${PUBLIC_SCHEME:-https}://${ADMIN_HOST}
+    restart: unless-stopped
+    environment:
+      LANDING_HOST: ${LANDING_HOST}
+      ADMIN_HOST: ${ADMIN_HOST}
+      TEACHER_HOST: ${TEACHER_HOST}
+      STUDENT_HOST: ${STUDENT_HOST}
+    volumes:
+      - static:/srv/static:ro
+    ports:
+      - "${EDGE_PORT:-80}:80"
+    depends_on:
+      web: { condition: service_healthy }
+      realtime: { condition: service_started }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # Optional automatic HTTPS (docker compose --profile tls up -d). Needs ports 80 and 443 and DNS for the four names.
+  # With this profile leave EDGE_PORT unset only if nothing else uses port 80, or point it elsewhere (for example 8080).
+  caddy:
+    profiles: ["tls"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      LANDING_HOST: ${LANDING_HOST}
+      ADMIN_HOST: ${ADMIN_HOST}
+      TEACHER_HOST: ${TEACHER_HOST}
+      STUDENT_HOST: ${STUDENT_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      edge: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  media:
+  local_uploads:
+  static:
+  caddy_data:

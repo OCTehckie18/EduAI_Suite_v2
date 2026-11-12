@@ -8,18 +8,35 @@ JWT_SECRET_KEY = _require('JWT_SECRET_KEY')
 CORS_ALLOW_ALL_ORIGINS = False
 ALLOWED_HOSTS = [h.strip() for h in _require('DJANGO_ALLOWED_HOSTS').split(',') if h.strip()]
 
+# Behind a managed database SSL is required; a database container on the same private network has none
+# (set DATABASE_SSL_REQUIRE=False for it).
+_pooled = os.getenv('DB_POOL', 'True') == 'True'
 DATABASES = {
     'default': dj_database_url.config(
         default=_require('DATABASE_URL'),
-        conn_max_age=600,
-        ssl_require=True
+        # A connection pool replaces persistent connections (Django does not allow both).
+        conn_max_age=0 if _pooled else 600,
+        ssl_require=os.getenv('DATABASE_SSL_REQUIRE', 'True') == 'True',
     )
 }
+if _pooled:
+    # Each web process keeps between DB_POOL_MIN and DB_POOL_MAX connections and hands them to its threads,
+    # so a burst of requests queues for a connection instead of opening hundreds of new ones.
+    DATABASES['default'].setdefault('OPTIONS', {})['pool'] = {
+        'min_size': int(os.getenv('DB_POOL_MIN', '2')),
+        'max_size': int(os.getenv('DB_POOL_MAX', '10')),
+        'timeout': 20,
+    }
 
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {'hosts': [_require('REDIS_URL')]},
+        'CONFIG': {
+            'hosts': [_require('REDIS_URL')],
+            # The defaults (100 messages per channel, 60 s expiry) drop broadcasts in a busy live game room.
+            'capacity': int(os.getenv('CHANNEL_CAPACITY', '1500')),
+            'expiry': 15,
+        },
     },
 }
 
