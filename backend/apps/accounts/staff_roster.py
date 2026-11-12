@@ -16,6 +16,7 @@ from apps.institution.models import Campus, Department, School
 
 from .models import AdmittedStaff
 from .roster import RosterImportResult, _lookup, _text, normalise_email, rows_from_file
+from apps.institution import fields as university_fields
 from apps.institution import terms as university_terms
 
 DATA_SHEET = "Teachers"
@@ -150,6 +151,9 @@ def _import_row(row, result):
     designation = _text(row, "Designation")
     if not emp_no or not email:
         raise ValueError("Employee No and Email are required.")
+    format_error = university_fields.check_id("employee_no", emp_no)
+    if format_error:
+        raise ValueError(format_error)
     try:
         validate_email(email)
     except ValidationError:

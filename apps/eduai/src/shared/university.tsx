@@ -35,6 +35,7 @@ export interface University {
   academic?: Academic;
   documents?: DocumentSettings;
   terms?: TermTable;
+  fields?: PublicFields;
   notice?: Notice | null;
   help?: HelpDetails;
   rules?: {
@@ -406,4 +407,47 @@ export const termsOf = (university: University | null | undefined): TermFn => (k
 
 export function useTerms(): TermFn {
   return termsOf(useUniversity());
+}
+
+/** The university's extra profile fields and ID formats (Master Admin > University > Fields). Nothing is shown until some are defined. */
+export interface FieldDefinition { key: string; label: string; type: "text" | "number" | "date" | "choice"; applies_to: "student" | "teacher" | "both"; required: boolean; admin_only: boolean; choices: string[] }
+export interface IdFormat { pattern: string; description: string; example: string }
+export interface PublicFields { id_formats: { register_no: IdFormat; employee_no: IdFormat }; custom: FieldDefinition[] }
+
+export const fieldsFor = (university: University | null | undefined, role: "student" | "teacher"): FieldDefinition[] =>
+  (university?.fields?.custom ?? []).filter((field) => field.applies_to === "both" || field.applies_to === role);
+
+/** The values a person may send: admin-only fields are left out unless an administrator is editing. */
+export const extraBody = (definitions: FieldDefinition[], values: Record<string, string>, asAdmin = false): Record<string, string> =>
+  Object.fromEntries(definitions.filter((field) => asAdmin || !field.admin_only).map((field) => [field.key, values[field.key] ?? ""]));
+
+/** One input per extra field that applies to ``role``. The styling classes come from the portal that uses it. */
+export function ExtraFields({ role, values, onChange, asAdmin = false, labelClass, inputClass }: {
+  role: "student" | "teacher"; values: Record<string, string>; onChange: (next: Record<string, string>) => void;
+  asAdmin?: boolean; labelClass: string; inputClass: string;
+}) {
+  const definitions = fieldsFor(useUniversity(), role);
+  if (!definitions.length) return null;
+  return (
+    <>
+      {definitions.map((field) => {
+        const locked = field.admin_only && !asAdmin;
+        const common = { value: values[field.key] ?? "", disabled: locked, required: field.required && !locked, className: inputClass, "aria-label": field.label };
+        const set = (value: string) => onChange({ ...values, [field.key]: value });
+        return (
+          <label key={field.key} className={labelClass}>
+            {field.label}{field.required ? " *" : ""}{locked ? " (set by the administration)" : ""}
+            {field.type === "choice" ? (
+              <select {...common} onChange={(e) => set(e.target.value)}>
+                <option value="">Choose...</option>
+                {field.choices.map((choice) => <option key={choice} value={choice}>{choice}</option>)}
+              </select>
+            ) : (
+              <input {...common} type={field.type === "text" ? "text" : field.type} step={field.type === "number" ? "any" : undefined} maxLength={field.type === "text" ? 200 : undefined} onChange={(e) => set(e.target.value)} />
+            )}
+          </label>
+        );
+      })}
+    </>
+  );
 }

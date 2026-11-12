@@ -21,6 +21,7 @@ from apps.institution.models import Batch, Campus, Department, Program, School, 
 from apps.institution import rules as university_rules
 
 from . import roster, staff_roster
+from apps.institution import fields as university_fields
 from apps.institution import terms as university_terms
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ def _user_payload(user, role=None):
         "register_no": user.register_no,
         "emp_no": user.emp_no,
         "phone_number": user.phone_number,
+        "extra": user.extra or {},
         "is_profile_complete": user.is_profile_complete,
         "rejection_reason": user.rejection_reason,
         "hierarchy": {
@@ -310,7 +312,14 @@ class ProfileSetupView(APIView):
         if staff_entry is not None:
             user.emp_no = staff_entry.emp_no
         elif user.role == user.Role.TEACHER and "emp_no" in data:
+            format_error = university_fields.check_id("employee_no", data["emp_no"])
+            if format_error:
+                return Response({"detail": format_error, "field": "emp_no"}, status=status.HTTP_400_BAD_REQUEST)
             user.emp_no = _clean_identifier(data["emp_no"])
+        extra, extra_error = university_fields.apply_extra(user, data.get("extra") or {})
+        if extra_error:
+            return Response({"detail": extra_error}, status=status.HTTP_400_BAD_REQUEST)
+        user.extra = extra
         user.set_password(password)
 
         if user.role == user.Role.STUDENT:
@@ -356,10 +365,20 @@ class CurrentUserView(APIView):
                 current = getattr(user, field)
                 if current and value != current:
                     return Response({"detail": f"{field} can only be changed by an administrator."}, status=status.HTTP_403_FORBIDDEN)
+                if value and value != current:
+                    format_error = university_fields.check_id("register_no" if field == "register_no" else "employee_no", value)
+                    if format_error:
+                        return Response({"detail": format_error, "field": field}, status=status.HTTP_400_BAD_REQUEST)
                 setattr(user, field, value)
             else:
                 setattr(user, field, value or "")
             changed.append(field)
+        if "extra" in data:
+            extra, extra_error = university_fields.apply_extra(user, data["extra"], enforce_required=False)
+            if extra_error:
+                return Response({"detail": extra_error}, status=status.HTTP_400_BAD_REQUEST)
+            user.extra = extra
+            changed.append("extra")
         if "password" in data:
             if not user.check_password(data.get("current_password") or ""):
                 return Response({"detail": "Current password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)

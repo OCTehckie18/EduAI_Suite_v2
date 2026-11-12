@@ -194,6 +194,7 @@ class UniversityProfile(TimeStampedModel):
     # Letterhead and signatory for official documents; validated by institution/documents.py.
     documents = models.JSONField(default=dict, blank=True)
     terms = models.JSONField(default=dict, blank=True)
+    fields = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return self.name or "University (not configured)"

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, FileText, Languages, Menu, Megaphone, Paintbrush, Award, Scale, ToggleRight, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
+import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, FileText, Languages, ListChecks, Menu, Megaphone, Paintbrush, Award, Scale, ToggleRight, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
 import logo from "../../logo/eduai_logo.png";
 import { LoginScreen } from "./Login";
 import { ThemeToggle } from "./shared/ThemeToggle";
@@ -11,6 +11,7 @@ import { ModulesPanel } from "./ModulesPanel";
 import { AcademicPanel } from "./AcademicPanel";
 import { DocumentsPanel } from "./DocumentsPanel";
 import { WordsPanel } from "./WordsPanel";
+import { FieldsPanel } from "./FieldsPanel";
 import { NoticePanel } from "./NoticePanel";
 import { RulesPanel } from "./RulesPanel";
 import { UniversityPanel } from "./UniversityPanel";
@@ -52,6 +53,7 @@ const SETTINGS_TABS: TabDef[] = [
     { tab: "notice", label: "Notice & help", title: "Notice and help", subtitle: "A banner for everyone, and your help desk details", Icon: Megaphone, color: "text-amber-600", search: false },
     { tab: "academic", label: "Grading & calendar", title: "Grading and calendar", subtitle: "Grade scale, terms, time zone and holidays", Icon: Award, color: "text-lime-700", search: false },
     { tab: "words", label: "Words", title: "Words", subtitle: "Your own names for campuses, students, register numbers and more", Icon: Languages, color: "text-cyan-700", search: false },
+    { tab: "fields", label: "Profile fields", title: "Profile fields", subtitle: "ID formats and extra details on student and teacher profiles", Icon: ListChecks, color: "text-teal-700", search: false },
     { tab: "documents", label: "Documents", title: "Documents", subtitle: "Letterhead for reports and printed answer sheets", Icon: FileText, color: "text-slate-600", search: false },
 ];
 /** Everything under the University page: the details first, then one tab per group of settings. */
@@ -117,6 +119,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
     academic: <AcademicPanel />,
     documents: <DocumentsPanel />,
     words: <WordsPanel />,
+    fields: <FieldsPanel />,
     campuses: <CampusPanel key={refreshKey} search={search} onChanged={loadOverview} />,
     structure: <StructurePanel key={refreshKey} search={search} onChanged={loadOverview} />,
     roster: <RosterPanel key={refreshKey} search={search} />,

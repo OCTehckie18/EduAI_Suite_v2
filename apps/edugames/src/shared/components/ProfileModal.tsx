@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useTerms } from "../university";
+import { useTerms, ExtraFields, extraBody, fieldsFor, useUniversity } from "../university";
 import { X } from "lucide-react";
 import { API_ENDPOINTS } from "../utils/apiConfig";
 import { useRules } from "../university";
@@ -34,10 +34,12 @@ const authHeaders = () => ({
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) => {
   const t = useTerms();
+  const university = useUniversity();
   const studentRules = useRules().accounts.student_can_edit;
   const studentProfile = (role?: string) => role === "student";
   const [profile, setProfile] = useState<ProfileUser | null>(null);
   const [form, setForm] = useState({ first_name: "", last_name: "", phone_number: "", register_no: "", emp_no: "", password: "", current_password: "" });
+  const [extra, setExtra] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -49,6 +51,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) 
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Could not load profile.");
         setProfile(data.user);
+        setExtra(data.user.extra ?? {});
         setForm({
           first_name: data.user.first_name ?? "",
           last_name: data.user.last_name ?? "",
@@ -84,6 +87,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) 
     // Identifiers are fixed once set; only an administrator can change them.
     if (!profile?.register_no && register_no) body.register_no = register_no;
     if (!profile?.emp_no && emp_no) body.emp_no = emp_no;
+    const role = profile?.role === "teacher" ? "teacher" : "student";
+    const definitions = fieldsFor(university, role);
+    if (definitions.length) (body as Record<string, unknown>).extra = extraBody(definitions, extra);
     if (password && canEditPassword) {
       body.password = password;
       body.current_password = current_password;
@@ -146,6 +152,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) 
                 <input className={`${inputClass} mt-1`} value={form.emp_no} onChange={set("emp_no")} disabled={Boolean(profile.emp_no)} />
               </label>
             )}
+            {(isStudent || isTeacher) && <ExtraFields role={isTeacher ? "teacher" : "student"} values={extra} onChange={setExtra} labelClass="block text-xs font-semibold text-slate-500" inputClass={`${inputClass} mt-1`} />}
             {!(isStudent && !studentRules.password) && <label className="block text-xs font-semibold text-slate-500">New password (leave blank to keep current)
               <input type="password" minLength={6} className={`${inputClass} mt-1`} value={form.password} onChange={set("password")} autoComplete="new-password" />
             </label>}

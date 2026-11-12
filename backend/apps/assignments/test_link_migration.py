@@ -7,6 +7,13 @@ class LinkSubmissionsMigrationTests(TransactionTestCase):
     migrate_from = [("assignments", "0002_feedbacktemplate_rubriccriterion"), ("accounts", "0004_admitted_student_roster")]
     migrate_to = [("assignments", "0003_submission_student"), ("accounts", "0004_admitted_student_roster")]
 
+    def tearDown(self):
+        # Put every app back at its latest migration, so later tests see the full schema (for example new User columns).
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+        super().tearDown()
+
     def test_old_name_only_submissions_are_linked_by_email_or_register_number(self):
         executor = MigrationExecutor(connection)
         executor.migrate(self.migrate_from)
