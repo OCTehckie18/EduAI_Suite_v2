@@ -419,7 +419,7 @@ export const CalendarPage: React.FC = () => {
     : [];
 
   return (
-    <div className="space-y-6 animate-fade-in pb-20">
+    <div className="space-y-6 pb-20">
       {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -629,7 +629,7 @@ export const CalendarPage: React.FC = () => {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <GlassCard className="w-full max-w-md animate-fade-in-up p-0 overflow-hidden">
+          <GlassCard className="w-full max-w-md animate-fade-in p-0 overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-grad1)" }}>
               <h2 className="font-bold flex items-center gap-2">
                 {editEventId ? <Edit2 size={18} className="text-blue-600" /> : <Plus size={18} className="text-blue-600" />}

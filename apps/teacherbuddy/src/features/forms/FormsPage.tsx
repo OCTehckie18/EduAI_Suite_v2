@@ -163,7 +163,7 @@ export const FormsPage: React.FC = () => {
   if (mode === "results" && results) {
     const f = results.form;
     return (
-      <div className="space-y-6 animate-fade-in-up">
+      <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <button className="text-sm font-bold text-blue-700 hover:underline" onClick={() => setMode("list")}>Back to forms</button>
@@ -221,7 +221,7 @@ export const FormsPage: React.FC = () => {
   // ---- builder ----
   if (mode === "edit") {
     return (
-      <div className="space-y-6 animate-fade-in-up max-w-3xl">
+      <div className="space-y-6 max-w-3xl">
         <div>
           <button className="text-sm font-bold text-blue-700 hover:underline" onClick={() => setMode("list")}>Back to forms</button>
           <h1 className="text-2xl font-bold font-display">{editingId ? "Edit form" : "New form"}</h1>
@@ -276,7 +276,7 @@ export const FormsPage: React.FC = () => {
 
   // ---- list ----
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="max-w-2xl">
           <h1 className="text-2xl font-bold font-display">Forms</h1>

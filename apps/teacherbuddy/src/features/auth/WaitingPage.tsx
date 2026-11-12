@@ -49,7 +49,7 @@ export const WaitingPage: React.FC = () => {
       className="min-h-screen flex items-center justify-center p-6"
       style={{ background: "var(--color-bg-start)" }}
     >
-      <div className="w-full max-w-md animate-fade-in-up">
+      <div className="w-full max-w-md page-enter">
         <div className="glass-card p-5 sm:p-8 text-center">
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-8">

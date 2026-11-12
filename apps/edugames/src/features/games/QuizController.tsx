@@ -238,7 +238,7 @@ export const QuizController: React.FC = () => {
 
   if (phase === "join") {
     return (
-      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col items-center justify-center p-6 text-white animate-fade-in relative overflow-hidden">
+      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col items-center justify-center p-6 text-white relative overflow-hidden">
         <div className="w-full max-w-sm space-y-8 z-10">
           <div className="text-center">
             <motion.h1 initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-6xl font-black italic tracking-tighter mb-2 shadow-text">
@@ -307,7 +307,7 @@ export const QuizController: React.FC = () => {
     const total = Math.max(1, (currentQuestion.time_limit || 20) * 1000);
     const left = Math.max(0, deadline - now);
     return (
-      <div className="min-h-screen bg-gray-100 flex flex-col p-2 gap-2 animate-fade-in">
+      <div className="min-h-screen bg-gray-100 flex flex-col p-2 gap-2">
         <div className="h-3 rounded-full bg-gray-300 overflow-hidden" aria-label="Time left">
           <div className="h-full bg-blue-600 transition-[width] duration-200" style={{ width: `${Math.min(100, (left / total) * 100)}%` }} />
         </div>
@@ -387,7 +387,7 @@ export const QuizController: React.FC = () => {
 
   if (phase === "finished") {
     return (
-      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col p-6 text-white animate-fade-in relative overflow-hidden">
+      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col p-6 text-white relative overflow-hidden">
         <div className="flex flex-col items-center text-center mt-8 mb-12">
           <Trophy size={80} className="text-yellow-400 mb-4 animate-bounce" />
           <h2 className="text-5xl font-black italic tracking-tighter mb-2 shadow-text">GAME OVER</h2>

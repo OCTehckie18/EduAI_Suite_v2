@@ -484,7 +484,7 @@ export const AnalyticsPage: React.FC = () => {
           </div>
         )}
         {students.map((s: any) => (
-          <div key={s.id} className="animate-fade-in-up">
+          <div key={s.id} >
             <div
               className="flex items-center gap-3 p-4 rounded-xl cursor-pointer hover:shadow-md transition-all bg-white/60 border border-slate-100 hover:border-blue-200"
               onClick={() => setExpandedStudent(expandedStudent === s.id ? null : s.id)}

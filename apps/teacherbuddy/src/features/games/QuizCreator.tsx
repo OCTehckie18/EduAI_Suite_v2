@@ -249,7 +249,7 @@ export const QuizCreator: React.FC = () => {
   const activeQuestion = questions[activeQuestionIndex];
 
   return (
-    <div className="flex flex-col min-h-[calc(100dvh-100px)] lg:h-[calc(100dvh-100px)] bg-gray-50 -m-4 sm:-m-6 animate-fade-in">
+    <div className="flex flex-col min-h-[calc(100dvh-100px)] lg:h-[calc(100dvh-100px)] bg-gray-50 -m-4 sm:-m-6">
       {saveError && (
         <p role="alert" className="bg-red-50 border-b border-red-200 px-8 py-3 text-sm font-semibold text-red-700">{saveError}</p>
       )}
@@ -536,7 +536,7 @@ export const QuizCreator: React.FC = () => {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl animate-in zoom-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl animate-fade-in">
             <h2 className="text-2xl font-black mb-6">Quiz Description</h2>
             <div className="space-y-4">
               <div>

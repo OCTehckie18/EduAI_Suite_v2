@@ -92,7 +92,7 @@ export const AIChatPage: React.FC = () => {
   }, [prompt, send, setSearchParams]);
 
   return (
-    <div className="h-[calc(100vh-130px)] flex flex-col gap-5 animate-fade-in">
+    <div className="h-[calc(100vh-130px)] flex flex-col gap-5">
       <div>
         <h1
           className="text-2xl font-bold"

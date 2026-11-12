@@ -728,7 +728,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onSave, initi
 
             {/* Success Message */}
             {importSuccess && (
-              <div className="p-3 rounded-xl bg-green-50 border border-green-100 flex items-center gap-2 text-green-600 text-xs animate-fade-in">
+              <div className="p-3 rounded-xl bg-green-50 border border-green-100 flex items-center gap-2 text-green-600 text-xs">
                 <CheckCircle2 size={14} />
                 <span>{importSuccess}</span>
                 <button onClick={() => setImportSuccess("")} className="ml-auto text-green-400 hover:text-green-600">

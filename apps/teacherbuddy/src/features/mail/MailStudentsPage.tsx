@@ -566,7 +566,7 @@ export const MailStudentsPage: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto space-y-6 animate-fade-in pb-20 px-2 lg:px-0 max-w-7xl">
+    <div className="mx-auto space-y-6 pb-20 px-2 lg:px-0 max-w-7xl">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -756,7 +756,7 @@ export const MailStudentsPage: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Status Message */}
           {status && (
-            <div className={`p-4 rounded-xl flex items-center gap-3 border animate-in fade-in slide-in-from-top-2 duration-300 ${
+            <div className={`p-4 rounded-xl flex items-center gap-3 border animate-fade-in ${
               status.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-600' : 'bg-red-500/10 border-red-500/20 text-red-600'
             }`}>
               {status.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}

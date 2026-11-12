@@ -7,7 +7,7 @@ export const ConstructionPage: React.FC<{ title?: string }> = ({ title }) => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 animate-fade-in">
+    <div className="min-h-[80vh] flex flex-col items-center justify-center p-6">
       <GlassCard className="max-w-md w-full p-10 text-center flex flex-col items-center">
         <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
           style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--color-brand-blue) 20%, transparent) 0%, color-mix(in srgb, var(--color-brand-blue) 5%, transparent) 100%)", border: "1px solid color-mix(in srgb, var(--color-brand-blue) 30%, transparent)" }}>
