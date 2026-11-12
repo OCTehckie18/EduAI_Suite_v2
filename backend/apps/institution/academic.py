@@ -190,11 +190,10 @@ def public_academic(stored):
 
 
 def current():
-    """The settings in force now (read fresh, one small query)."""
-    from .models import UniversityProfile
+    """The settings in force now (from the cached settings)."""
+    from . import cache
 
-    profile = UniversityProfile.objects.only("academic").filter(pk=1).first()
-    return merged(profile.academic if profile else {})
+    return merged(cache.stored("academic"))
 
 
 def university_zone():

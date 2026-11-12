@@ -209,7 +209,7 @@ class UniversityLogoView(APIView):
             prefix = logo_prefix(request.query_params.get("variant"))
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=400)
-        profile = UniversityProfile.objects.first()
+        profile = UniversityProfile.objects.only(f"{prefix}_data", f"{prefix}_content_type").filter(pk=1).first()
         data = getattr(profile, f"{prefix}_data", None) if profile else None
         if not data:
             return Response({"detail": "No logo has been uploaded."}, status=404)

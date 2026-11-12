@@ -23,6 +23,12 @@ CHANNEL_LAYERS = {
     },
 }
 
+# One shared cache for every worker: login throttles count globally and a settings change shows everywhere at once.
+CACHES = {
+    'default': {'BACKEND': 'django.core.cache.backends.redis.RedisCache', 'LOCATION': _require('REDIS_URL'), 'KEY_PREFIX': 'eduai'},
+    'settings': {'BACKEND': 'django.core.cache.backends.redis.RedisCache', 'LOCATION': _require('REDIS_URL'), 'KEY_PREFIX': 'eduai-settings'},
+}
+
 SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True

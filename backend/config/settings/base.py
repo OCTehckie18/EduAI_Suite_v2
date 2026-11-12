@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.utils import get_random_secret_key
@@ -183,6 +184,15 @@ GOOGLE_CALENDAR_REDIRECT_URI = os.getenv(
 CALENDAR_TOKEN_KEY = os.getenv('CALENDAR_TOKEN_KEY', '')
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 REDIS_URL = os.getenv('REDIS_URL', '')
+
+TESTING = 'test' in sys.argv
+
+# Local memory by default. Production points both caches at Redis (production.py) so every worker shares them.
+CACHES = {
+    'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
+    # The university settings; see apps/institution/cache.py. Not cached while running tests.
+    'settings': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache' if TESTING else 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'university-settings'},
+}
 
 # Celery Configuration
 CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
