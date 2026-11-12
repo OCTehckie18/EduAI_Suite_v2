@@ -6,3 +6,8 @@ media
 staticfiles
 .git
 *.log
+uploads
+local_uploads
+backups
+*.sqlite3
+.pytest_cache

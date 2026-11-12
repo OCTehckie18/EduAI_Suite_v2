@@ -1,0 +1,5 @@
+# Automatic HTTPS for the four names, passing everything to the edge container.
+{$LANDING_HOST}, {$ADMIN_HOST}, {$TEACHER_HOST}, {$STUDENT_HOST} {
+	encode zstd gzip
+	reverse_proxy edge:80
+}
