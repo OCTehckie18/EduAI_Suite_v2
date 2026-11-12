@@ -95,7 +95,7 @@ class GameQuestion(models.Model):
 
 class WordCloudSession(models.Model):
     pin = models.CharField(max_length=6, unique=True, db_index=True)
-    teacher_id = models.IntegerField(null=True, blank=True)
+    teacher_id = models.IntegerField(null=True, blank=True, db_index=True)
     prompt = models.TextField()
     status = models.CharField(max_length=20, default="active")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

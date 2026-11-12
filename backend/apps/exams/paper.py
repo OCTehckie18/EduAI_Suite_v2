@@ -7,6 +7,8 @@ Without a pattern the paper is every question in the pool, as before.
 """
 
 import random
+
+from django.db.models import Count
 from collections import Counter
 
 from .models import AttemptQuestion, ExamAnswer, ExamAttempt, ExamQuestion, ExamReset
@@ -112,7 +114,8 @@ def draw_paper(attempt):
     rng = random.Random(f"{attempt.pk}-{exam.pk}")  # the attempt id, so a new attempt gets a new order
     if exam.pattern:
         seen = seen_question_ids(exam, attempt.student_id, exclude_attempt_id=attempt.pk)
-        usage = Counter(AttemptQuestion.objects.filter(attempt__exam=exam).values_list("question_id", flat=True))
+        # How often each question has been given, counted by the database instead of loading every drawn row.
+        usage = Counter(dict(AttemptQuestion.objects.filter(attempt__exam=exam).values_list("question_id").annotate(times=Count("id"))))
         chosen = []
         for section in exam.pattern:
             wanted = group_key(section["type"], section["marks"])

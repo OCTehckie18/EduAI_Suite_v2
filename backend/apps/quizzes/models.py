@@ -2,7 +2,7 @@ from django.db import models
 
 
 class Quiz(models.Model):
-    teacher_id = models.IntegerField(null=True, blank=True)
+    teacher_id = models.IntegerField(null=True, blank=True, db_index=True)
     title = models.CharField(max_length=255, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     cover_image = models.CharField(max_length=500, blank=True, null=True)
@@ -63,7 +63,7 @@ class QuizSession(models.Model):
 
 class QuizPlayer(models.Model):
     session = models.ForeignKey(QuizSession, on_delete=models.CASCADE, related_name="players")
-    student_id = models.CharField(max_length=100, blank=True, null=True)
+    student_id = models.CharField(max_length=100, blank=True, null=True, db_index=True)
     nickname = models.CharField(max_length=100, blank=True, null=True)
     avatar = models.CharField(max_length=255, blank=True, null=True)
     score = models.IntegerField(default=0)

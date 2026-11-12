@@ -14,7 +14,7 @@ class CalendarEvent(models.Model):
     recurrence = models.CharField(max_length=100, blank=True, null=True)
     teacher_name = models.CharField(max_length=255, blank=True, null=True)
     student_email = models.CharField(max_length=255, blank=True, null=True)
-    course_id = models.IntegerField(blank=True, null=True)
+    course_id = models.IntegerField(blank=True, null=True, db_index=True)
     google_event_id = models.CharField(max_length=255, blank=True, null=True)
     google_calendar_id = models.CharField(max_length=255, blank=True, null=True)
     created_by = models.ForeignKey(

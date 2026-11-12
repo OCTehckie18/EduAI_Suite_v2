@@ -2,7 +2,9 @@ import random
 from datetime import timedelta
 from types import SimpleNamespace
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -18,7 +20,7 @@ from apps.institution import rules as university_rules
 from .grading import (
     MAX_GUIDE, MAX_TEXT_ANSWER, MAX_WORD_LIMIT, clean_accepted_answers, count_blanks, fill_blank_is_correct,
 )
-from .models import AttemptQuestion, Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer, personal_deadline
+from .models import AttemptQuestion, Exam, ExamQuestion, ExamChoice, ExamAttempt, ExamAnswer, ExamReset, personal_deadline
 from .paper import (
     PoolTooSmall, attempt_questions, attempt_total, clean_pattern, draw_paper, pattern_shortfalls,
 )
@@ -53,6 +55,19 @@ def _exam_context(user):
     if _is_student(user):
         return {"hide_answers": True, "attempts_for_student": user.pk}
     return {}
+
+
+def _list_context(user, exams):
+    """The serializer context for a list of exams, with the people and resets it needs loaded in two queries."""
+    context = _exam_context(user)
+    student_ids = {a.student_id for exam in exams for a in exam.attempts.all()}
+    context["users"] = get_user_model().objects.in_bulk(student_ids)
+    if _is_student(user):
+        resets = {}
+        for reset in ExamReset.objects.filter(exam__in=[e.pk for e in exams], student_id=user.pk).order_by("-created_at"):
+            resets.setdefault(reset.exam_id, []).append(reset)
+        context["resets"] = resets
+    return context
 
 
 def _forbidden():
@@ -334,7 +349,11 @@ class ExamListCreateView(APIView):
     def get(self, request):
         user = request.user
         course_id = request.query_params.get("course_id")
-        qs = Exam.objects.all().prefetch_related("questions__choices", "attempts")
+        # One query each for exams, questions with choices, and attempts with answers: the list never loads rows one by one.
+        attempts = ExamAttempt.objects.prefetch_related("answers")
+        if _is_student(user):
+            attempts = attempts.filter(student_id=user.pk)
+        qs = Exam.objects.select_related("course").prefetch_related("questions__choices", Prefetch("attempts", queryset=attempts))
         if _is_student(user):
             qs = qs.filter(
                 status="published",
@@ -345,7 +364,8 @@ class ExamListCreateView(APIView):
             qs = qs.filter(course__teacher=user)
         if course_id:
             qs = qs.filter(course_id=course_id)
-        return Response(ExamSerializer(qs, many=True, context=_exam_context(user)).data)
+        exams = list(qs)
+        return Response(ExamSerializer(exams, many=True, context=_list_context(user, exams)).data)
 
     def post(self, request):
         if not IsTeacher().has_permission(request, self):
@@ -496,8 +516,10 @@ class ExamAttemptStartView(APIView):
     def post(self, request, exam_id):
         user = request.user
         with transaction.atomic():
-            # Locking the exam row serialises concurrent starts, so a double click cannot create two attempts.
-            exam = get_object_or_404(Exam.objects.select_for_update(), pk=exam_id)
+            # Locking this student's own row serialises their concurrent starts (a double click cannot create two attempts)
+            # without making the whole class queue behind one exam-wide lock.
+            get_user_model().objects.select_for_update().filter(pk=user.pk).first()
+            exam = get_object_or_404(Exam, pk=exam_id)
             if not _is_student(user) or not _student_can_access(user, exam):
                 return _forbidden()
             if not exam.questions.exists():
@@ -592,6 +614,7 @@ class ExamAttemptSubmitView(APIView):
             total_points = 0.0
             earned_points = 0.0
             needs_marking = False
+            answer_rows = []
             for question in questions.values():
                 points = drawn_points[question.pk]
                 total_points += points
@@ -606,8 +629,10 @@ class ExamAttemptSubmitView(APIView):
                 elif text.strip():
                     awarded = None  # a written answer waits for the teacher; a blank one is simply 0
                     needs_marking = True
-                ExamAnswer.objects.create(attempt=attempt, question=question, selected_choice_id=selected, text_answer=text, awarded_points=awarded)
+                answer_rows.append(ExamAnswer(attempt=attempt, question=question, selected_choice_id=selected, text_answer=text, awarded_points=awarded))
                 earned_points += awarded or 0.0
+
+            ExamAnswer.objects.bulk_create(answer_rows)  # one insert for the whole paper
 
             if needs_marking:
                 # No score yet: the teacher marks the written answers first.
@@ -678,7 +703,8 @@ class ExamAttemptListView(APIView):
         exam = get_object_or_404(Exam.objects.select_related("course"), pk=exam_id)
         if not _can_manage(request.user, exam.course):
             return _forbidden()
-        attempts = ExamAttempt.objects.filter(exam_id=exam_id).select_related("exam").prefetch_related("answers")
+        attempts = list(ExamAttempt.objects.filter(exam_id=exam_id).select_related("exam").prefetch_related("answers"))
         for attempt in attempts:
             _expire_if_overdue(attempt)
-        return Response(ExamAttemptSerializer(attempts, many=True, context={"viewer_manages": True}).data)
+        users = get_user_model().objects.in_bulk({a.student_id for a in attempts})
+        return Response(ExamAttemptSerializer(attempts, many=True, context={"viewer_manages": True, "users": users}).data)

@@ -8,6 +8,7 @@ minute. A failure in here must never undo the change that caused it, so everythi
 import logging
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
@@ -25,11 +26,38 @@ from .models import CalendarEvent, CalendarSyncRequest, GoogleCalendarLink
 logger = logging.getLogger(__name__)
 
 
+ANY_LINKS_KEY = "calendar:any-google-links"
+
+
+def _anyone_connected(links):
+    """Whether any user has connected Google Calendar. Remembered for a minute, so a university where nobody has
+    (the usual case) does not pay a query on every exam, attempt or enrollment save. Linking drops the memory."""
+    try:
+        known = cache.get(ANY_LINKS_KEY)
+    except Exception:  # noqa: BLE001 - a cache outage must never block the change itself
+        known = None
+    if known is None:
+        known = links.exists()
+        try:
+            cache.set(ANY_LINKS_KEY, known, 60)
+        except Exception:  # noqa: BLE001
+            pass
+    return known
+
+
+@receiver([post_save, post_delete], sender=GoogleCalendarLink)
+def link_changed(sender, **kwargs):
+    try:
+        cache.delete(ANY_LINKS_KEY)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def queue_sync(user_ids):
     """Add the connected users among ``user_ids`` (and every connected admin, who sees everything) to the outbox."""
     ids = {pk for pk in user_ids if pk}
     links = GoogleCalendarLink.objects.exclude(status=GoogleCalendarLink.Status.REVOKED)
-    if not links.exists():
+    if not _anyone_connected(links):
         return
     User = get_user_model()
     admins = set(User.objects.filter(role=User.Role.MASTER_ADMIN, google_calendar_link__isnull=False).values_list("pk", flat=True))
