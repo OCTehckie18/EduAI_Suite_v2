@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useTerms } from "../../shared/university";
 import {
   Users,
   Clock,
@@ -50,6 +51,7 @@ const DEPARTMENTS = [
 ];
 
 export const ClassroomsPage: React.FC = () => {
+  const t = useTerms();
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const [classrooms, setClassrooms] = useState<any[]>([]);
@@ -1789,7 +1791,7 @@ export const ClassroomsPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className={premiumLabel} htmlFor="enroll-reg">Register number</label>
+                  <label className={premiumLabel} htmlFor="enroll-reg">{t('register_no')}</label>
                   <input
                     id="enroll-reg"
                     className={premiumInput}

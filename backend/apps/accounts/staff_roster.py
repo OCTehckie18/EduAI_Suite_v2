@@ -16,6 +16,7 @@ from apps.institution.models import Campus, Department, School
 
 from .models import AdmittedStaff
 from .roster import RosterImportResult, _lookup, _text, normalise_email, rows_from_file
+from apps.institution import terms as university_terms
 
 DATA_SHEET = "Teachers"
 GUIDE_SHEET = "How to fill this in"
@@ -39,7 +40,7 @@ def entry_for_identifiers(email, emp_no):
     emp_no = str(emp_no or "").strip()
     by_emp = AdmittedStaff.objects.select_related(*SELECT).filter(emp_no__iexact=emp_no).first() if emp_no else None
     if by_email and by_emp and by_email.pk != by_emp.pk:
-        raise ValueError("The email and employee number belong to different teachers on the teacher roster.")
+        raise ValueError(f"The email and {university_terms.get('employee_no', lower=True)} belong to different {university_terms.get('teacher', plural=True, lower=True)} on the teacher roster.")
     return by_email or by_emp
 
 
@@ -138,7 +139,7 @@ def import_staff_roster(uploaded_file):
         except ValueError as exc:
             result.errors.append({"row": number, "error": str(exc)})
         except IntegrityError:
-            result.errors.append({"row": number, "error": "This employee number or email is already used by another teacher on the roster."})
+            result.errors.append({"row": number, "error": f"This {university_terms.get('employee_no', lower=True)} or email is already used by another {university_terms.get('teacher', lower=True)} on the roster."})
     return result
 
 

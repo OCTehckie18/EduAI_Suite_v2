@@ -19,6 +19,7 @@ from apps.accounts.roster import hierarchy_for
 from apps.core.permissions import IsMasterAdmin
 from apps.core.models import ActionHistory
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
+from apps.institution import terms as university_terms
 
 from .services import (
     RestoreConflict, RestoreInvalid, apply_changes, content_type_key, editable_fields, find_conflicts,
@@ -651,7 +652,7 @@ class UserDirectoryDetailView(APIView):
         if entry is not None and user.role == user.Role.STUDENT:
             clash = AdmittedStudent.objects.exclude(pk=entry.pk)
             if clash.filter(email__iexact=user.email).exists() or (user.register_no and clash.filter(register_no__iexact=user.register_no).exists()):
-                return Response({"detail": "The student roster already has another entry with this email or register number."}, status=409)
+                return Response({"detail": f"The {university_terms.get('student', lower=True)} roster already has another entry with this email or {university_terms.get('register_no', lower=True)}."}, status=409)
         try:
             with transaction.atomic():
                 user.save()
@@ -665,7 +666,7 @@ class UserDirectoryDetailView(APIView):
                     user.teaching_programs.set(programs)
         except IntegrityError:
             return Response(
-                {"detail": "Register number, employee number or email is already in use."},
+                {"detail": f"{university_terms.get('register_no')}, {university_terms.get('employee_no', lower=True)} or email is already in use."},
                 status=409,
             )
         changes = {"email_from": original_email, "email_to": user.email} if user.email != original_email else {}

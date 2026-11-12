@@ -5,10 +5,11 @@ import { GoogleLogin } from "@react-oauth/google";
 import logo from "../../../../logo/eduai_logo.png";
 import { useAuthStore } from "../../store/useAuthStore";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
-import { logoSrc, logoVariant, portalName, rulesOf, signInBackground, signInPage, siteLinks, useUniversity } from "../../shared/university";
+import { logoSrc, logoVariant, portalName, rulesOf, signInBackground, signInPage, siteLinks, useUniversity, termsOf } from "../../shared/university";
 
 export const AuthPage: React.FC = () => {
   const uni = useUniversity();
+  const t = termsOf(uni);
   const page = signInPage(uni, "teacherbuddy");
   const appName = portalName(uni, "teacherbuddy", "TeacherBuddy");
   const links = siteLinks(uni);
@@ -74,7 +75,7 @@ export const AuthPage: React.FC = () => {
   const handlePasswordLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!username.trim() || !password) {
-      setError("Enter your employee number or email and password.");
+      setError(`Enter your ${t("employee_no", { lower: true })} or email and password.`);
       return;
     }
 
@@ -90,7 +91,7 @@ export const AuthPage: React.FC = () => {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.detail || "Invalid employee number or password.");
+        throw new Error(data.detail || `Invalid ${t("employee_no", { lower: true })} or password.`);
       }
 
       if (data.user.role !== "teacher") {
@@ -198,7 +199,7 @@ export const AuthPage: React.FC = () => {
               Faculty Portal
             </h2>
             <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
-              Sign in with Google or your saved employee number and password.
+              Sign in with Google or your saved {t('employee_no', { lower: true })} and password.
             </p>
 
             {error && (
@@ -250,7 +251,7 @@ export const AuthPage: React.FC = () => {
                     type="text"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
-                    placeholder="Employee number or email"
+                    placeholder={`${t("employee_no")} or email`}
                     autoComplete="username"
                     className="w-full rounded-xl border px-4 py-3 text-sm outline-none"
                     style={{ borderColor: "var(--color-border)", background: "var(--color-bg-start)", color: "var(--color-text-primary)" }}

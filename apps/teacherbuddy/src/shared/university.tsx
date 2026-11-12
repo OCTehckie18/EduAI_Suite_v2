@@ -34,6 +34,7 @@ export interface University {
   /** The notice to show right now (null when none is on or it is outside its dates). */
   academic?: Academic;
   documents?: DocumentSettings;
+  terms?: TermTable;
   notice?: Notice | null;
   help?: HelpDetails;
   rules?: {
@@ -370,4 +371,39 @@ export function PrintLetterhead({ signature = false }: { signature?: boolean }) 
       {docs.footer && <p className="hidden print:block text-center" style={{ marginTop: 16, fontSize: 10, color: "#475569" }}>{docs.footer}</p>}
     </>
   );
+}
+
+/** The university's own words (Master Admin > University > Words). English only; the defaults are what the platform always said. */
+export type TermKey = "campus" | "school" | "department" | "program" | "class" | "section" | "student" | "teacher" | "master_admin" | "register_no" | "employee_no" | "classroom" | "exam" | "assignment";
+export type TermTable = Record<TermKey, { singular: string; plural: string }>;
+
+export const DEFAULT_TERMS: TermTable = {
+  campus: { singular: "Campus", plural: "Campuses" },
+  school: { singular: "School", plural: "Schools" },
+  department: { singular: "Department", plural: "Departments" },
+  program: { singular: "Program", plural: "Programs" },
+  class: { singular: "Class", plural: "Classes" },
+  section: { singular: "Section", plural: "Sections" },
+  student: { singular: "Student", plural: "Students" },
+  teacher: { singular: "Teacher", plural: "Teachers" },
+  master_admin: { singular: "Master Admin", plural: "Master Admins" },
+  register_no: { singular: "Register number", plural: "Register numbers" },
+  employee_no: { singular: "Employee number", plural: "Employee numbers" },
+  classroom: { singular: "Classroom", plural: "Classrooms" },
+  exam: { singular: "Exam", plural: "Exams" },
+  assignment: { singular: "Assignment", plural: "Assignments" },
+};
+
+export type TermOptions = { plural?: boolean; lower?: boolean };
+export type TermFn = (key: TermKey, options?: TermOptions) => string;
+
+/** A word lookup for a university: ``t("register_no")`` is "Register number" unless the university chose another word. */
+export const termsOf = (university: University | null | undefined): TermFn => (key, options = {}) => {
+  const entry = university?.terms?.[key] ?? DEFAULT_TERMS[key];
+  const word = (options.plural ? entry.plural : entry.singular) || DEFAULT_TERMS[key][options.plural ? "plural" : "singular"];
+  return options.lower ? word.toLowerCase() : word;
+};
+
+export function useTerms(): TermFn {
+  return termsOf(useUniversity());
 }

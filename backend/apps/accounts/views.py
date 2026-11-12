@@ -21,6 +21,7 @@ from apps.institution.models import Batch, Campus, Department, Program, School, 
 from apps.institution import rules as university_rules
 
 from . import roster, staff_roster
+from apps.institution import terms as university_terms
 
 logger = logging.getLogger(__name__)
 
@@ -281,7 +282,7 @@ class ProfileSetupView(APIView):
             if entry is not None:
                 taken = get_user_model().all_objects.filter(register_no__iexact=entry.register_no).exclude(pk=user.pk)
                 if taken.exists():
-                    return Response({"detail": "This register number is already linked to another account."}, status=status.HTTP_409_CONFLICT)
+                    return Response({"detail": f"This {university_terms.get('register_no', lower=True)} is already linked to another account."}, status=status.HTTP_409_CONFLICT)
             campus, school, department = user.campus, user.school, user.department
         elif staff_entry is not None:
             # A listed teacher's department and employee number come from the roster, not the form.
@@ -322,7 +323,7 @@ class ProfileSetupView(APIView):
             user.save()
         except IntegrityError:
             transaction.set_rollback(True)
-            return Response({"detail": "Register number or employee number is already in use."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": f"{university_terms.get('register_no')} or {university_terms.get('employee_no', lower=True)} is already in use."}, status=status.HTTP_400_BAD_REQUEST)
         if user.role == user.Role.TEACHER:
             user.teaching_programs.set(Program.objects.filter(pk__in=data.get("programs", []), department=department))
             user.teaching_batches.set(Batch.objects.filter(pk__in=data.get("batches", []), program__department=department))
@@ -371,7 +372,7 @@ class CurrentUserView(APIView):
             try:
                 user.save(update_fields=changed)
             except IntegrityError:
-                return Response({"detail": "Register number or employee number is already in use."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": f"{university_terms.get('register_no')} or {university_terms.get('employee_no', lower=True)} is already in use."}, status=status.HTTP_400_BAD_REQUEST)
         return self.get(request)
 
     put = patch

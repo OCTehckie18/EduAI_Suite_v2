@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../../../../logo/eduai_logo.png";
 import { useAuthStore } from "../../store/useAuthStore";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
-import { logoSrc, logoVariant, useUniversity } from "../../shared/university";
+import { logoSrc, logoVariant, useUniversity, termsOf } from "../../shared/university";
 
 type Option = { id: number; name: string; code?: string };
 
@@ -18,6 +18,7 @@ const getResults = async (url: string): Promise<Option[]> => {
 
 export const ProfileSetupPage: React.FC = () => {
   const uni = useUniversity();
+  const t = termsOf(uni);
   const navigate = useNavigate();
   const { googleLogin } = useAuthStore();
   const user = useMemo(() => {
@@ -78,7 +79,7 @@ export const ProfileSetupPage: React.FC = () => {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
-    if (!form.emp_no || !form.campus || !form.school || !form.department || !form.password) { setError("Employee number, hierarchy, and password are required."); return; }
+    if (!form.emp_no || !form.campus || !form.school || !form.department || !form.password) { setError(`${t("employee_no")}, hierarchy, and password are required.`); return; }
     if (form.password !== form.confirm_password) { setError("Passwords do not match."); return; }
     setLoading(true);
     try {
