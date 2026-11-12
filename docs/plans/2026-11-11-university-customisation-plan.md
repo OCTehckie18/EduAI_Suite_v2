@@ -123,6 +123,18 @@ Each phase is its own branch from `development`. They are ordered by how visible
 - **Banner:** an institution-wide notice on every portal, with a start and end time, a tone (info or urgent), and dismissable or not.
 - **Help panel:** the help desk email, phone, hours and a "How to" link, shown in each portal's account menu.
 
+### C9. Search anything with Ctrl+K (M)
+- **Palette:** Ctrl+K (Cmd+K on Mac) opens a search box anywhere in Master Admin; Esc closes it; arrow keys and Enter pick a result.
+- **What it finds:** pages and settings (for example "grading", "letterhead", "holiday"), then real records: users (name, email, register or employee number), campuses and hierarchy units, roster entries, and recent audit actions.
+- **One server search:** a single Master Admin endpoint takes the keyword and returns a few matches per group, so the browser never loads whole tables. Results are limited to what a Master Admin may see.
+- **Honest states:** "No matches" and "Could not search, retry" are shown plainly; nothing is invented.
+
+### C10. One University page with tabs (S)
+- **Why:** each phase added its own entry to the Master Admin side menu (Look & feel, Modules, Rules, Notice & help, Grading & calendar, Documents), so the menu overflows and is overwhelming.
+- **Change:** one "University" menu entry opens a page with tabs: Details, Look & feel, Modules, Rules, Notice & help, Grading & calendar, Documents. Later phases (words, custom fields) add a tab, not a menu entry.
+- **Behaviour:** the panels are unchanged, only moved. The selected tab is in the address (for example `#university/rules`), so refresh and back keep your place; old links such as `#rules` still open the right tab. Tabs scroll sideways on a phone.
+- **Done when:** the side menu has no customisation entries other than University, and every setting still saves as before.
+
 ---
 
 ## 3. Suggested order
@@ -137,6 +149,8 @@ Each phase is its own branch from `development`. They are ordered by how visible
 | 6 | C6 Documents | Builds on C4 (grades on reports) |
 | 7 | C5 Words | Largest change across screens; easier once the screens settle |
 | 8 | C7 Custom fields and ID formats | Touches the roster and profiles; do last |
+| 9 | C9 Ctrl+K search | Easier once every page and setting exists |
+| 10 | C10 University tabs | Small; best done before C5 and C7 so they arrive as tabs |
 
 ---
 

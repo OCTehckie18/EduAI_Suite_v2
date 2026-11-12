@@ -31,13 +31,7 @@ const NAV: { heading: string; items: TabDef[] }[] = [
     { tab: "overview", label: "Overview", title: "Overview", subtitle: "Where your institution stands today", Icon: BarChart3, color: "text-brand-blue", search: false },
   ] },
   { heading: "Institution", items: [
-    { tab: "university", label: "University", title: "University settings", subtitle: "Name, logo and contact details shown across every portal", Icon: Landmark, color: "text-yellow-700", search: false },
-    { tab: "look", label: "Look & feel", title: "Look and feel", subtitle: "Fonts, corners, portal names and sign-in pages for every portal", Icon: Paintbrush, color: "text-orange-600", search: false },
-    { tab: "modules", label: "Modules", title: "Modules", subtitle: "Switch off what your university does not use", Icon: ToggleRight, color: "text-emerald-600", search: false },
-    { tab: "rules", label: "Rules", title: "Rules", subtitle: "Exams, sign-in, accounts and the risk score", Icon: Scale, color: "text-sky-700", search: false },
-    { tab: "notice", label: "Notice & help", title: "Notice and help", subtitle: "A banner for everyone, and your help desk details", Icon: Megaphone, color: "text-amber-600", search: false },
-    { tab: "academic", label: "Grading & calendar", title: "Grading and calendar", subtitle: "Grade scale, terms, time zone and holidays", Icon: Award, color: "text-lime-700", search: false },
-    { tab: "documents", label: "Documents", title: "Documents", subtitle: "Letterhead for reports and printed answer sheets", Icon: FileText, color: "text-slate-600", search: false },
+    { tab: "university", label: "University", title: "University", subtitle: "Name, logo and contact details shown across every portal", Icon: Landmark, color: "text-yellow-700", search: false },
     { tab: "campuses", label: "Campuses", title: "Campuses", subtitle: "The campuses of your university", Icon: Building2, color: "text-emerald-600", search: true },
     { tab: "structure", label: "Structure", title: "Institution structure", subtitle: "Schools, departments, programs, classes and sections", Icon: Layers, color: "text-teal-600", search: true },
   ] },
@@ -50,9 +44,20 @@ const NAV: { heading: string; items: TabDef[] }[] = [
     { tab: "recycle_bin", label: "Recycle bin", title: "Recycle bin", subtitle: "Restore anything that was deactivated", Icon: Trash2, color: "text-rose-600", search: true },
   ] },
 ];
-const TABS = NAV.flatMap((group) => group.items);
+const SETTINGS_TABS: TabDef[] = [
+    { tab: "look", label: "Look & feel", title: "Look and feel", subtitle: "Fonts, corners, portal names and sign-in pages for every portal", Icon: Paintbrush, color: "text-orange-600", search: false },
+    { tab: "modules", label: "Modules", title: "Modules", subtitle: "Switch off what your university does not use", Icon: ToggleRight, color: "text-emerald-600", search: false },
+    { tab: "rules", label: "Rules", title: "Rules", subtitle: "Exams, sign-in, accounts and the risk score", Icon: Scale, color: "text-sky-700", search: false },
+    { tab: "notice", label: "Notice & help", title: "Notice and help", subtitle: "A banner for everyone, and your help desk details", Icon: Megaphone, color: "text-amber-600", search: false },
+    { tab: "academic", label: "Grading & calendar", title: "Grading and calendar", subtitle: "Grade scale, terms, time zone and holidays", Icon: Award, color: "text-lime-700", search: false },
+    { tab: "documents", label: "Documents", title: "Documents", subtitle: "Letterhead for reports and printed answer sheets", Icon: FileText, color: "text-slate-600", search: false },
+];
+/** Everything under the University page: the details first, then one tab per group of settings. */
+const UNIVERSITY_TABS: TabKey[] = ["university", ...SETTINGS_TABS.map((item) => item.tab)];
+const TAB_LABELS: Partial<Record<TabKey, string>> = { university: "Details", ...Object.fromEntries(SETTINGS_TABS.map((item) => [item.tab, item.label])) };
+const TABS = [...NAV.flatMap((group) => group.items), ...SETTINGS_TABS];
 const tabFromHash = (): TabKey => {
-  const key = window.location.hash.replace("#", "") as TabKey;
+  const key = window.location.hash.replace("#", "").replace("university/", "") as TabKey;
   return TABS.some((tab) => tab.tab === key) ? key : "overview";
 };
 
@@ -89,12 +94,13 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
   }, []);
 
   const go = (next: TabKey) => {
-    window.location.hash = next;
+    window.location.hash = UNIVERSITY_TABS.includes(next) && next !== "university" ? `university/${next}` : next;
     setTab(next);
     setSearch("");
     setMenuOpen(false);
   };
   const refresh = () => { void loadOverview(); setRefreshKey((key) => key + 1); };
+  const inUniversity = UNIVERSITY_TABS.includes(tab);
   const active = TABS.find((item) => item.tab === tab) ?? TABS[0];
   const pending = overview?.users.pending_teacher_approvals ?? 0;
   const displayName = user.name || user.email;
@@ -134,7 +140,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
                 {group.heading && <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{group.heading}</p>}
                 <div className="space-y-1">
                   {group.items.map(({ tab: key, label, Icon, color }) => (
-                    <button key={key} onClick={() => go(key)} aria-current={tab === key ? "page" : undefined} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${tab === key ? "border border-slate-300 bg-slate-100 text-slate-900 shadow" : "border border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}>
+                    <button key={key} onClick={() => go(key)} aria-current={tab === key || (key === "university" && inUniversity) ? "page" : undefined} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${tab === key || (key === "university" && inUniversity) ? "border border-slate-300 bg-slate-100 text-slate-900 shadow" : "border border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}>
                       <Icon className={`h-4 w-4 ${color}`} />{label}
                       {key === "approvals" && pending > 0 && <span className="ml-auto rounded-full bg-amber-700 px-2 py-0.5 text-[11px] font-bold text-white">{pending}</span>}
                     </button>
@@ -170,7 +176,12 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
           <button onClick={onSignOut} className="flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:text-slate-900"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">Sign out</span></button>
         </header>
         <NoticeBanner />
-        <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-8">{panel}</main>
+        <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-8">
+          {inUniversity && <div role="tablist" aria-label="University settings" className="mb-6 flex gap-1 overflow-x-auto border-b border-slate-200">
+            {UNIVERSITY_TABS.map((key) => <button key={key} role="tab" aria-selected={tab === key} onClick={() => go(key)} className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition ${tab === key ? "border-brand-blue text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}>{TAB_LABELS[key]}</button>)}
+          </div>}
+          {panel}
+        </main>
       </div>
     </div>
   );
