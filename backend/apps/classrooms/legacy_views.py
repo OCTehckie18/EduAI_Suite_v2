@@ -575,10 +575,19 @@ class LegacyStudentDetailView(APIView):
             fn, ln = _split_name(data["name"])
             student.first_name = fn
             student.last_name = ln
-        if "email" in data and data["email"]:
-            student.email = str(data["email"]).strip().lower()
-        if "registration_number" in data or "register_no" in data:
-            student.register_no = data.get("registration_number") or data.get("register_no")
+        # Sign-in identity (email, register number) belongs to the Master Admin and the roster. A teacher manages a
+        # student by enrolling them, which any teacher can do, so this must never be a way to take over the account.
+        new_email = str(data.get("email") or "").strip().lower()
+        has_register = "registration_number" in data or "register_no" in data
+        new_register = str(data.get("registration_number") or data.get("register_no") or "").strip()
+        wants_email = bool(new_email) and new_email != (student.email or "").lower()
+        wants_register = has_register and new_register != (student.register_no or "")
+        if (wants_email or wants_register) and not _is_admin(request.user):
+            return Response({"detail": "Only the Master Admin can change a student's email or register number."}, status=status.HTTP_403_FORBIDDEN)
+        if wants_email:
+            student.email = new_email
+        if wants_register:
+            student.register_no = new_register or None
         student.save()
         enrollment = Enrollment.objects.filter(student=student, is_active=True).first()
         course_id = enrollment.classroom_id if enrollment else 0

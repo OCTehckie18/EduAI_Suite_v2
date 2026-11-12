@@ -102,14 +102,22 @@ def link_account_to_roster(user):
         link_existing_account(entry)
 
 
+class IdentifierConflict(ValueError):
+    """The roster's register or employee number is already held by another account."""
+
+
 def provision_student(entry):
     """Create (or return) the account for a roster entry; the student finishes sign-up later."""
     if entry.user_id:
         return entry.user
     User = get_user_model()
-    user = User.objects.create_user(email=entry.email, role=User.Role.STUDENT, is_profile_complete=False)
-    apply_entry_to_user(user, entry)
-    user.save()
+    try:
+        with transaction.atomic():  # all or nothing: a conflict must not leave a half-made account
+            user = User.objects.create_user(email=entry.email, role=User.Role.STUDENT, is_profile_complete=False)
+            apply_entry_to_user(user, entry)
+            user.save()
+    except IntegrityError as exc:
+        raise IdentifierConflict(f"This {university_terms.get('register_no', lower=True)} is already linked to another account. Please contact the administration.") from exc
     return user
 
 
