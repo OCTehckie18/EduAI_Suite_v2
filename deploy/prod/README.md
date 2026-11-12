@@ -75,11 +75,12 @@ docker compose -f docker-compose.prod.yml --env-file .env start web realtime cal
 
 The defaults are written in `.env.example` under "Sizing". Rules of thumb:
 
-- `WEB_CONCURRENCY x DB_POOL_MAX` must stay below `POSTGRES_MAX_CONNECTIONS`. With the defaults on 4 cores that is
-  9 x 10 = 90 of 200.
+- `WEB_CONCURRENCY x DB_POOL_MAX` must stay below `POSTGRES_MAX_CONNECTIONS`. The default process count is capped to
+  fit (2 x cores + 1, but never more than the database allows); with the defaults on 4 cores that is 9 x 10 = 90 of 200.
 - More students at once: raise `WEB_CONCURRENCY` (one per core pair), then the database `shared_buffers`.
 - Live games use the `realtime` service. If rooms are large and busy, raise `CHANNEL_CAPACITY`.
 - Watch `docker compose logs web` for slow requests and `docker stats` for memory.
+- `deploy/loadtest/` simulates an exam day against a throw-away copy of this stack; run it on your server before a real exam.
 
 ## Not included
 

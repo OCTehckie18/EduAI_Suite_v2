@@ -39,3 +39,6 @@ backend/uploads/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Load test sign-in tokens (secrets)
+deploy/loadtest/*.json
