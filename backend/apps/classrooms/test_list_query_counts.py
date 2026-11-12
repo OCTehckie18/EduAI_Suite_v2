@@ -33,7 +33,7 @@ class ClassroomListQueryCountTests(QuestionTypeBase):
 
     def test_the_class_list_does_not_grow_with_the_number_of_students(self):
         self.client.force_authenticate(self.teacher)
-        url = f"/students/{self.classroom.pk}"
+        url = f"/api/v1/students/{self.classroom.pk}"
         self.add_students(1, 4)
         few = count(self.client, url)
         self.add_students(4, 20)

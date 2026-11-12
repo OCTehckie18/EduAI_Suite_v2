@@ -7,7 +7,7 @@ from apps.classrooms.models import Classroom, Enrollment
 from apps.games.models import ChainAnswerGame, GamePlayer
 
 User = get_user_model()
-URL = "/api/v1/api/dashboard/student-summary"
+URL = "/api/v1/dashboard/student-summary"
 
 
 class StudentSummaryTests(APITestCase):

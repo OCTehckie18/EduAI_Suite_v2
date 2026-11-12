@@ -19,10 +19,10 @@ class MailAccessAndUploadTests(TestCase):
         for client_user in (None, self.student):
             self.client.force_authenticate(client_user)
             for method, url in (
-                ("post", "/mail/filter"),
-                ("get", "/mail/drafts"),
-                ("get", "/mail/history"),
-                ("post", "/mail/generate"),
+                ("post", "/api/v1/mail/filter"),
+                ("get", "/api/v1/mail/drafts"),
+                ("get", "/api/v1/mail/history"),
+                ("post", "/api/v1/mail/generate"),
             ):
                 res = getattr(self.client, method)(url, {"students": [{"name": "x"}]}, format="json")
                 self.assertIn(res.status_code, (401, 403), f"{method} {url} as {client_user}")
@@ -40,23 +40,23 @@ class MailAccessAndUploadTests(TestCase):
         Enrollment.objects.create(classroom=classroom, student=self.student)
         get_user_model().objects.create_user(email="other@example.com", password="x", role="STUDENT")  # not enrolled
         self.client.force_authenticate(self.teacher)
-        res = self.client.post("/mail/filter", {"conditions": []}, format="json")
+        res = self.client.post("/api/v1/mail/filter", {"conditions": []}, format="json")
         self.assertEqual(res.status_code, 200)
         self.assertEqual([row["email"] for row in res.json()], ["s@example.com"])
 
     def test_spreadsheet_upload_rejects_wrong_type_and_oversize(self):
         self.client.force_authenticate(self.teacher)
         bad_type = SimpleUploadedFile("evil.exe", b"MZ", content_type="application/octet-stream")
-        res = self.client.post("/mail/parse-excel", {"file": bad_type}, format="multipart")
+        res = self.client.post("/api/v1/mail/parse-excel", {"file": bad_type}, format="multipart")
         self.assertEqual(res.status_code, 400)
 
         big = SimpleUploadedFile("big.csv", b"a,b\n" + b"1,2\n" * (file_uploads.MAX_SPREADSHEET_BYTES // 4 + 10))
-        res = self.client.post("/mail/parse-excel", {"file": big}, format="multipart")
+        res = self.client.post("/api/v1/mail/parse-excel", {"file": big}, format="multipart")
         self.assertEqual(res.status_code, 400)
         self.assertIn("too large", str(res.json()["detail"]))
 
     def test_small_csv_upload_still_works(self):
         self.client.force_authenticate(self.teacher)
         ok = SimpleUploadedFile("students.csv", b"name,email\nAnn,ann@example.com\n")
-        res = self.client.post("/mail/parse-excel", {"file": ok}, format="multipart")
+        res = self.client.post("/api/v1/mail/parse-excel", {"file": ok}, format="multipart")
         self.assertEqual(res.status_code, 200)

@@ -69,7 +69,7 @@ class CalendarSyncTests(APITestCase):
 
     def feed(self, user):
         self.client.force_authenticate(user=user)
-        response = self.client.get("/calendar/events")
+        response = self.client.get("/api/v1/calendar/events")
         self.assertEqual(response.status_code, 200)
         return response.json()
 
@@ -77,8 +77,8 @@ class CalendarSyncTests(APITestCase):
         return {e["title"] for e in self.feed(user)}
 
     def test_requires_login(self):
-        self.assertEqual(self.client.get("/calendar/events").status_code, 403)
-        self.assertEqual(self.client.get("/calendar/notifications").status_code, 403)
+        self.assertEqual(self.client.get("/api/v1/calendar/events").status_code, 403)
+        self.assertEqual(self.client.get("/api/v1/calendar/notifications").status_code, 403)
 
     def test_student_sees_only_their_own_activity(self):
         titles = self.titles(self.student)
@@ -109,7 +109,7 @@ class CalendarSyncTests(APITestCase):
     def test_events_are_placed_on_the_users_local_date(self):
         # 20:00 UTC is 01:30 the next day in India; the page groups by the date in the string.
         self.client.force_authenticate(user=self.student)
-        self.client.post("/calendar/events", {
+        self.client.post("/api/v1/calendar/events", {
             "title": "Late night", "start_time": "2030-05-01T20:00:00Z"}, format="json")
         event = next(e for e in self.feed(self.student) if e["title"] == "Late night")
         self.assertTrue(event["start"].startswith("2030-05-02T01:30"))
@@ -133,7 +133,7 @@ class CalendarSyncTests(APITestCase):
 
     def test_custom_events_are_private_to_their_owner(self):
         self.client.force_authenticate(user=self.student)
-        created = self.client.post("/calendar/events", {
+        created = self.client.post("/api/v1/calendar/events", {
             "title": "Study group", "start_time": "2030-05-01T10:00:00Z", "event_type": "custom",
             "course_id": self.other_course.pk,  # a student cannot publish into a class
         }, format="json")
@@ -145,7 +145,7 @@ class CalendarSyncTests(APITestCase):
 
     def test_teacher_class_event_reaches_enrolled_students_only(self):
         self.client.force_authenticate(user=self.teacher)
-        self.client.post("/calendar/events", {
+        self.client.post("/api/v1/calendar/events", {
             "title": "Guest lecture", "start_time": "2030-05-02T10:00:00Z",
             "course_id": self.course.pk, "event_type": "class",
         }, format="json")
@@ -154,17 +154,17 @@ class CalendarSyncTests(APITestCase):
 
     def test_only_the_owner_can_edit_or_delete(self):
         self.client.force_authenticate(user=self.student)
-        event_id = self.client.post("/calendar/events", {
+        event_id = self.client.post("/api/v1/calendar/events", {
             "title": "Mine", "start_time": "2030-06-01T10:00:00Z"}, format="json").json()["id"]
         self.client.force_authenticate(user=self.stranger)
-        self.assertEqual(self.client.delete(f"/calendar/events/{event_id}").status_code, 404)
+        self.assertEqual(self.client.delete(f"/api/v1/calendar/events/{event_id}").status_code, 404)
         self.client.force_authenticate(user=self.student)
         self.assertEqual(
-            self.client.put(f"/calendar/events/{event_id}", {"title": "Renamed"}, format="json").status_code, 200)
-        self.assertEqual(self.client.delete(f"/calendar/events/{event_id}").status_code, 204)
+            self.client.put(f"/api/v1/calendar/events/{event_id}", {"title": "Renamed"}, format="json").status_code, 200)
+        self.assertEqual(self.client.delete(f"/api/v1/calendar/events/{event_id}").status_code, 204)
 
     def test_tomorrow_notifications(self):
         self.client.force_authenticate(user=self.student)
-        notes = self.client.get("/calendar/notifications").json()["notifications"]
+        notes = self.client.get("/api/v1/calendar/notifications").json()["notifications"]
         self.assertEqual({n["title"] for n in notes}, {"Due: Stacks", "Meeting: Project help"})
         self.assertTrue(all("tomorrow" in n["message"] for n in notes))

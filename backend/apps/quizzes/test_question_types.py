@@ -91,7 +91,7 @@ class QuizSaveValidation(TestCase):
         self.client.force_authenticate(User.objects.create_user(email="t@x.com", password="x", role=User.Role.TEACHER))
 
     def create(self, questions, **extra):
-        return self.client.post("/quizzes/", {"title": "T", "questions": questions, **extra}, format="json")
+        return self.client.post("/api/v1/quizzes/", {"title": "T", "questions": questions, **extra}, format="json")
 
     def test_a_broken_question_is_refused_with_its_number(self):
         res = self.create([q(), q(options=opts(("A", True), ("B", True)))])
@@ -118,7 +118,7 @@ class QuizSaveValidation(TestCase):
         quiz = self.create([q()]).json()
         broken = quiz["questions"]
         broken[0]["options"] = opts(("A", False), ("B", False))
-        res = self.client.put(f"/quizzes/{quiz['id']}", {"title": "Renamed", "questions": broken}, format="json")
+        res = self.client.put(f"/api/v1/quizzes/{quiz['id']}", {"title": "Renamed", "questions": broken}, format="json")
         self.assertEqual(res.status_code, 400)
         self.assertEqual(Quiz.objects.get(pk=quiz["id"]).title, "T")
         self.assertEqual(QuizOption.objects.filter(is_correct=True).count(), 1)

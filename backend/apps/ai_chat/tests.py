@@ -17,7 +17,7 @@ from apps.ai_chat.context import _build_platform_context
 class AIChatRetrievalTests(APITestCase):
     def test_chat_requires_authentication(self):
         response = self.client.post(
-            "/ai/chat", {"message": "What appointments do I have?"}, format="json")
+            "/api/v1/ai/chat", {"message": "What appointments do I have?"}, format="json")
 
         self.assertEqual(response.status_code, 403)
 
@@ -69,7 +69,7 @@ class AIChatRetrievalTests(APITestCase):
         self.client.force_authenticate(user=teacher)
 
         response = self.client.post(
-            "/ai/chat", {"message": "What appointments do I have?"}, format="json")
+            "/api/v1/ai/chat", {"message": "What appointments do I have?"}, format="json")
 
         self.assertEqual(response.status_code, 200)
         system_context = captured["messages"][0]["content"]

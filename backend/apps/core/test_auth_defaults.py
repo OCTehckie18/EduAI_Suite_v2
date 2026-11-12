@@ -5,20 +5,20 @@ from rest_framework.test import APIClient
 from apps.institution.models import Campus
 
 PROTECTED = [
-    ("get", "/lessons/"),
-    ("get", "/mail/drafts"),
-    ("post", "/mail/filter"),
-    ("get", "/reports/"),
-    ("get", "/analytics/risk-global"),
-    ("get", "/dashboard/summary"),
-    ("get", "/announcements/1"),
-    ("get", "/assignments/1"),
-    ("get", "/trello/state"),
+    ("get", "/api/v1/lessons/"),
+    ("get", "/api/v1/mail/drafts"),
+    ("post", "/api/v1/mail/filter"),
+    ("get", "/api/v1/reports/"),
+    ("get", "/api/v1/analytics/risk-global"),
+    ("get", "/api/v1/dashboard/summary"),
+    ("get", "/api/v1/announcements/1"),
+    ("get", "/api/v1/assignments/1"),
+    ("get", "/api/v1/trello/state"),
     ("get", "/api/v1/institution/campuses/"),
     ("post", "/api/v1/institution/campuses/"),
-    ("get", "/engagement/student/1/"),
-    ("post", "/games/chain-answer"),
-    ("post", "/slido/sessions"),
+    ("get", "/api/v1/engagement/student/1/"),
+    ("post", "/api/v1/games/chain-answer"),
+    ("post", "/api/v1/slido/sessions"),
 ]
 
 
@@ -58,5 +58,5 @@ class AuthRequiredByDefaultTests(TestCase):
     def test_student_cannot_read_another_students_engagement(self):
         other = get_user_model().objects.create_user(email="o@example.com", password="x", role="STUDENT")
         self.client.force_authenticate(self.student)
-        self.assertEqual(self.client.get(f"/engagement/student/{other.pk}/").status_code, 403)
-        self.assertEqual(self.client.get(f"/engagement/student/{self.student.pk}/").status_code, 200)
+        self.assertEqual(self.client.get(f"/api/v1/engagement/student/{other.pk}/").status_code, 403)
+        self.assertEqual(self.client.get(f"/api/v1/engagement/student/{self.student.pk}/").status_code, 200)

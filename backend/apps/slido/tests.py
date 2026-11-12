@@ -43,11 +43,11 @@ class Anonymous(SlidoBase):
         session = SlidoSession.objects.create(teacher_id=self.teacher.pk, pin="111111")
         poll = SlidoPoll.objects.create(session=session, teacher_id=self.teacher.pk, question="q")
         calls = [
-            ("get", "/slido/sessions/111111"),
-            ("post", "/slido/sessions"),
-            ("post", f"/slido/sessions/111111/polls/{poll.pk}/vote"),
-            ("post", "/slido/sessions/111111/qna"),
-            ("get", "/slido/assignments"),
+            ("get", "/api/v1/slido/sessions/111111"),
+            ("post", "/api/v1/slido/sessions"),
+            ("post", f"/api/v1/slido/sessions/111111/polls/{poll.pk}/vote"),
+            ("post", "/api/v1/slido/sessions/111111/qna"),
+            ("get", "/api/v1/slido/assignments"),
         ]
         for method, url in calls:
             self.assertIn(getattr(self.api(), method)(url).status_code, (401, 403), url)
@@ -56,24 +56,24 @@ class Anonymous(SlidoBase):
 
 class Sessions(SlidoBase):
     def test_the_host_is_the_signed_in_teacher(self):
-        res = self.api(self.teacher).post("/slido/sessions", {"teacher_id": self.other.pk}, format="json")
+        res = self.api(self.teacher).post("/api/v1/slido/sessions", {"teacher_id": self.other.pk}, format="json")
         self.assertEqual(res.status_code, 201)
         self.assertEqual(SlidoSession.objects.get().teacher_id, self.teacher.pk)
-        self.assertEqual(self.api(self.ann).post("/slido/sessions", {}, format="json").status_code, 403)
+        self.assertEqual(self.api(self.ann).post("/api/v1/slido/sessions", {}, format="json").status_code, 403)
 
     def test_only_the_host_adds_polls(self):
-        pin = self.api(self.teacher).post("/slido/sessions", {}, format="json").json()["pin"]
-        self.assertEqual(self.api(self.other).post(f"/slido/sessions/{pin}/polls", {"question": "x"}, format="json").status_code, 403)
-        self.assertEqual(self.api(self.ann).post(f"/slido/sessions/{pin}/polls", {"question": "x"}, format="json").status_code, 403)
-        self.assertEqual(self.api(self.teacher).post(f"/slido/sessions/{pin}/polls", {"question": " "}, format="json").status_code, 400)
-        self.assertEqual(self.api(self.teacher).post(f"/slido/sessions/{pin}/polls", {"question": "Why?", "teacher_id": 99}, format="json").status_code, 201)
+        pin = self.api(self.teacher).post("/api/v1/slido/sessions", {}, format="json").json()["pin"]
+        self.assertEqual(self.api(self.other).post(f"/api/v1/slido/sessions/{pin}/polls", {"question": "x"}, format="json").status_code, 403)
+        self.assertEqual(self.api(self.ann).post(f"/api/v1/slido/sessions/{pin}/polls", {"question": "x"}, format="json").status_code, 403)
+        self.assertEqual(self.api(self.teacher).post(f"/api/v1/slido/sessions/{pin}/polls", {"question": " "}, format="json").status_code, 400)
+        self.assertEqual(self.api(self.teacher).post(f"/api/v1/slido/sessions/{pin}/polls", {"question": "Why?", "teacher_id": 99}, format="json").status_code, 201)
         self.assertEqual(SlidoPoll.objects.get().teacher_id, self.teacher.pk)
 
     def test_a_session_can_only_use_my_own_assignment(self):
-        mine = self.api(self.teacher).post("/slido/assignments", {"title": "T", "course_id": self.course.pk}, format="json").json()
+        mine = self.api(self.teacher).post("/api/v1/slido/assignments", {"title": "T", "course_id": self.course.pk}, format="json").json()
         theirs = PresentationAssignment.objects.create(teacher_id=self.other.pk, title="Theirs")
-        self.assertEqual(self.api(self.teacher).post("/slido/sessions", {"assignment_id": mine["id"]}, format="json").status_code, 201)
-        self.assertEqual(self.api(self.teacher).post("/slido/sessions", {"assignment_id": theirs.pk}, format="json").status_code, 400)
+        self.assertEqual(self.api(self.teacher).post("/api/v1/slido/sessions", {"assignment_id": mine["id"]}, format="json").status_code, 201)
+        self.assertEqual(self.api(self.teacher).post("/api/v1/slido/sessions", {"assignment_id": theirs.pk}, format="json").status_code, 400)
 
 
 class Voting(SlidoBase):
@@ -81,7 +81,7 @@ class Voting(SlidoBase):
         super().setUp()
         self.session = SlidoSession.objects.create(teacher_id=self.teacher.pk, pin="222222")
         self.poll = SlidoPoll.objects.create(session=self.session, teacher_id=self.teacher.pk, question="Q")
-        self.url = f"/slido/sessions/222222/polls/{self.poll.pk}/vote"
+        self.url = f"/api/v1/slido/sessions/222222/polls/{self.poll.pk}/vote"
 
     def test_a_vote_belongs_to_the_signed_in_student_and_counts_once(self):
         res = self.api(self.ann).post(self.url, {"option_text": "A", "student_id": self.bob.pk}, format="json")
@@ -101,17 +101,17 @@ class Voting(SlidoBase):
         self.assertEqual(PollResponse.objects.count(), 0)
 
     def test_questions_and_upvotes(self):
-        res = self.api(self.ann).post("/slido/sessions/222222/qna", {"question_text": "What?", "student_id": self.bob.pk}, format="json")
+        res = self.api(self.ann).post("/api/v1/slido/sessions/222222/qna", {"question_text": "What?", "student_id": self.bob.pk}, format="json")
         self.assertEqual(res.status_code, 201)
         qna = SlidoQnA.objects.get()
         self.assertEqual(qna.student_id, self.ann.pk)
-        up = f"/slido/sessions/222222/qna/{qna.pk}/upvote"
+        up = f"/api/v1/slido/sessions/222222/qna/{qna.pk}/upvote"
         for _ in range(2):
             self.assertEqual(self.api(self.bob).post(up).json()["upvotes"], 1)
         self.assertEqual(self.api(self.ann).post(up).json()["upvotes"], 2)
         self.assertEqual(QnAUpvote.objects.count(), 2)
         self.assertEqual(self.api(self.teacher).post(up).status_code, 403)
-        self.assertEqual(self.api(self.ann).post("/slido/sessions/222222/qna", {"question_text": " "}, format="json").status_code, 400)
+        self.assertEqual(self.api(self.ann).post("/api/v1/slido/sessions/222222/qna", {"question_text": " "}, format="json").status_code, 400)
 
 
 class Presentations(SlidoBase):
@@ -120,22 +120,22 @@ class Presentations(SlidoBase):
         self.asgn = PresentationAssignment.objects.create(teacher_id=self.teacher.pk, course_id=self.course.pk, title="Pitch")
 
     def test_visibility_follows_the_classroom(self):
-        titles = lambda user: [a["title"] for a in self.api(user).get("/slido/assignments").json()]
+        titles = lambda user: [a["title"] for a in self.api(user).get("/api/v1/slido/assignments").json()]
         self.assertEqual(titles(self.teacher), ["Pitch"])
         self.assertEqual(titles(self.ann), ["Pitch"])
         self.assertEqual(titles(self.other), [])
         self.assertEqual(titles(self.outsider), [])
-        self.assertEqual(self.api(self.outsider).get(f"/slido/assignments/{self.asgn.pk}").status_code, 403)
-        self.assertEqual(self.api(self.other).get(f"/slido/assignments/{self.asgn.pk}").status_code, 403)
+        self.assertEqual(self.api(self.outsider).get(f"/api/v1/slido/assignments/{self.asgn.pk}").status_code, 403)
+        self.assertEqual(self.api(self.other).get(f"/api/v1/slido/assignments/{self.asgn.pk}").status_code, 403)
 
     def test_creating_needs_a_teacher_and_their_own_classroom(self):
-        post = lambda user, body: self.api(user).post("/slido/assignments", body, format="json").status_code
+        post = lambda user, body: self.api(user).post("/api/v1/slido/assignments", body, format="json").status_code
         self.assertEqual(post(self.ann, {"title": "x"}), 403)
         self.assertEqual(post(self.other, {"title": "x", "course_id": self.course.pk}), 400)
         self.assertEqual(post(self.teacher, {"title": "x", "course_id": self.course.pk}), 201)
 
     def test_students_submit_as_themselves_and_see_only_their_own(self):
-        url = f"/slido/assignments/{self.asgn.pk}/submissions"
+        url = f"/api/v1/slido/assignments/{self.asgn.pk}/submissions"
         self.assertEqual(self.api(self.ann).post(url, {"student_id": self.bob.pk}, format="multipart").status_code, 201)
         self.api(self.bob).post(url, {}, format="multipart")
         self.assertEqual(sorted(PresentationSubmission.objects.values_list("student_id", flat=True)), sorted([self.ann.pk, self.bob.pk]))

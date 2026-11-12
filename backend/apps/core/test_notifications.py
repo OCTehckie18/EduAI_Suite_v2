@@ -41,31 +41,31 @@ class NotificationBase(TestCase):
         return c
 
     def titles(self, user):
-        return [n["title"] for n in self.api(user).get("/notifications").json()["results"]]
+        return [n["title"] for n in self.api(user).get("/api/v1/notifications").json()["results"]]
 
 
 class Reading(NotificationBase):
     def test_you_only_see_and_clear_your_own(self):
         notify([self.ann], "grade", "Hello", "body", "/x")
         notify([self.bob], "grade", "Private", "", "")
-        data = self.api(self.ann).get("/notifications").json()
+        data = self.api(self.ann).get("/api/v1/notifications").json()
         self.assertEqual((data["unread"], [n["title"] for n in data["results"]]), (1, ["Hello"]))
         other = Notification.objects.get(title="Private")
         # marking someone else's notification does nothing
-        self.assertEqual(self.api(self.ann).post("/notifications/read", {"ids": [other.pk]}, format="json").json()["marked"], 0)
+        self.assertEqual(self.api(self.ann).post("/api/v1/notifications/read", {"ids": [other.pk]}, format="json").json()["marked"], 0)
         other.refresh_from_db()
         self.assertIsNone(other.read_at)
-        self.assertEqual(self.api(self.ann).post("/notifications/read", {}, format="json").json()["marked"], 1)
-        self.assertEqual(self.api(self.ann).get("/notifications").json()["unread"], 0)
-        self.assertEqual(self.api(self.ann).post("/notifications/read", {"ids": "all"}, format="json").status_code, 400)
+        self.assertEqual(self.api(self.ann).post("/api/v1/notifications/read", {}, format="json").json()["marked"], 1)
+        self.assertEqual(self.api(self.ann).get("/api/v1/notifications").json()["unread"], 0)
+        self.assertEqual(self.api(self.ann).post("/api/v1/notifications/read", {"ids": "all"}, format="json").status_code, 400)
 
     def test_login_is_required(self):
-        self.assertIn(APIClient().get("/notifications").status_code, (401, 403))
+        self.assertIn(APIClient().get("/api/v1/notifications").status_code, (401, 403))
 
 
 class Triggers(NotificationBase):
     def test_an_announcement_reaches_enrolled_students_only(self):
-        self.api(self.teacher).post(f"/announcements/{self.course.pk}", {"title": "Quiz Friday", "body": "x"}, format="json")
+        self.api(self.teacher).post(f"/api/v1/announcements/{self.course.pk}", {"title": "Quiz Friday", "body": "x"}, format="json")
         self.assertEqual(self.titles(self.ann), ["New announcement in Maths"])
         self.assertEqual(self.titles(self.bob), ["New announcement in Maths"])
         self.assertEqual(self.titles(self.outsider), [])
@@ -74,31 +74,31 @@ class Triggers(NotificationBase):
     def test_publishing_an_exam_tells_students_once(self):
         body = {"course_id": self.course.pk, "title": "Midterm", "time_limit": 30, "status": "draft",
                 "questions": [{"question_text": "Q", "points": 1, "choices": [{"choice_text": "A", "is_correct": True}, {"choice_text": "B", "is_correct": False}]}]}
-        exam_id = self.api(self.teacher).post("/exams/", body, format="json").json()["id"]
+        exam_id = self.api(self.teacher).post("/api/v1/exams/", body, format="json").json()["id"]
         self.assertEqual(self.titles(self.ann), [])
-        self.api(self.teacher).patch(f"/exams/{exam_id}", {"status": "published"}, format="json")
-        self.api(self.teacher).patch(f"/exams/{exam_id}", {"status": "published"}, format="json")
+        self.api(self.teacher).patch(f"/api/v1/exams/{exam_id}", {"status": "published"}, format="json")
+        self.api(self.teacher).patch(f"/api/v1/exams/{exam_id}", {"status": "published"}, format="json")
         self.assertEqual(self.titles(self.ann), ["New exam in Maths"])
 
     def test_grading_tells_that_student_only(self):
         asg = Assignment.objects.create(course=self.course, title="Essay", max_points=100)
         sub = Submission.objects.create(assignment=asg, student=self.ann, student_name="ann")
         Submission.objects.create(assignment=asg, student=self.bob, student_name="bob")
-        self.api(self.teacher).put(f"/submissions/grade/{sub.pk}", {"grade": 80}, format="json")
+        self.api(self.teacher).put(f"/api/v1/submissions/grade/{sub.pk}", {"grade": 80}, format="json")
         self.assertEqual(self.titles(self.ann), ["Essay was graded"])
         self.assertEqual(self.titles(self.bob), [])
 
     def test_form_publish_and_board_requests(self):
-        form = self.api(self.teacher).post("/forms", {"classroom_id": self.course.pk, "title": "Survey", "questions": [{"kind": "short_text", "prompt": "Q"}]}, format="json").json()
-        self.api(self.teacher).post(f"/forms/{form['id']}/status", {"status": "PUBLISHED"}, format="json")
+        form = self.api(self.teacher).post("/api/v1/forms", {"classroom_id": self.course.pk, "title": "Survey", "questions": [{"kind": "short_text", "prompt": "Q"}]}, format="json").json()
+        self.api(self.teacher).post(f"/api/v1/forms/{form['id']}/status", {"status": "PUBLISHED"}, format="json")
         self.assertEqual(self.titles(self.ann), ["New form in Maths"])
 
-        board = self.api(self.teacher).post("/trello/board", {"name": "Plan"}, format="json").json()
-        self.api(self.outsider).post("/trello/board/join", {"code": board["join_code"]}, format="json")
+        board = self.api(self.teacher).post("/api/v1/trello/board", {"name": "Plan"}, format="json").json()
+        self.api(self.outsider).post("/api/v1/trello/board/join", {"code": board["join_code"]}, format="json")
         self.assertIn("out asked to join Plan", self.titles(self.teacher))
-        self.api(self.teacher).post(f"/trello/board/{board['id']}/approve", {"email": "out@x.com"}, format="json")
+        self.api(self.teacher).post(f"/api/v1/trello/board/{board['id']}/approve", {"email": "out@x.com"}, format="json")
         self.assertEqual(self.titles(self.outsider), ["You can now open Plan"])
-        self.api(self.teacher).post(f"/trello/board/{board['id']}/add-member", {"email": "ann@x.com"}, format="json")
+        self.api(self.teacher).post(f"/api/v1/trello/board/{board['id']}/add-member", {"email": "ann@x.com"}, format="json")
         self.assertIn("t added you to Plan", self.titles(self.ann))
 
     def test_a_failure_to_notify_never_breaks_the_action(self):

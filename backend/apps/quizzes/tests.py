@@ -190,7 +190,7 @@ class QuizWebSocketFlowTests(QuizSocketCase):
         # The student's stats page sees the quiz even though the nickname was "Ana".
         profile = await sync_to_async(
             lambda: self.client.get(
-                f"/engagement/student/{student_user.pk}/",
+                f"/api/v1/engagement/student/{student_user.pk}/",
                 HTTP_AUTHORIZATION=f"Bearer {token}",
             ).json())()
         self.assertEqual(profile["games"]["sessions_played"], 1)
@@ -592,7 +592,7 @@ class QuizLibraryTests(TestCase):
             }],
             **extra,
         }
-        res = self.client.post("/quizzes/", payload, format="json")
+        res = self.client.post("/api/v1/quizzes/", payload, format="json")
         self.assertEqual(res.status_code, 201)
         return res.json()
 
@@ -600,22 +600,22 @@ class QuizLibraryTests(TestCase):
         quiz = self._create()
         self.assertFalse(quiz["is_public"])
         self.client.force_authenticate(user=self.other)
-        self.assertEqual(self.client.get("/quizzes/?scope=library").json(), [])
-        self.assertEqual(self.client.get(f"/quizzes/{quiz['id']}").status_code, 404)
+        self.assertEqual(self.client.get("/api/v1/quizzes/?scope=library").json(), [])
+        self.assertEqual(self.client.get(f"/api/v1/quizzes/{quiz['id']}").status_code, 404)
 
     def test_public_quiz_is_listed_and_cloneable_by_other_teacher(self):
         quiz = self._create(is_public=True)
         self.client.force_authenticate(user=self.other)
 
-        library = self.client.get("/quizzes/?scope=library").json()
+        library = self.client.get("/api/v1/quizzes/?scope=library").json()
         self.assertEqual([q["id"] for q in library], [quiz["id"]])
-        self.assertEqual(self.client.get("/quizzes/").json(), [])
-        self.assertEqual(self.client.get(f"/quizzes/{quiz['id']}").status_code, 200)
+        self.assertEqual(self.client.get("/api/v1/quizzes/").json(), [])
+        self.assertEqual(self.client.get(f"/api/v1/quizzes/{quiz['id']}").status_code, 200)
         # Library quizzes are read-only for non-owners.
         self.assertEqual(
-            self.client.put(f"/quizzes/{quiz['id']}", {"title": "Hacked"}, format="json").status_code, 404)
+            self.client.put(f"/api/v1/quizzes/{quiz['id']}", {"title": "Hacked"}, format="json").status_code, 404)
 
-        copy = self.client.post(f"/quizzes/{quiz['id']}/clone").json()
+        copy = self.client.post(f"/api/v1/quizzes/{quiz['id']}/clone").json()
         self.assertNotEqual(copy["id"], quiz["id"])
         self.assertFalse(copy["is_public"])
         self.assertEqual(copy["teacher_id"], self.other.pk)
@@ -623,7 +623,7 @@ class QuizLibraryTests(TestCase):
 
     def test_owner_can_toggle_visibility(self):
         quiz = self._create(is_public=True)
-        res = self.client.put(f"/quizzes/{quiz['id']}", {"is_public": False}, format="json")
+        res = self.client.put(f"/api/v1/quizzes/{quiz['id']}", {"is_public": False}, format="json")
         self.assertFalse(res.json()["is_public"])
 
 
@@ -635,7 +635,7 @@ class QuizRestJoinIdentityTests(TestCase):
         self.student = get_user_model().objects.create_user(
             email="joiner@example.com", password="x", role="STUDENT", register_no="REG42"
         )
-        self.url = "/quizzes/session/123456/join"
+        self.url = "/api/v1/quizzes/session/123456/join"
 
     def test_client_supplied_student_id_is_ignored_for_anonymous_join(self):
         res = self.client.post(self.url, {"nickname": "Ann", "student_id": "REG42"}, format="json")
@@ -664,15 +664,15 @@ class QuizSessionVisibilityTests(TestCase):
         QuizSession.objects.create(quiz=quiz, pin="222222")
         client = APIClient()
         client.force_authenticate(owner)
-        self.assertEqual(len(client.get("/quizzes/sessions").json()), 2)
+        self.assertEqual(len(client.get("/api/v1/quizzes/sessions").json()), 2)
         client.force_authenticate(other)
-        self.assertEqual(client.get("/quizzes/sessions").json(), [])
-        self.assertEqual(client.get("/quizzes/sessions/111111").status_code, 404)
+        self.assertEqual(client.get("/api/v1/quizzes/sessions").json(), [])
+        self.assertEqual(client.get("/api/v1/quizzes/sessions/111111").status_code, 404)
 
     def test_a_finished_or_locked_game_refuses_the_rest_join(self):
         quiz = Quiz.objects.create(title="Q", teacher_id=1)
         session = QuizSession.objects.create(quiz=quiz, pin="333333", status="completed")
         client = APIClient()
-        self.assertEqual(client.post("/quizzes/session/333333/join", {"nickname": "A"}, format="json").status_code, 409)
+        self.assertEqual(client.post("/api/v1/quizzes/session/333333/join", {"nickname": "A"}, format="json").status_code, 409)
         QuizSession.objects.filter(pk=session.pk).update(status="lobby", lobby_locked=True)
-        self.assertEqual(client.post("/quizzes/session/333333/join", {"nickname": "A"}, format="json").status_code, 409)
+        self.assertEqual(client.post("/api/v1/quizzes/session/333333/join", {"nickname": "A"}, format="json").status_code, 409)

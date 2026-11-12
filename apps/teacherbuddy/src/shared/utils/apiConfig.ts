@@ -45,8 +45,8 @@ export const API_ENDPOINTS = {
   OMR: `${API_BASE_URL}/omr`,
   WORDCLOUD: `${API_BASE_URL}/wordcloud`,
   REPORTS: `${API_BASE_URL}/reports`,
-  SLIDO: `${API_BASE_URL}/api/slido`,
+  SLIDO: `${API_BASE_URL}/slido`,
   LESSONS: `${API_BASE_URL}/lessons`,
-  DASHBOARD: `${API_BASE_URL}/api/dashboard`,
+  DASHBOARD: `${API_BASE_URL}/dashboard`,
   HISTORY: `${API_BASE_URL}/history`,
 };

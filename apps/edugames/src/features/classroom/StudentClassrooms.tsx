@@ -135,7 +135,7 @@ export const StudentClassrooms: React.FC = () => {
   };
 
   const loadCourses = async (): Promise<Course[]> => {
-    const response = await fetch(`${API_BASE_URL}/api/dashboard/student-summary`);
+    const response = await fetch(`${API_BASE_URL}/dashboard/student-summary`);
     if (!response.ok) {
       throw new Error(`Failed to load classrooms (${response.status})`);
     }

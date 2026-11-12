@@ -119,27 +119,27 @@ class Engine(RiskBase):
 class Dashboard(RiskBase):
     def test_teacher_sees_only_their_students_and_can_filter_by_class(self):
         self.assignment("A", 5)
-        data = self.api(self.teacher).get("/analytics/risk").json()
+        data = self.api(self.teacher).get("/api/v1/analytics/risk").json()
         names = {s["email"] for s in data["students"]}
         self.assertEqual(names, {"good@x.com", "weak@x.com", "fresh@x.com"})
         self.assertEqual(len(data["courses"]), 2)
-        one = self.api(self.teacher).get(f"/analytics/risk?course_id={self.course2.pk}").json()
+        one = self.api(self.teacher).get(f"/api/v1/analytics/risk?course_id={self.course2.pk}").json()
         self.assertEqual([s["email"] for s in one["students"]], ["good@x.com"])
-        self.assertEqual(self.api(self.teacher).get(f"/analytics/risk?course_id={self.foreign.pk}").status_code, 404)
-        self.assertEqual(self.api(self.good).get("/analytics/risk").status_code, 403)
+        self.assertEqual(self.api(self.teacher).get(f"/api/v1/analytics/risk?course_id={self.foreign.pk}").status_code, 404)
+        self.assertEqual(self.api(self.good).get("/api/v1/analytics/risk").status_code, 403)
 
     def test_highest_risk_first_and_no_data_last(self):
         a = self.assignment("A", 5)
         self.hand_in(a, self.good, 95)
         self.hand_in(a, self.weak, 5)
         Assignment.objects.filter(pk=a.pk).update(due_date=(self.now + timedelta(days=5)).isoformat())
-        order = [s["email"] for s in self.api(self.teacher).get("/analytics/risk").json()["students"]]
+        order = [s["email"] for s in self.api(self.teacher).get("/api/v1/analytics/risk").json()["students"]]
         self.assertEqual(order, ["weak@x.com", "good@x.com", "fresh@x.com"])
 
     def test_csv_export(self):
         a = self.assignment("=HYPERLINK()", 5)
         self.hand_in(a, self.weak, 10)
-        res = self.api(self.teacher).get("/analytics/risk?export=csv")
+        res = self.api(self.teacher).get("/api/v1/analytics/risk?export=csv")
         self.assertEqual(res.status_code, 200)
         body = res.content.decode()
         self.assertTrue(body.startswith("Student,Register no."))
@@ -152,39 +152,39 @@ class Watchlist(RiskBase):
         a = self.assignment("A", 5)
         self.hand_in(a, self.weak, 10)
         api = self.api(self.teacher)
-        res = api.post("/analytics/watchlist", {"student_id": self.weak.pk, "note": "Check in on Monday"}, format="json")
+        res = api.post("/api/v1/analytics/watchlist", {"student_id": self.weak.pk, "note": "Check in on Monday"}, format="json")
         self.assertEqual(res.status_code, 201, res.content)
         self.assertIsNotNone(res.json()["score_at_start"])
-        self.assertEqual(api.post("/analytics/watchlist", {"student_id": self.weak.pk}, format="json").status_code, 409)
-        self.assertEqual(api.post("/analytics/watchlist", {"student_id": self.outsider.pk}, format="json").status_code, 400)
-        board = api.get("/analytics/risk").json()["students"]
+        self.assertEqual(api.post("/api/v1/analytics/watchlist", {"student_id": self.weak.pk}, format="json").status_code, 409)
+        self.assertEqual(api.post("/api/v1/analytics/watchlist", {"student_id": self.outsider.pk}, format="json").status_code, 400)
+        board = api.get("/api/v1/analytics/risk").json()["students"]
         self.assertEqual(next(s for s in board if s["email"] == "weak@x.com")["watch"]["note"], "Check in on Monday")
         wid = res.json()["id"]
         # another teacher cannot read or change it
-        self.assertEqual(self.api(self.other).get("/analytics/watchlist").json(), [])
-        self.assertEqual(self.api(self.other).patch(f"/analytics/watchlist/{wid}", {"status": "resolved"}, format="json").status_code, 404)
-        done = api.patch(f"/analytics/watchlist/{wid}", {"status": "resolved", "note": "Improved"}, format="json").json()
+        self.assertEqual(self.api(self.other).get("/api/v1/analytics/watchlist").json(), [])
+        self.assertEqual(self.api(self.other).patch(f"/api/v1/analytics/watchlist/{wid}", {"status": "resolved"}, format="json").status_code, 404)
+        done = api.patch(f"/api/v1/analytics/watchlist/{wid}", {"status": "resolved", "note": "Improved"}, format="json").json()
         self.assertEqual((done["status"], done["note"]), ("resolved", "Improved"))
         self.assertIsNotNone(done["resolved_at"])
-        self.assertEqual(api.patch(f"/analytics/watchlist/{wid}", {"status": "maybe"}, format="json").status_code, 400)
+        self.assertEqual(api.patch(f"/api/v1/analytics/watchlist/{wid}", {"status": "maybe"}, format="json").status_code, 400)
         # once resolved, the student can be watched again
-        self.assertEqual(api.post("/analytics/watchlist", {"student_id": self.weak.pk}, format="json").status_code, 201)
+        self.assertEqual(api.post("/api/v1/analytics/watchlist", {"student_id": self.weak.pk}, format="json").status_code, 201)
         self.assertEqual(RiskWatch.objects.count(), 2)
 
 
 class MeetingInvite(RiskBase):
     def test_teacher_books_a_meeting_and_the_student_is_told(self):
-        res = self.api(self.teacher).post("/appointments/invite", {"student_id": self.weak.pk, "time_slot": "2026-11-20 10:00", "agenda": "Progress"}, format="json")
+        res = self.api(self.teacher).post("/api/v1/appointments/invite", {"student_id": self.weak.pk, "time_slot": "2026-11-20 10:00", "agenda": "Progress"}, format="json")
         self.assertEqual(res.status_code, 201, res.content)
         appt = Appointment.objects.get()
         self.assertEqual((appt.status, appt.student_email, appt.teacher_name), ("approved", "weak@x.com", self.teacher.full_name))
         self.assertTrue(Notification.objects.filter(user=self.weak, title__contains="booked a meeting").exists())
         # the student now sees it in their own list
-        self.assertEqual(len(self.api(self.weak).get("/appointments/").json()), 1)
+        self.assertEqual(len(self.api(self.weak).get("/api/v1/appointments/").json()), 1)
 
     def test_only_for_own_students_and_with_a_time(self):
         api = self.api(self.teacher)
-        self.assertEqual(api.post("/appointments/invite", {"student_id": self.outsider.pk, "time_slot": "x"}, format="json").status_code, 400)
-        self.assertEqual(api.post("/appointments/invite", {"student_id": self.weak.pk}, format="json").status_code, 400)
-        self.assertEqual(self.api(self.weak).post("/appointments/invite", {"student_id": self.weak.pk, "time_slot": "x"}, format="json").status_code, 403)
+        self.assertEqual(api.post("/api/v1/appointments/invite", {"student_id": self.outsider.pk, "time_slot": "x"}, format="json").status_code, 400)
+        self.assertEqual(api.post("/api/v1/appointments/invite", {"student_id": self.weak.pk}, format="json").status_code, 400)
+        self.assertEqual(self.api(self.weak).post("/api/v1/appointments/invite", {"student_id": self.weak.pk, "time_slot": "x"}, format="json").status_code, 403)
         self.assertEqual(Appointment.objects.count(), 0)

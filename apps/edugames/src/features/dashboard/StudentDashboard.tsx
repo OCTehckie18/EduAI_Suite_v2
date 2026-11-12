@@ -81,7 +81,7 @@ export const StudentDashboard: React.FC = () => {
       // The server works out who you are from your login, so nothing about you is sent.
       const [lessonsRes, summaryRes] = await Promise.all([
         fetch(`${API_BASE_URL}/lessons?status=posted`),
-        fetch(`${API_BASE_URL}/api/dashboard/student-summary`),
+        fetch(`${API_BASE_URL}/dashboard/student-summary`),
       ]);
       if (!summaryRes.ok) {
         const body = await summaryRes.json().catch(() => ({}));
@@ -118,7 +118,7 @@ export const StudentDashboard: React.FC = () => {
 
   const quietRefresh = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/dashboard/student-summary`);
+      const res = await fetch(`${API_BASE_URL}/dashboard/student-summary`);
       if (!res.ok) return;
       const data = await res.json();
       setSummary(data);
