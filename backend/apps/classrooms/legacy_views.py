@@ -81,8 +81,40 @@ def _progress(classroom, viewer):
     return round(100 * handed_in.filter(grade__isnull=False).count() / count)
 
 
-def _course_payload(classroom, viewer=None):
-    students_count = Enrollment.objects.filter(
+def _course_stats(classrooms, viewer):
+    """{course_id: {"students": n, "progress": p}} for many courses at once (a few queries, not several per course)."""
+    from django.db.models import Count, Q
+
+    from apps.assignments.models import Assignment, Submission
+
+    ids = [c.pk for c in classrooms]
+    students = dict(
+        Enrollment.objects.filter(classroom_id__in=ids, is_active=True, student__role=User.Role.STUDENT)
+        .values_list("classroom_id").annotate(n=Count("id"))
+    )
+    stats = {pk: {"students": students.get(pk, 0), "progress": None} for pk in ids}
+    if viewer is not None and getattr(viewer, "role", None) == User.Role.STUDENT:
+        totals = dict(Assignment.objects.filter(course_id__in=ids).values_list("course_id").annotate(n=Count("id")))
+        done = dict(
+            Submission.objects.filter(assignment__course_id__in=ids, student=viewer)
+            .values_list("assignment__course_id").annotate(n=Count("assignment_id", distinct=True))
+        )
+        for pk in ids:
+            if totals.get(pk):
+                stats[pk]["progress"] = round(100 * done.get(pk, 0) / totals[pk], 1)
+    else:
+        rows = (
+            Submission.objects.filter(assignment__course_id__in=ids)
+            .values("assignment__course_id").annotate(total=Count("id"), marked=Count("id", filter=Q(grade__isnull=False)))
+        )
+        for row in rows:
+            if row["total"]:
+                stats[row["assignment__course_id"]]["progress"] = round(100 * row["marked"] / row["total"])
+    return stats
+
+
+def _course_payload(classroom, viewer=None, stats=None):
+    students_count = stats["students"] if stats else Enrollment.objects.filter(
         classroom=classroom,
         is_active=True,
         student__role=User.Role.STUDENT,
@@ -97,7 +129,7 @@ def _course_payload(classroom, viewer=None):
         "name": classroom.name,
         "batch": batch_name,
         "students": students_count,
-        "progress": _progress(classroom, viewer),
+        "progress": stats["progress"] if stats else _progress(classroom, viewer),
         "color": classroom.color or "#0b4a87",
         "description": classroom.description or "",
         # The join code is for the course's teacher; classmates have no use for it.
@@ -111,11 +143,23 @@ def _course_payload(classroom, viewer=None):
     }
 
 
-def _student_payload(student, course_id):
+def _student_list_payload(students, course_id):
+    """The payload for a class list: the averages come from one query for the whole class."""
+    from apps.assignments.stats import average_by_student
+
+    students = list(students)
+    averages = average_by_student([s.pk for s in students], [course_id])
+    return [_student_payload(student, course_id, average=averages.get(student.pk)) for student in students]
+
+
+_UNSET = object()
+
+
+def _student_payload(student, course_id, average=_UNSET):
     from apps.assignments.stats import average_for
 
     # Marks-based average for this course, or None when nothing has been graded. Attendance is not recorded.
-    avg_score = average_for(student.pk, [course_id])
+    avg_score = average_for(student.pk, [course_id]) if average is _UNSET else average
     attendance = None
 
     return {
@@ -221,7 +265,9 @@ class LegacyCourseListCreateView(APIView):
         classrooms = visible_courses(request.user).select_related(
             "teacher", "department", "program", "batch", "section"
         )
-        return Response([_course_payload(classroom, request.user) for classroom in classrooms])
+        classrooms = list(classrooms)
+        stats = _course_stats(classrooms, request.user)
+        return Response([_course_payload(classroom, request.user, stats[classroom.pk]) for classroom in classrooms])
 
     @transaction.atomic
     def post(self, request):
@@ -469,8 +515,8 @@ class LegacyCourseStudentsView(APIView):
                 enrollments__classroom=classroom,
                 enrollments__is_active=True,
                 role=User.Role.STUDENT,
-            ).distinct()
-            return Response([_student_payload(student, classroom.pk) for student in students])
+            ).distinct().select_related("section", "batch", "department")
+            return Response(_student_list_payload(students, classroom.pk))
 
         # If not a course, check if course_id is actually a student ID
         student = User.objects.filter(pk=course_id, role=User.Role.STUDENT).first()
@@ -566,8 +612,8 @@ class LegacyStudentListView(APIView):
                     enrollments__classroom=classroom,
                     enrollments__is_active=True,
                     role=User.Role.STUDENT,
-                ).distinct()
-                return Response([_student_payload(student, classroom.pk) for student in students])
+                ).distinct().select_related("section", "batch", "department")
+                return Response(_student_list_payload(students, classroom.pk))
 
         enrollments = Enrollment.objects.filter(
             is_active=True,
@@ -794,8 +840,8 @@ class LegacyActiveStudentsView(APIView):
             enrollments__classroom=classroom,
             enrollments__is_active=True,
             role=User.Role.STUDENT,
-        ).distinct()
-        return Response([_student_payload(student, classroom.pk) for student in students])
+        ).distinct().select_related("section", "batch", "department")
+        return Response(_student_list_payload(students, classroom.pk))
 
 
 class LegacyStudentDeleteView(APIView):
