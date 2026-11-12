@@ -65,7 +65,7 @@ export const GoogleCalendarSync: React.FC<{ calendarBase: string }> = ({ calenda
   // Keep "last updated" fresh while the page is open.
   useEffect(() => {
     if (!status?.connected) return;
-    const handle = window.setInterval(() => void load(), 60000);
+    const handle = window.setInterval(() => { if (!document.hidden) void load(); }, 60000);
     return () => window.clearInterval(handle);
   }, [status?.connected, load]);
 
