@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { DESKTOP_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
@@ -747,7 +748,7 @@ export const DashboardShell: React.FC = () => {
       >
         <NoticeBanner />
         <div className="p-4 sm:p-6">
-          <Outlet />
+          <Suspense fallback={<p className="p-6 text-sm" style={{ color: "var(--color-text-muted)" }}>Loading...</p>}><Outlet /></Suspense>
         </div>
         {profileModalOpen && (
           <ProfileModal
