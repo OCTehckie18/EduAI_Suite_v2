@@ -123,11 +123,13 @@ class ChainAnswerConsumer(AsyncJsonWebsocketConsumer):
         detail = message.get("detail") or {}
         if message.get("sender") and message["sender"] != self.channel_name:
             detail = {}  # a wrong word is private feedback for whoever sent it
-        await self.send_state(message["event"], detail)
-        await self.arm_timer()
-
-    async def send_state(self, event, detail=None):
+        # One load of the game serves both this viewer's snapshot and the turn timer (it used to be three).
         game = await self.load_game()
+        await self.send_state(message["event"], detail, game=game)
+        await self.arm_timer(game=game)
+
+    async def send_state(self, event, detail=None, game=None):
+        game = game or await self.load_game()
         if game is None:
             await self.close(code=CLOSE_NOT_FOUND)
             return
@@ -142,15 +144,19 @@ class ChainAnswerConsumer(AsyncJsonWebsocketConsumer):
             return None
 
     # ------------------------------------------------------------ the turn timer
-    async def arm_timer(self):
+    async def arm_timer(self, game=None):
         """Wake up when the current turn runs out and move the game on, even if nobody sends a message."""
         if self.timer_task:
             self.timer_task.cancel()
-        game = await self.load_game()
+        fresh = game is not None  # a game loaded a moment ago needs no second read
+        game = game or await self.load_game()
         if game is None or game.status != "active" or game.turn_deadline is None:
             self.timer_task = None
             return
-        left = await database_sync_to_async(lambda: engine.time_left(ChainAnswerGame.objects.get(pk=game.pk)))()
+        if fresh:
+            left = engine.time_left(game)
+        else:
+            left = await database_sync_to_async(lambda: engine.time_left(ChainAnswerGame.objects.get(pk=game.pk)))()
         self.timer_task = asyncio.ensure_future(self.expire_after((left or 0) + engine.GRACE_SECONDS + 0.2))
 
     async def expire_after(self, seconds):

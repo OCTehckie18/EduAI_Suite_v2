@@ -170,10 +170,10 @@ class MyProgressView(APIView):
         if getattr(student, "role", "") != User.Role.STUDENT:
             return _bad("This page is for students.", status.HTTP_403_FORBIDDEN)
         courses = list(visible_courses(student))
-        overall = engine.analyse(courses).get(student.pk) if courses else None
+        overall = engine.analyse(courses, only_student=student.pk).get(student.pk) if courses else None
         per_course = []
         for c in courses:
-            mine = engine.analyse([c]).get(student.pk)
+            mine = engine.analyse([c], only_student=student.pk).get(student.pk)
             if mine:
                 per_course.append(engine.student_view(mine, c))
         order = {"act_now": 0, "needs_attention": 1, "on_track": 2, "getting_started": 3}

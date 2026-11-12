@@ -141,6 +141,9 @@ class ExamAnswer(models.Model):
     marked_by = models.ForeignKey("accounts.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     marked_at = models.DateTimeField(null=True, blank=True)
 
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["attempt", "question"], name="one_answer_per_question_per_attempt")]
+
     def __str__(self):
         return f"Answer for Q{self.question_id}: {self.selected_choice_id or self.text_answer[:30]}"
 
