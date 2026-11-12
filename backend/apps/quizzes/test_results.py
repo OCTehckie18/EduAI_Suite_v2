@@ -38,7 +38,7 @@ class ResultsBase(TestCase):
 
 
 class ReportTests(ResultsBase):
-    URL = "/quizzes/sessions/424242/report"
+    URL = "/api/v1/quizzes/sessions/424242/report"
 
     def test_report_has_a_mark_per_player_and_a_difficulty_per_question(self):
         body = self.client.get(self.URL).json()
@@ -75,7 +75,7 @@ class ReportTests(ResultsBase):
 
     def test_a_game_nobody_played_reports_no_marks(self):
         empty = QuizSession.objects.create(quiz=self.quiz, pin="535353")
-        body = self.client.get("/quizzes/sessions/535353/report").json()
+        body = self.client.get("/api/v1/quizzes/sessions/535353/report").json()
         self.assertEqual((body["players"], body["summary"]["average_percent"]), ([], None))
 
 
@@ -86,7 +86,7 @@ class DeleteSessionTests(ResultsBase):
                                        occurred_at=self.session.created_at)
         keep = StudentActivity.objects.create(student_id=self.student.pk, source_id="quiz:999", activity_type="game",
                                               title="Other", score=10.0, status="completed", occurred_at=self.session.created_at)
-        self.assertEqual(self.client.delete("/quizzes/sessions/424242").status_code, 204)
+        self.assertEqual(self.client.delete("/api/v1/quizzes/sessions/424242").status_code, 204)
         self.assertFalse(QuizSession.objects.filter(pin="424242").exists())
         self.assertFalse(QuizAnswer.objects.exists())
         self.assertEqual(list(StudentActivity.objects.values_list("pk", flat=True)), [keep.pk])
@@ -94,18 +94,18 @@ class DeleteSessionTests(ResultsBase):
 
     def test_another_teacher_cannot_delete_it(self):
         self.client.force_authenticate(self.other)
-        self.assertEqual(self.client.delete("/quizzes/sessions/424242").status_code, 404)
+        self.assertEqual(self.client.delete("/api/v1/quizzes/sessions/424242").status_code, 404)
         self.assertTrue(QuizSession.objects.filter(pin="424242").exists())
 
 
 class EditKeepsHistoryTests(ResultsBase):
     def payload(self, *, drop=(), extra=()):
-        body = self.client.get(f"/quizzes/{self.quiz.pk}").json()
+        body = self.client.get(f"/api/v1/quizzes/{self.quiz.pk}").json()
         questions = [q for q in body["questions"] if q["id"] not in drop]
         return {"questions": questions + list(extra)}
 
     def edit(self, data):
-        return self.client.put(f"/quizzes/{self.quiz.pk}", data, format="json")
+        return self.client.put(f"/api/v1/quizzes/{self.quiz.pk}", data, format="json")
 
     def test_fixing_a_typo_keeps_every_past_answer(self):
         data = self.payload()
@@ -115,7 +115,7 @@ class EditKeepsHistoryTests(ResultsBase):
         self.assertEqual(QuizAnswer.objects.count(), 3)
         self.assertEqual(QuizQuestion.objects.get(pk=self.q1.pk).question_text, "One, corrected")
         self.assertEqual(QuizOption.objects.get(pk=self.q1_right.pk).option_text, "Right!")
-        self.assertEqual(self.client.get("/quizzes/sessions/424242/report").json()["players"][0]["percent"], 100.0)
+        self.assertEqual(self.client.get("/api/v1/quizzes/sessions/424242/report").json()["players"][0]["percent"], 100.0)
 
     def test_a_question_with_past_answers_cannot_be_removed(self):
         response = self.edit(self.payload(drop=[self.q2.pk]))
@@ -143,5 +143,5 @@ class EditKeepsHistoryTests(ResultsBase):
         self.assertEqual(self.edit(self.payload()).status_code, 409)
 
     def test_a_title_only_edit_never_touches_the_questions(self):
-        self.assertEqual(self.client.put(f"/quizzes/{self.quiz.pk}", {"title": "Renamed"}, format="json").status_code, 200)
+        self.assertEqual(self.client.put(f"/api/v1/quizzes/{self.quiz.pk}", {"title": "Renamed"}, format="json").status_code, 200)
         self.assertEqual((self.quiz.questions.count(), QuizAnswer.objects.count()), (2, 3))

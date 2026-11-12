@@ -116,12 +116,12 @@ class OmrBase(TestCase):
         return c
 
     def job(self, **extra):
-        res = self.api(self.teacher).post("/omr/jobs", {"title": "Midterm", "num_questions": N, "answer_key": KEY, "classroom_id": self.course.pk, **extra}, format="json")
+        res = self.api(self.teacher).post("/api/v1/omr/jobs", {"title": "Midterm", "num_questions": N, "answer_key": KEY, "classroom_id": self.course.pk, **extra}, format="json")
         self.assertEqual(res.status_code, 201, res.content)
         return res.json()
 
     def scan(self, job, image, user=None, name="scan.png"):
-        return self.api(user or self.teacher).post(f"/omr/jobs/{job['id']}/submissions", {"files": [png(image, name)]}, format="multipart")
+        return self.api(user or self.teacher).post(f"/api/v1/omr/jobs/{job['id']}/submissions", {"files": [png(image, name)]}, format="multipart")
 
 
 class Jobs(OmrBase):
@@ -137,24 +137,24 @@ class Jobs(OmrBase):
             {"title": "x", "num_questions": N, "answer_key": KEY, "classroom_id": 99999},
         ]
         for body in bad:
-            self.assertEqual(api.post("/omr/jobs", body, format="json").status_code, 400, body)
-        self.assertEqual(self.api(self.other).post("/omr/jobs", {"title": "x", "num_questions": N, "answer_key": KEY, "classroom_id": self.course.pk}, format="json").status_code, 400)
-        self.assertEqual(self.api(self.ann).post("/omr/jobs", {"title": "x", "num_questions": N, "answer_key": KEY}, format="json").status_code, 403)
+            self.assertEqual(api.post("/api/v1/omr/jobs", body, format="json").status_code, 400, body)
+        self.assertEqual(self.api(self.other).post("/api/v1/omr/jobs", {"title": "x", "num_questions": N, "answer_key": KEY, "classroom_id": self.course.pk}, format="json").status_code, 400)
+        self.assertEqual(self.api(self.ann).post("/api/v1/omr/jobs", {"title": "x", "num_questions": N, "answer_key": KEY}, format="json").status_code, 403)
         self.assertEqual(OMRJob.objects.count(), 0)
 
     def test_jobs_belong_to_their_teacher(self):
         job = self.job()
         self.assertEqual(OMRJob.objects.get().owner, self.teacher)
         other = self.api(self.other)
-        self.assertEqual(other.get("/omr/jobs").json(), [])
-        for method, url in (("get", f"/omr/jobs/{job['id']}"), ("patch", f"/omr/jobs/{job['id']}"), ("delete", f"/omr/jobs/{job['id']}"),
-                            ("get", f"/omr/jobs/{job['id']}/template"), ("get", f"/omr/jobs/{job['id']}/submissions")):
+        self.assertEqual(other.get("/api/v1/omr/jobs").json(), [])
+        for method, url in (("get", f"/api/v1/omr/jobs/{job['id']}"), ("patch", f"/api/v1/omr/jobs/{job['id']}"), ("delete", f"/api/v1/omr/jobs/{job['id']}"),
+                            ("get", f"/api/v1/omr/jobs/{job['id']}/template"), ("get", f"/api/v1/omr/jobs/{job['id']}/submissions")):
             self.assertEqual(getattr(other, method)(url).status_code, 404, (method, url))
         self.assertEqual(OMRJob.objects.count(), 1)
 
     def test_the_template_downloads_as_pdf(self):
         job = self.job()
-        res = self.api(self.teacher).get(f"/omr/jobs/{job['id']}/template")
+        res = self.api(self.teacher).get(f"/api/v1/omr/jobs/{job['id']}/template")
         self.assertEqual((res.status_code, res["Content-Type"]), (200, "application/pdf"))
         self.assertTrue(res.content.startswith(b"%PDF"))
 
@@ -200,16 +200,16 @@ class Scanning(OmrBase):
     def test_bad_files_are_reported_one_by_one(self):
         job = self.job()
         files = [png(sheet_image(KEY), "ok.png"), SimpleUploadedFile("bad.png", b"junk"), SimpleUploadedFile("note.txt", b"hello")]
-        res = self.api(self.teacher).post(f"/omr/jobs/{job['id']}/submissions", {"files": files}, format="multipart")
+        res = self.api(self.teacher).post(f"/api/v1/omr/jobs/{job['id']}/submissions", {"files": files}, format="multipart")
         self.assertEqual(res.status_code, 201)
         results = res.json()["results"]
         self.assertIn("submission", results[0])
         self.assertIn("error", results[1])
         self.assertIn("error", results[2])
         self.assertEqual(OMRSubmission.objects.count(), 1)
-        none = self.api(self.teacher).post(f"/omr/jobs/{job['id']}/submissions", {}, format="multipart")
+        none = self.api(self.teacher).post(f"/api/v1/omr/jobs/{job['id']}/submissions", {}, format="multipart")
         self.assertEqual(none.status_code, 400)
-        only_bad = self.api(self.teacher).post(f"/omr/jobs/{job['id']}/submissions", {"files": [SimpleUploadedFile("bad.png", b"junk")]}, format="multipart")
+        only_bad = self.api(self.teacher).post(f"/api/v1/omr/jobs/{job['id']}/submissions", {"files": [SimpleUploadedFile("bad.png", b"junk")]}, format="multipart")
         self.assertEqual(only_bad.status_code, 400)
 
     def test_only_the_owner_can_scan(self):
@@ -230,7 +230,7 @@ class Review(OmrBase):
     def test_correcting_answers_and_choosing_the_student_then_confirming(self):
         job, sub = self.flagged()
         api = self.api(self.teacher)
-        url = f"/omr/submissions/{sub['id']}"
+        url = f"/api/v1/omr/submissions/{sub['id']}"
         self.assertEqual(api.patch(url, {"confirm": True}, format="json").status_code, 400)  # no student yet
         res = api.patch(url, {"answers": {"2": KEY["2"]}, "student_id": self.bob.pk}, format="json")
         self.assertEqual(res.status_code, 200, res.content)
@@ -244,7 +244,7 @@ class Review(OmrBase):
 
     def test_edits_are_validated(self):
         job, sub = self.flagged()
-        api, url = self.api(self.teacher), f"/omr/submissions/{sub['id']}"
+        api, url = self.api(self.teacher), f"/api/v1/omr/submissions/{sub['id']}"
         for body in ({"answers": {"2": "E"}}, {"answers": {"99": "A"}}, {"answers": "A"}, {"student_id": self.outsider.pk}, {"student_id": 99999}):
             self.assertEqual(api.patch(url, body, format="json").status_code, 400, body)
         self.assertEqual(OMRSubmission.objects.get().student_id, None)
@@ -252,34 +252,34 @@ class Review(OmrBase):
     def test_another_teacher_cannot_review(self):
         job, sub = self.flagged()
         other = self.api(self.other)
-        self.assertEqual(other.patch(f"/omr/submissions/{sub['id']}", {"confirm": True}, format="json").status_code, 404)
-        self.assertEqual(other.delete(f"/omr/submissions/{sub['id']}").status_code, 404)
+        self.assertEqual(other.patch(f"/api/v1/omr/submissions/{sub['id']}", {"confirm": True}, format="json").status_code, 404)
+        self.assertEqual(other.delete(f"/api/v1/omr/submissions/{sub['id']}").status_code, 404)
 
     def test_changing_the_key_regrades_everything(self):
         job = self.job()
         self.scan(job, sheet_image(KEY))
         new_key = {**KEY, "1": "D" if KEY["1"] != "D" else "C"}
-        res = self.api(self.teacher).patch(f"/omr/jobs/{job['id']}", {"answer_key": new_key}, format="json")
+        res = self.api(self.teacher).patch(f"/api/v1/omr/jobs/{job['id']}", {"answer_key": new_key}, format="json")
         self.assertEqual(res.status_code, 200)
         self.assertEqual(OMRSubmission.objects.get().score, round(100 * (N - 1) / N, 1))
         self.assertEqual(StudentActivity.objects.get().score, round(100 * (N - 1) / N, 1))
-        self.assertEqual(self.api(self.teacher).patch(f"/omr/jobs/{job['id']}", {"answer_key": {"1": "A"}}, format="json").status_code, 400)
+        self.assertEqual(self.api(self.teacher).patch(f"/api/v1/omr/jobs/{job['id']}", {"answer_key": {"1": "A"}}, format="json").status_code, 400)
 
     def test_deleting_a_sheet_or_an_exam_removes_the_students_record(self):
         job = self.job()
         sub = self.scan(job, sheet_image(KEY)).json()["results"][0]["submission"]
         self.assertTrue(StudentActivity.objects.exists())
-        self.assertEqual(self.api(self.teacher).delete(f"/omr/submissions/{sub['id']}").status_code, 204)
+        self.assertEqual(self.api(self.teacher).delete(f"/api/v1/omr/submissions/{sub['id']}").status_code, 204)
         self.assertFalse(StudentActivity.objects.exists())
         self.scan(job, sheet_image(KEY))
-        self.assertEqual(self.api(self.teacher).delete(f"/omr/jobs/{job['id']}").status_code, 204)
+        self.assertEqual(self.api(self.teacher).delete(f"/api/v1/omr/jobs/{job['id']}").status_code, 204)
         self.assertFalse(StudentActivity.objects.exists())
         self.assertEqual(OMRSubmission.objects.count(), 0)
 
     def test_csv_export(self):
         job = self.job()
         self.scan(job, sheet_image(KEY))
-        res = self.api(self.teacher).get(f"/omr/jobs/{job['id']}/submissions?export=csv")
+        res = self.api(self.teacher).get(f"/api/v1/omr/jobs/{job['id']}/submissions?export=csv")
         lines = res.content.decode().splitlines()
         self.assertEqual(lines[0].split(",")[:5], ["Student", "Email", "Register read", "Score %", "Status"])
         self.assertIn("ann@x.com", lines[1])

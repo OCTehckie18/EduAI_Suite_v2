@@ -36,7 +36,7 @@ class StudentSideOfTeacherActions(TestCase):
         return c
 
     def test_my_progress_speaks_to_the_student_and_hides_the_score(self):
-        data = self.api(self.me).get("/analytics/my-progress").json()
+        data = self.api(self.me).get("/api/v1/analytics/my-progress").json()
         overall = data["overall"]
         self.assertIn(overall["status"], ("act_now", "needs_attention"))
         self.assertNotIn("score", overall)
@@ -49,15 +49,15 @@ class StudentSideOfTeacherActions(TestCase):
 
     def test_a_new_student_is_getting_started_not_on_track(self):
         Assignment.objects.filter(pk=self.late_one.pk).delete()
-        data = self.api(self.mate).get("/analytics/my-progress").json()
+        data = self.api(self.mate).get("/api/v1/analytics/my-progress").json()
         # Mate has no marks; the three past assignments are missing for them.
         self.assertEqual(data["overall"]["status"], "needs_attention")
         fresh = User.objects.create_user(email="new@x.com", password="x", role="STUDENT")
-        self.assertIsNone(self.api(fresh).get("/analytics/my-progress").json()["overall"])
+        self.assertIsNone(self.api(fresh).get("/api/v1/analytics/my-progress").json()["overall"])
 
     def test_only_students_and_only_their_own(self):
-        self.assertEqual(self.api(self.teacher).get("/analytics/my-progress").status_code, 403)
-        mate = self.api(self.mate).get("/analytics/my-progress").json()["overall"]
+        self.assertEqual(self.api(self.teacher).get("/api/v1/analytics/my-progress").status_code, 403)
+        mate = self.api(self.mate).get("/api/v1/analytics/my-progress").json()["overall"]
         self.assertEqual(mate["results_count"], 0)  # my marks never show up for a classmate
 
     def test_dashboard_lists_forms_meetings_and_new_feedback(self):
@@ -74,17 +74,17 @@ class StudentSideOfTeacherActions(TestCase):
         crit = AssignmentCriterion.objects.create(assignment=sub.assignment, label="All", max_score=100)
         SubmissionEvaluation.objects.create(submission=sub, evaluator=self.teacher, feedback="Well done", total=80)
 
-        data = self.api(self.me).get("/dashboard/student-summary").json()
+        data = self.api(self.me).get("/api/v1/dashboard/student-summary").json()
         self.assertEqual([f["title"] for f in data["formsToFill"]], ["Survey"])
         self.assertEqual(len(data["meetings"]), 1)
         self.assertTrue(data["meetings"][0]["bookedByTeacher"])
         self.assertEqual(data["newFeedback"][0]["feedback"], "Well done")
         # a classmate sees none of it except the class form
-        other = self.api(self.mate).get("/dashboard/student-summary").json()
+        other = self.api(self.mate).get("/api/v1/dashboard/student-summary").json()
         self.assertEqual((len(other["meetings"]), len(other["newFeedback"]), len(other["formsToFill"])), (0, 0, 2))
         self.assertTrue(crit)
 
     def test_a_meeting_booked_by_the_teacher_says_so(self):
-        self.api(self.teacher).post("/appointments/invite", {"student_id": self.me.pk, "time_slot": "2030-01-01 10:00"}, format="json")
-        mine = self.api(self.me).get("/appointments/").json()
+        self.api(self.teacher).post("/api/v1/appointments/invite", {"student_id": self.me.pk, "time_slot": "2030-01-01 10:00"}, format="json")
+        mine = self.api(self.me).get("/api/v1/appointments/").json()
         self.assertTrue(mine[0]["booked_by_teacher"])

@@ -27,14 +27,14 @@ class ProgressAndJoinCodes(TestCase):
 
     def test_a_long_code_joins_in_any_letter_case(self):
         self.assertTrue(self.course.enrollment_code.startswith("EDU-"))
-        res = self.api(self.student).post(f"/students/enroll/code?enrollment_code={self.course.enrollment_code.lower()}", {}, format="json")
+        res = self.api(self.student).post(f"/api/v1/students/enroll/code?enrollment_code={self.course.enrollment_code.lower()}", {}, format="json")
         self.assertEqual(res.status_code, 201, res.content)
         self.assertTrue(Enrollment.objects.filter(classroom=self.course, student=self.student).exists())
-        self.assertEqual(self.api(self.student).post("/students/enroll/code?enrollment_code=", {}, format="json").status_code, 404)
+        self.assertEqual(self.api(self.student).post("/api/v1/students/enroll/code?enrollment_code=", {}, format="json").status_code, 404)
 
     def test_progress_means_hand_ins_for_a_student_and_marking_for_the_teacher(self):
         Enrollment.objects.create(classroom=self.course, student=self.student)
-        course = lambda user: self.api(user).get("/courses/").json()[0]
+        course = lambda user: self.api(user).get("/api/v1/courses/").json()[0]
         self.assertIsNone(course(self.student)["progress"])  # no assignments yet
         self.assertIsNone(course(self.teacher)["progress"])  # nothing handed in yet
         a1 = Assignment.objects.create(course=self.course, title="A1")

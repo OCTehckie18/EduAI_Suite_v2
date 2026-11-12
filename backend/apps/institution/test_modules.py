@@ -45,7 +45,7 @@ class ModuleSwitchTests(APITestCase):
         self.client.force_authenticate(self.master)
         self.switch(appointments=False)
         self.client.force_authenticate(self.teacher)
-        for path in ("/api/v1/appointments/", "/appointments/"):
+        for path in ("/api/v1/appointments/",):
             response = self.client.get(path)
             self.assertEqual((response.status_code, response.json()["module"]), (404, "appointments"), path)
             self.assertIn("switched off", response.json()["detail"])
@@ -71,7 +71,7 @@ class ModuleSwitchTests(APITestCase):
         cases = {
             "/api/v1/quizzes/sessions": "live_quizzes",
             "/api/v1/games/chain-answer/abc/join": "chain_answer",
-            "/games/word-suggestions": "chain_answer",
+            "/api/v1/games/word-suggestions": "chain_answer",
             "/api/v1/wordcloud/sessions": "word_cloud",
             "/api/v1/trello/boards": "trello",
             "/api/v1/forms": "forms",
@@ -91,7 +91,7 @@ class ModuleSwitchTests(APITestCase):
 
 
 class SlidoModuleTests(APITestCase):
-    """Slido is kept but unfinished: a Master Admin can switch it off, and every spelling of its API then closes."""
+    """Slido is kept but unfinished: a Master Admin can switch it off, and its API then closes."""
 
     def setUp(self):
         self.master = User.objects.create_user(email="m@x.com", password="pw", role="MASTER_ADMIN")
@@ -101,8 +101,7 @@ class SlidoModuleTests(APITestCase):
         self.assertIn("slido", MODULES)
         self.assertTrue(self.client.get(PUBLIC).json()["modules"]["slido"])
 
-    def test_switched_off_it_is_refused_on_every_path(self):
+    def test_switched_off_its_api_is_refused(self):
         self.client.put(MODULES_URL, {"slido": False}, format="json")
-        for path in ("/api/v1/slido/polls/", "/api/slido/polls/", "/slido/polls/", "/api/v1/api/slido/polls/"):
-            self.assertEqual(module_for_path(path), "slido", path)
-            self.assertEqual(self.client.get(path).status_code, 404, path)
+        self.assertEqual(module_for_path("/api/v1/slido/polls/"), "slido")
+        self.assertEqual(self.client.get("/api/v1/slido/polls/").status_code, 404)

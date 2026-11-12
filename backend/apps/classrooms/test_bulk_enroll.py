@@ -24,7 +24,7 @@ class BulkEnrollTests(TestCase):
 
     def upload(self, text, name="students.csv"):
         file = SimpleUploadedFile(name, text.encode(), content_type="text/csv")
-        return self.client.post(f"/students/bulk_upload/{self.course.pk}", {"file": file}, format="multipart")
+        return self.client.post(f"/api/v1/students/bulk_upload/{self.course.pk}", {"file": file}, format="multipart")
 
     def test_the_result_says_who_was_enrolled_and_who_was_skipped_and_why(self):
         res = self.upload("Email,Name\na@x.com,Asha\nghost@x.com,Nobody\nb@x.com,Ben\n")
@@ -54,5 +54,5 @@ class BulkEnrollTests(TestCase):
         client = APIClient()
         client.force_authenticate(other)
         file = SimpleUploadedFile("s.csv", b"Email\na@x.com\n", content_type="text/csv")
-        self.assertEqual(client.post(f"/students/bulk_upload/{self.course.pk}", {"file": file}, format="multipart").status_code, 403)
+        self.assertEqual(client.post(f"/api/v1/students/bulk_upload/{self.course.pk}", {"file": file}, format="multipart").status_code, 403)
         self.assertEqual(Enrollment.objects.count(), 0)

@@ -57,31 +57,31 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
     def test_action_history(self):
-        res = self.client.post("/history/", {
+        res = self.client.post("/api/v1/history/", {
             "feature": "test",
             "action": "smoke_test",
             "result": "success",
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
 
-        res = self.client.get("/history/?feature=test")
+        res = self.client.get("/api/v1/history/?feature=test")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(len(res.json()), 1)
 
     def test_announcements(self):
-        res = self.client.post(f"/announcements/{self.course.id}", {
+        res = self.client.post(f"/api/v1/announcements/{self.course.id}", {
             "title": "Welcome Announcement",
             "body": "Class starts Monday.",
         })
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
 
-        res = self.client.get(f"/announcements/{self.course.id}")
+        res = self.client.get(f"/api/v1/announcements/{self.course.id}")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(len(res.json()), 1)
         self.assertEqual(res.json()[0]["title"], "Welcome Announcement")
 
     def test_assignments_and_submissions(self):
-        res = self.client.post(f"/assignments/{self.course.id}", {
+        res = self.client.post(f"/api/v1/assignments/{self.course.id}", {
             "title": "Assignment 1",
             "description": "Build a Django API",
             "due_date": "2026-09-15T23:59",
@@ -91,7 +91,7 @@ class MigrationSmokeTestCase(TestCase):
         asgn_id = res.json()["id"]
 
         # List assignments
-        res = self.client.get(f"/assignments/{self.course.id}")
+        res = self.client.get(f"/api/v1/assignments/{self.course.id}")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(len(res.json()), 1)
 
@@ -102,14 +102,14 @@ class MigrationSmokeTestCase(TestCase):
         )
         Enrollment.objects.create(classroom=self.course, student=alice)
         self.client.force_authenticate(user=alice)
-        res = self.client.post(f"/submissions/{asgn_id}", {"student_name": "Someone Else"})
+        res = self.client.post(f"/api/v1/submissions/{asgn_id}", {"student_name": "Someone Else"})
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         self.assertEqual(res.json()["student_name"], "Alice Smith")
         sub_id = res.json()["id"]
 
         # Grade submission (teacher)
         self.client.force_authenticate(user=self.teacher)
-        res = self.client.put(f"/submissions/grade/{sub_id}", {
+        res = self.client.put(f"/api/v1/submissions/grade/{sub_id}", {
             "grade": 95.0,
         })
         self.assertEqual(res.status_code, status.HTTP_200_OK)
@@ -121,7 +121,7 @@ class MigrationSmokeTestCase(TestCase):
             role=User.Role.STUDENT,
         )
         self.client.force_authenticate(user=student)
-        res = self.client.post("/appointments/", {
+        res = self.client.post("/api/v1/appointments/", {
             "student_name": "Bob Student",
             "student_email": "bob@cs.university.in",
             "teacher_name": self.teacher.full_name,
@@ -133,7 +133,7 @@ class MigrationSmokeTestCase(TestCase):
 
         self.client.force_authenticate(user=self.teacher)
         # Update status
-        res = self.client.patch(f"/appointments/{appt_id}/status", {
+        res = self.client.patch(f"/api/v1/appointments/{appt_id}/status", {
             "status": "approved",
             "notes": "See you in lab 3",
         }, format="json")
@@ -141,7 +141,7 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(res.json()["status"], "approved")
 
     def test_lessons(self):
-        res = self.client.post("/lessons/", {
+        res = self.client.post("/api/v1/lessons/", {
             "course_id": self.course.id,
             "topic": "Django Architecture",
             "title": "Django Deep Dive",
@@ -151,13 +151,13 @@ class MigrationSmokeTestCase(TestCase):
         lesson_id = res.json()["id"]
 
         # Post lesson
-        res = self.client.post(f"/lessons/{lesson_id}/post")
+        res = self.client.post(f"/api/v1/lessons/{lesson_id}/post")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertIsNotNone(res.json()["posted_at"])
 
     def test_exams(self):
         self.client.force_authenticate(user=self.teacher)
-        res = self.client.post("/exams/", {
+        res = self.client.post("/api/v1/exams/", {
             "course_id": self.course.id,
             "title": "Midterm Exam",
             "time_limit": 45,
@@ -174,13 +174,13 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         exam_id = res.json()["id"]
 
-        res = self.client.get("/exams/stats")
+        res = self.client.get("/api/v1/exams/stats")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(res.json()["total_exams"], 1)
 
     def test_calendar(self):
         self.client.force_authenticate(user=self.teacher)
-        res = self.client.post("/calendar/events", {
+        res = self.client.post("/api/v1/calendar/events", {
             "title": "Faculty Meeting",
             "start_time": "2026-09-12T10:00:00Z",
             "end_time": "2026-09-12T11:00:00Z",
@@ -188,40 +188,40 @@ class MigrationSmokeTestCase(TestCase):
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
 
-        res = self.client.get("/calendar/events")
+        res = self.client.get("/api/v1/calendar/events")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertTrue(len(res.json()) >= 1)
 
     def test_mail(self):
-        res = self.client.post("/mail/drafts", {
+        res = self.client.post("/api/v1/mail/drafts", {
             "subject": "Midterm Reminder",
             "body": "Don't forget the midterm exam on Friday.",
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
 
-        res = self.client.get("/mail/drafts")
+        res = self.client.get("/api/v1/mail/drafts")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
     def test_reports(self):
-        res = self.client.post("/reports/generate", {
+        res = self.client.post("/api/v1/reports/generate", {
             "type": "Class Report",
             "target_id": self.course.id,
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
 
-        res = self.client.get("/reports/")
+        res = self.client.get("/api/v1/reports/")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
     def test_analytics_and_dashboard(self):
-        res = self.client.get("/dashboard/summary")
+        res = self.client.get("/api/v1/dashboard/summary")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(len(res.json()["classrooms"]), 1)
 
-        res = self.client.get("/analytics/risk-global")
+        res = self.client.get("/api/v1/analytics/risk-global")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
     def test_games(self):
-        res = self.client.post("/games/chain-answer", {
+        res = self.client.post("/api/v1/games/chain-answer", {
             "name": "Science Word Chain",
             "subject": "science",
             "starting_word": "atom",
@@ -234,13 +234,13 @@ class MigrationSmokeTestCase(TestCase):
         student = User.objects.create_user(email="player1@university.in", password="x", role=User.Role.STUDENT, first_name="Player", last_name="One")
         Enrollment.objects.create(classroom=self.course, student=student)
         self.client.force_authenticate(user=student)
-        res = self.client.post(f"/games/chain-answer/{session_id}/join", {}, format="json")
+        res = self.client.post(f"/api/v1/games/chain-answer/{session_id}/join", {}, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         self.assertEqual(res.json()["name"], "Player One")
 
     def test_quizzes(self):
         self.client.force_authenticate(user=self.teacher)
-        res = self.client.post("/quizzes/", {
+        res = self.client.post("/api/v1/quizzes/", {
             "title": "Python Basics",
             "questions": [
                 {
@@ -255,28 +255,28 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         quiz_id = res.json()["id"]
 
-        res = self.client.post(f"/quizzes/{quiz_id}/host")
+        res = self.client.post(f"/api/v1/quizzes/{quiz_id}/host")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         pin = res.json()["pin"]
 
-        res = self.client.get(f"/quizzes/session/{pin}")
+        res = self.client.get(f"/api/v1/quizzes/session/{pin}")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
     def test_slido(self):
-        res = self.client.post("/slido/sessions", {
+        res = self.client.post("/api/v1/slido/sessions", {
             "teacher_id": self.teacher.id,
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         pin = res.json()["pin"]
 
-        res = self.client.post(f"/slido/sessions/{pin}/polls", {
+        res = self.client.post(f"/api/v1/slido/sessions/{pin}/polls", {
             "question": "How clear is today's topic?",
             "poll_type": "multiple_choice",
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
 
     def test_omr(self):
-        res = self.client.post("/omr/jobs", {
+        res = self.client.post("/api/v1/omr/jobs", {
             "title": "Final OMR Exam",
             "num_questions": 3,
             "answer_key": {"1": "A", "2": "C", "3": "D"},
@@ -284,23 +284,23 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         job_id = res.json()["id"]
 
-        res = self.client.get(f"/omr/jobs/{job_id}")
+        res = self.client.get(f"/api/v1/omr/jobs/{job_id}")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
     def test_trello(self):
-        res = self.client.post("/trello/board", {
+        res = self.client.post("/api/v1/trello/board", {
             "name": "Sprint 1 Board",
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         board_id = res.json()["id"]
 
-        res = self.client.get(f"/trello/board/{board_id}")
+        res = self.client.get(f"/api/v1/trello/board/{board_id}")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(len(res.json()["columns"]), 3)
 
     def test_ai_chat(self):
         self.client.force_authenticate(user=self.teacher)
-        res = self.client.post("/ai/chat", {
+        res = self.client.post("/api/v1/ai/chat", {
             "message": "Hello!",
             "history": [],
         }, format="json")
@@ -309,24 +309,21 @@ class MigrationSmokeTestCase(TestCase):
 
     def test_dashboard_routes(self):
         endpoints = [
-            "/api/v1/api/dashboard/summary",
             "/api/v1/dashboard/summary",
-            "/api/dashboard/summary",
-            "/dashboard/summary",
-            "/api/v1/api/dashboard/summary?teacher_name=Jane%20Prof",
+            "/api/v1/dashboard/summary?teacher_name=Jane%20Prof",
         ]
         for ep in endpoints:
             res = self.client.get(ep)
             self.assertEqual(res.status_code, status.HTTP_200_OK, f"Endpoint {ep} failed with {res.status_code}")
 
         # The list of every class with its join code no longer exists.
-        self.assertEqual(self.client.get("/api/v1/api/dashboard/discoverable-classrooms").status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self.client.get("/api/v1/dashboard/discoverable-classrooms").status_code, status.HTTP_404_NOT_FOUND)
 
         # The student dashboard belongs to students (covered in analytics.test_student_summary).
-        self.assertEqual(self.client.get("/api/v1/api/dashboard/student-summary").status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(self.client.get("/api/v1/dashboard/student-summary").status_code, status.HTTP_403_FORBIDDEN)
 
         # Check expected payload keys for TeacherBuddy dashboard
-        summary_res = self.client.get("/api/v1/api/dashboard/summary?teacher_name=Jane%20Prof")
+        summary_res = self.client.get("/api/v1/dashboard/summary?teacher_name=Jane%20Prof")
         self.assertEqual(summary_res.status_code, status.HTTP_200_OK)
         data = summary_res.json()
         expected_keys = [
@@ -342,7 +339,7 @@ class MigrationSmokeTestCase(TestCase):
         admit("karan@example.edu", "REG-101", name="Karan Singhania")
         admit("meera@example.edu", "REG-103", name="Meera Sen")
         # 1. Manual Enroll
-        res = self.client.post(f"/students/{self.course.id}", {
+        res = self.client.post(f"/api/v1/students/{self.course.id}", {
             "name": "Karan Singhania",
             "email": "karan@example.edu",
             "registration_number": "REG-101",
@@ -351,21 +348,21 @@ class MigrationSmokeTestCase(TestCase):
         student_id = res.json()["id"]
 
         # 2. Get students in course
-        res = self.client.get(f"/students/{self.course.id}")
+        res = self.client.get(f"/api/v1/students/{self.course.id}")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertTrue(any(s["id"] == student_id for s in res.json()))
 
         # 3. Get all students
-        res = self.client.get("/students/")
+        res = self.client.get("/api/v1/students/")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertTrue(len(res.json()) >= 1)
 
         # 4. Detail & Update
-        res = self.client.get(f"/students/detail/{student_id}")
+        res = self.client.get(f"/api/v1/students/detail/{student_id}")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.json()["name"], "Karan Singhania")
 
-        res = self.client.put(f"/students/detail/{student_id}", {
+        res = self.client.put(f"/api/v1/students/detail/{student_id}", {
             "name": "Karan Singhania Updated",
             "registration_number": "REG-102",
         }, format="json")
@@ -373,7 +370,7 @@ class MigrationSmokeTestCase(TestCase):
         self.assertEqual(res.json()["name"], "Karan Singhania Updated")
 
         # 5. Enroll via code
-        res = self.client.post(f"/students/enroll/code?enrollment_code={self.course.enrollment_code}", {
+        res = self.client.post(f"/api/v1/students/enroll/code?enrollment_code={self.course.enrollment_code}", {
             "name": "Meera Sen",
             "email": "meera@example.edu",
             "registration_number": "REG-103",
@@ -382,22 +379,22 @@ class MigrationSmokeTestCase(TestCase):
         meera_id = res.json()["id"]
 
         # 6. Active students
-        res = self.client.get(f"/students/{self.course.id}/active")
+        res = self.client.get(f"/api/v1/students/{self.course.id}/active")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
         # 7. Engagement summary & profile
-        res = self.client.get(f"/engagement/{self.course.id}/summary")
+        res = self.client.get(f"/api/v1/engagement/{self.course.id}/summary")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertIn("students", res.json())
         self.assertIn("class_avg_engagement", res.json())
 
-        res = self.client.get(f"/engagement/student/{student_id}")
+        res = self.client.get(f"/api/v1/engagement/student/{student_id}")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertIn("engagement_score", res.json())
         self.assertIn("assignments", res.json())
 
         # 8. Delete student
-        res = self.client.delete(f"/students/{student_id}")
+        res = self.client.delete(f"/api/v1/students/{student_id}")
         self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
 
 

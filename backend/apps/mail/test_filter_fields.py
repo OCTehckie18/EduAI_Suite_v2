@@ -24,7 +24,7 @@ class MailFilterFields(TestCase):
         self.client.force_authenticate(self.teacher)
 
     def names(self, *conditions):
-        res = self.client.post("/mail/filter", {"conditions": [dict(zip(("field", "operator", "value"), c)) for c in conditions]}, format="json")
+        res = self.client.post("/api/v1/mail/filter", {"conditions": [dict(zip(("field", "operator", "value"), c)) for c in conditions]}, format="json")
         self.assertEqual(res.status_code, 200, res.content)
         return sorted(r["name"] for r in res.json())
 
@@ -42,6 +42,6 @@ class MailFilterFields(TestCase):
                     [{"field": "shoe_size", "operator": "==", "value": "9"}],
                     [{"field": "name", "operator": "~", "value": "a"}],
                     "nope"):
-            res = self.client.post("/mail/filter", {"conditions": bad}, format="json")
+            res = self.client.post("/api/v1/mail/filter", {"conditions": bad}, format="json")
             self.assertEqual(res.status_code, 400, bad)
             self.assertTrue(res.json()["detail"])

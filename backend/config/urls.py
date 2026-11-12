@@ -19,9 +19,6 @@ urlpatterns = [
     path('health', legacy_health_view, name='root-health-check'),
 
     # History & Action Log Endpoints
-    path('history/', ActionHistoryListCreateView.as_view(), name='legacy-history'),
-    path('notifications', NotificationListView.as_view(), name='legacy-notifications'),
-    path('notifications/read', NotificationReadView.as_view(), name='legacy-notifications-read'),
     path('api/v1/notifications', NotificationListView.as_view(), name='api-notifications'),
     path('api/v1/notifications/read', NotificationReadView.as_view(), name='api-notifications-read'),
     path('api/v1/history/', ActionHistoryListCreateView.as_view(), name='api-history'),
@@ -38,87 +35,57 @@ urlpatterns = [
     # Classrooms & Legacy Courses
     path('api/v1/classrooms/', include('apps.classrooms.urls')),
     path('api/v1/courses/', include('apps.classrooms.legacy_urls')),
-    path('api/courses/', include('apps.classrooms.legacy_urls')),
-    path('courses/', include('apps.classrooms.legacy_urls')),
     path('api/v1/students/', include((student_urlpatterns, 'students'))),
-    path('api/students/', include((student_urlpatterns, 'api-students'))),
-    path('students/', include((student_urlpatterns, 'legacy-students'))),
-    path('resources/', include((resource_urlpatterns, 'resources'))),
     path('api/v1/resources/', include((resource_urlpatterns, 'api-resources'))),
 
     # Announcements
     path('api/v1/announcements/', include('apps.announcements.urls')),
-    path('announcements/', include('apps.announcements.urls')),
 
     # Assignments & Submissions
     path('api/v1/assignments/', include((assignment_urlpatterns, 'assignments'))),
-    path('assignments/', include((assignment_urlpatterns, 'legacy-assignments'))),
     path('api/v1/submissions/', include((submission_urlpatterns, 'submissions'))),
-    path('submissions/', include((submission_urlpatterns, 'legacy-submissions'))),
 
     # Appointments
     path('api/v1/appointments/', include('apps.appointments.urls')),
-    path('appointments/', include('apps.appointments.urls')),
 
     # Lessons
     path('api/v1/lessons/', include('apps.lessons.urls')),
-    path('lessons/', include('apps.lessons.urls')),
 
     # Exams
     path('api/v1/exams/', include('apps.exams.urls')),
-    path('exams/', include('apps.exams.urls')),
 
     # Calendar
     path('api/v1/calendar/', include('apps.calendar_app.urls')),
-    path('calendar/', include('apps.calendar_app.urls')),
 
     # Mail
     path('api/v1/mail/', include('apps.mail.urls')),
-    path('mail/', include('apps.mail.urls')),
 
     # Reports
     path('api/v1/reports/', include('apps.reports.urls')),
-    path('reports/', include('apps.reports.urls')),
 
     # Analytics & Dashboard
-    path('api/v1/api/dashboard/', include('apps.analytics.urls')),
     path('api/v1/dashboard/', include('apps.analytics.urls')),
-    path('api/dashboard/', include('apps.analytics.urls')),
-    path('dashboard/', include('apps.analytics.urls')),
     path('api/v1/analytics/', include('apps.analytics.urls')),
-    path('analytics/', include('apps.analytics.urls')),
 
     # Engagement
-    path('api/v1/api/engagement/', include('apps.analytics.engagement_urls')),
     path('api/v1/engagement/', include('apps.analytics.engagement_urls')),
-    path('api/engagement/', include('apps.analytics.engagement_urls')),
-    path('engagement/', include('apps.analytics.engagement_urls')),
 
     # EduGames: Chain Answer & Word Games
     path('api/v1/games/', include('apps.games.urls')),
-    path('games/', include('apps.games.urls')),
     path('api/v1/wordcloud/', include('apps.games.wordcloud_urls')),
-    path('wordcloud/', include('apps.games.wordcloud_urls')),
 
     # Quizzes: Live & Solo
     path('api/v1/quizzes/', include('apps.quizzes.urls')),
-    path('quizzes/', include('apps.quizzes.urls')),
 
     # Slido: Interactive Presentations & Q&A
-    path('api/v1/api/slido/', include('apps.slido.urls')),
     path('api/v1/slido/', include('apps.slido.urls')),
-    path('api/slido/', include('apps.slido.urls')),
-    path('slido/', include('apps.slido.urls')),
 
     # OMR Evaluation
     path('api/v1/omr/', include('apps.omr.urls')),
-    path('omr/', include('apps.omr.urls')),
 
     # Trello
     path('api/v1/trello/', include('apps.trello_app.urls')),
-    path('trello/', include('apps.trello_app.urls')),
     path('api/v1/', include('apps.forms_app.urls')),
-    path('', include('apps.forms_app.urls')),
 
     # Uploaded files (submissions, announcements, OMR scans). Stored paths look like /uploads/...
     # and the apps prefix them with the API base, so both spellings are served. Names are random
@@ -128,7 +95,6 @@ urlpatterns = [
 
     # AI Chat
     path('api/v1/ai/', include('apps.ai_chat.urls')),
-    path('ai/', include('apps.ai_chat.urls')),
 ]
 
 if settings.DEBUG:

@@ -45,10 +45,10 @@ class EvaluationBase(TestCase):
         return client
 
     def set_rubric(self, rubric=RUBRIC, user=None):
-        return self.api(user or self.teacher).put(f"/assignments/{self.assignment.pk}/rubric", {"criteria": rubric}, format="json")
+        return self.api(user or self.teacher).put(f"/api/v1/assignments/{self.assignment.pk}/rubric", {"criteria": rubric}, format="json")
 
     def scores(self, a=50, b=30):
-        crit = self.api(self.teacher).get(f"/assignments/{self.assignment.pk}/rubric").json()["criteria"]
+        crit = self.api(self.teacher).get(f"/api/v1/assignments/{self.assignment.pk}/rubric").json()["criteria"]
         return [{"criterion_id": crit[0]["id"], "score": a, "comment": "ok"}, {"criterion_id": crit[1]["id"], "score": b}]
 
 
@@ -59,7 +59,7 @@ class RubricSetup(EvaluationBase):
         self.assertEqual(self.set_rubric([{"label": "A", "max_score": 100}, {"label": "B", "max_score": 0}]).status_code, 400)
         self.assertEqual(self.set_rubric([{"label": " ", "max_score": 100}]).status_code, 400)
         self.assertEqual(self.set_rubric([{"label": "A", "max_score": 99.5}, {"label": "B", "max_score": 0.5}]).status_code, 400)
-        self.assertEqual(self.api(self.teacher).put(f"/assignments/{self.assignment.pk}/rubric", {"criteria": "x"}, format="json").status_code, 400)
+        self.assertEqual(self.api(self.teacher).put(f"/api/v1/assignments/{self.assignment.pk}/rubric", {"criteria": "x"}, format="json").status_code, 400)
         # failed attempts changed nothing
         self.assertEqual(self.assignment.criteria.count(), 2)
 
@@ -70,12 +70,12 @@ class RubricSetup(EvaluationBase):
 
     def test_students_in_the_course_can_read_it_and_strangers_cannot(self):
         self.set_rubric()
-        self.assertEqual(len(self.api(self.pupil).get(f"/assignments/{self.assignment.pk}/rubric").json()["criteria"]), 2)
-        self.assertEqual(self.api(self.other_teacher).get(f"/assignments/{self.assignment.pk}/rubric").status_code, 403)
+        self.assertEqual(len(self.api(self.pupil).get(f"/api/v1/assignments/{self.assignment.pk}/rubric").json()["criteria"]), 2)
+        self.assertEqual(self.api(self.other_teacher).get(f"/api/v1/assignments/{self.assignment.pk}/rubric").status_code, 403)
 
     def test_a_rubric_in_use_cannot_be_changed(self):
         self.set_rubric()
-        self.api(self.teacher).put(f"/submissions/evaluation/{self.sub.pk}", {"scores": self.scores()}, format="json")
+        self.api(self.teacher).put(f"/api/v1/submissions/evaluation/{self.sub.pk}", {"scores": self.scores()}, format="json")
         self.assertEqual(self.set_rubric([{"label": "Only", "max_score": 100}]).status_code, 409)
         self.assertEqual(self.assignment.criteria.count(), 2)
 
@@ -87,7 +87,7 @@ class Marking(EvaluationBase):
 
     def mark(self, scores=None, feedback="Good", user=None, sub=None):
         return self.api(user or self.teacher).put(
-            f"/submissions/evaluation/{(sub or self.sub).pk}", {"scores": scores or self.scores(), "feedback": feedback}, format="json"
+            f"/api/v1/submissions/evaluation/{(sub or self.sub).pk}", {"scores": scores or self.scores(), "feedback": feedback}, format="json"
         )
 
     def test_marking_sets_the_grade_and_the_students_record(self):
@@ -100,7 +100,7 @@ class Marking(EvaluationBase):
         activity = StudentActivity.objects.get(student_id=self.pupil.pk, source_id=self.assignment.pk)
         self.assertEqual(activity.score, 80)
         # appears in the teacher's gradebook
-        book = self.api(self.teacher).get(f"/assignments/gradebook/{self.course.pk}").json()
+        book = self.api(self.teacher).get(f"/api/v1/assignments/gradebook/{self.course.pk}").json()
         row = next(r for r in book["students"] if r["student_id"] == self.pupil.pk)
         self.assertEqual(row["cells"][0]["grade"], 80)
 
@@ -125,14 +125,14 @@ class Marking(EvaluationBase):
         ]
         for bad in cases:
             self.assertEqual(self.mark(bad).status_code, 400, bad)
-        self.assertEqual(self.api(self.teacher).put(f"/submissions/evaluation/{self.sub.pk}", {"scores": crit, "feedback": "x" * 5001}, format="json").status_code, 400)
+        self.assertEqual(self.api(self.teacher).put(f"/api/v1/submissions/evaluation/{self.sub.pk}", {"scores": crit, "feedback": "x" * 5001}, format="json").status_code, 400)
         self.sub.refresh_from_db()
         self.assertIsNone(self.sub.grade)
         self.assertFalse(SubmissionEvaluation.objects.exists())
 
     def test_another_assignments_criterion_is_refused(self):
         other = Assignment.objects.create(course=self.course, title="Other", max_points=10)
-        self.api(self.teacher).put(f"/assignments/{other.pk}/rubric", {"criteria": [{"label": "X", "max_score": 10}]}, format="json")
+        self.api(self.teacher).put(f"/api/v1/assignments/{other.pk}/rubric", {"criteria": [{"label": "X", "max_score": 10}]}, format="json")
         foreign = other.criteria.get().pk
         crit = self.scores()
         self.assertEqual(self.mark([crit[0], {"criterion_id": foreign, "score": 5}]).status_code, 400)
@@ -140,20 +140,20 @@ class Marking(EvaluationBase):
     def test_marking_needs_a_rubric(self):
         bare = Assignment.objects.create(course=self.course, title="Bare", max_points=10)
         sub = Submission.objects.create(assignment=bare, student=self.pupil, student_name="pupil")
-        res = self.api(self.teacher).put(f"/submissions/evaluation/{sub.pk}", {"scores": []}, format="json")
+        res = self.api(self.teacher).put(f"/api/v1/submissions/evaluation/{sub.pk}", {"scores": []}, format="json")
         self.assertEqual(res.status_code, 400)
 
     def test_only_the_courses_teacher_marks(self):
         self.assertEqual(self.mark(user=self.other_teacher).status_code, 403)
         self.assertEqual(self.mark(user=self.pupil).status_code, 403)
-        self.assertEqual(self.api(self.other_teacher).get(f"/submissions/evaluation/{self.sub.pk}").status_code, 403)
-        self.assertEqual(self.api(self.other_teacher).get(f"/assignments/{self.assignment.pk}/evaluation").status_code, 403)
+        self.assertEqual(self.api(self.other_teacher).get(f"/api/v1/submissions/evaluation/{self.sub.pk}").status_code, 403)
+        self.assertEqual(self.api(self.other_teacher).get(f"/api/v1/assignments/{self.assignment.pk}/evaluation").status_code, 403)
         self.sub.refresh_from_db()
         self.assertIsNone(self.sub.grade)
 
     def test_queue_lists_every_submission_and_whether_it_is_marked(self):
         self.mark()
-        queue = self.api(self.teacher).get(f"/assignments/{self.assignment.pk}/evaluation").json()
+        queue = self.api(self.teacher).get(f"/api/v1/assignments/{self.assignment.pk}/evaluation").json()
         by_name = {s["student_name"]: s for s in queue["submissions"]}
         self.assertTrue(by_name["pupil"]["evaluated"])
         self.assertFalse(by_name["mate"]["evaluated"])
@@ -161,20 +161,20 @@ class Marking(EvaluationBase):
 
     def test_loading_a_marked_submission_returns_its_scores(self):
         self.mark()
-        data = self.api(self.teacher).get(f"/submissions/evaluation/{self.sub.pk}").json()
+        data = self.api(self.teacher).get(f"/api/v1/submissions/evaluation/{self.sub.pk}").json()
         self.assertTrue(data["evaluated"])
         self.assertEqual([c["score"] for c in data["criteria"]], [50, 30])
         self.assertEqual(data["criteria"][0]["comment"], "ok")
-        fresh = self.api(self.teacher).get(f"/submissions/evaluation/{self.mate_sub.pk}").json()
+        fresh = self.api(self.teacher).get(f"/api/v1/submissions/evaluation/{self.mate_sub.pk}").json()
         self.assertFalse(fresh["evaluated"])
         self.assertEqual([c["score"] for c in fresh["criteria"]], [None, None])
 
     def test_a_student_reads_only_their_own_marking(self):
         self.mark()
-        self.assertEqual(self.api(self.pupil).get(f"/submissions/my-evaluation/{self.mate_sub.pk}").status_code, 404)
-        self.assertEqual(self.api(self.classmate).get(f"/submissions/my-evaluation/{self.sub.pk}").status_code, 404)
-        mine = self.api(self.pupil).get(f"/submissions/my-evaluation/{self.sub.pk}")
+        self.assertEqual(self.api(self.pupil).get(f"/api/v1/submissions/my-evaluation/{self.mate_sub.pk}").status_code, 404)
+        self.assertEqual(self.api(self.classmate).get(f"/api/v1/submissions/my-evaluation/{self.sub.pk}").status_code, 404)
+        mine = self.api(self.pupil).get(f"/api/v1/submissions/my-evaluation/{self.sub.pk}")
         self.assertEqual(mine.status_code, 200)
         self.assertEqual(mine.json()["feedback"], "Good")
         # unmarked work says so
-        self.assertEqual(self.api(self.classmate).get(f"/submissions/my-evaluation/{self.mate_sub.pk}").status_code, 404)
+        self.assertEqual(self.api(self.classmate).get(f"/api/v1/submissions/my-evaluation/{self.mate_sub.pk}").status_code, 404)

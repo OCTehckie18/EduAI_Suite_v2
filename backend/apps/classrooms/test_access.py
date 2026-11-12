@@ -41,7 +41,7 @@ class ClassroomAccessTests(TestCase):
         self.client.force_authenticate(user)
 
     def test_only_owner_or_admin_can_modify_or_delete_course(self):
-        url = f"/courses/{self.classroom.pk}"
+        url = f"/api/v1/courses/{self.classroom.pk}"
         for user in (self.student, self.outsider, self.other_teacher):
             self.as_user(user)
             self.assertEqual(self.client.put(url, {"name": "Hacked"}, format="json").status_code, 403, user.email)
@@ -60,53 +60,53 @@ class ClassroomAccessTests(TestCase):
             "program_id": self.program.pk, "batch_id": self.batch.pk, "teacher": self.owner.pk,
         }
         self.as_user(self.student)
-        self.assertEqual(self.client.post("/courses/", payload, format="json").status_code, 403)
+        self.assertEqual(self.client.post("/api/v1/courses/", payload, format="json").status_code, 403)
 
         self.as_user(self.other_teacher)
-        response = self.client.post("/courses/", payload, format="json")
+        response = self.client.post("/api/v1/courses/", payload, format="json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(Classroom.objects.get(subject_code="N1").teacher_id, self.other_teacher.pk)
 
     def test_course_detail_is_limited_to_members(self):
-        url = f"/courses/{self.classroom.pk}"
+        url = f"/api/v1/courses/{self.classroom.pk}"
         self.as_user(self.student)
         self.assertEqual(self.client.get(url).status_code, 200)
         self.as_user(self.outsider)
         self.assertEqual(self.client.get(url).status_code, 403)
 
     def test_student_record_cannot_be_edited_or_deleted_by_others(self):
-        url = f"/students/detail/{self.student.pk}"
+        url = f"/api/v1/students/detail/{self.student.pk}"
         for user in (self.student, self.outsider, self.other_teacher):
             self.as_user(user)
             res = self.client.put(url, {"email": "attacker@example.com"}, format="json")
             self.assertEqual(res.status_code, 403, user.email)
-            self.assertEqual(self.client.delete(f"/students/{self.student.pk}").status_code, 403, user.email)
+            self.assertEqual(self.client.delete(f"/api/v1/students/{self.student.pk}").status_code, 403, user.email)
         self.student.refresh_from_db()
         self.assertEqual(self.student.email, "stu@example.com")
         self.assertTrue(Enrollment.objects.filter(student=self.student, is_active=True).exists())
 
     def test_non_students_cannot_be_edited_through_the_student_endpoint(self):
         self.as_user(self.owner)
-        res = self.client.put(f"/students/detail/{self.admin.pk}", {"email": "x@example.com"}, format="json")
+        res = self.client.put(f"/api/v1/students/detail/{self.admin.pk}", {"email": "x@example.com"}, format="json")
         self.assertEqual(res.status_code, 403)
         self.admin.refresh_from_db()
         self.assertEqual(self.admin.email, "admin@example.com")
 
     def test_owner_can_manage_own_students(self):
         self.as_user(self.owner)
-        self.assertEqual(self.client.get(f"/students/{self.classroom.pk}").status_code, 200)
-        res = self.client.put(f"/students/detail/{self.student.pk}", {"name": "Stu Dent"}, format="json")
+        self.assertEqual(self.client.get(f"/api/v1/students/{self.classroom.pk}").status_code, 200)
+        res = self.client.put(f"/api/v1/students/detail/{self.student.pk}", {"name": "Stu Dent"}, format="json")
         self.assertEqual(res.status_code, 200)
 
     def test_student_lists_are_teacher_only_and_scoped(self):
         self.as_user(self.student)
-        self.assertEqual(self.client.get("/students/").status_code, 403)
-        self.assertEqual(self.client.get(f"/students/{self.classroom.pk}").status_code, 403)
-        self.assertEqual(self.client.get(f"/students/{self.classroom.pk}/active").status_code, 403)
+        self.assertEqual(self.client.get("/api/v1/students/").status_code, 403)
+        self.assertEqual(self.client.get(f"/api/v1/students/{self.classroom.pk}").status_code, 403)
+        self.assertEqual(self.client.get(f"/api/v1/students/{self.classroom.pk}/active").status_code, 403)
 
         self.as_user(self.other_teacher)
-        self.assertEqual(self.client.get(f"/students/{self.classroom.pk}").status_code, 403)
-        self.assertEqual(self.client.get("/students/").json(), [])
+        self.assertEqual(self.client.get(f"/api/v1/students/{self.classroom.pk}").status_code, 403)
+        self.assertEqual(self.client.get("/api/v1/students/").json(), [])
 
     def test_viewsets_are_scoped_to_membership(self):
         self.as_user(self.outsider)
