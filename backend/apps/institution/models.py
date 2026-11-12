@@ -191,6 +191,8 @@ class UniversityProfile(TimeStampedModel):
     help = models.JSONField(default=dict, blank=True)
     # Grading scale and academic calendar settings; validated by institution/academic.py.
     academic = models.JSONField(default=dict, blank=True)
+    # Letterhead and signatory for official documents; validated by institution/documents.py.
+    documents = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return self.name or "University (not configured)"

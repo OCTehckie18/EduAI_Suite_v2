@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, Menu, Megaphone, Paintbrush, Award, Scale, ToggleRight, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
+import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, FileText, Menu, Megaphone, Paintbrush, Award, Scale, ToggleRight, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
 import logo from "../../logo/eduai_logo.png";
 import { LoginScreen } from "./Login";
 import { ThemeToggle } from "./shared/ThemeToggle";
@@ -9,6 +9,7 @@ import { StructurePanel } from "./StructurePanel";
 import { LookPanel } from "./LookPanel";
 import { ModulesPanel } from "./ModulesPanel";
 import { AcademicPanel } from "./AcademicPanel";
+import { DocumentsPanel } from "./DocumentsPanel";
 import { NoticePanel } from "./NoticePanel";
 import { RulesPanel } from "./RulesPanel";
 import { UniversityPanel } from "./UniversityPanel";
@@ -36,6 +37,7 @@ const NAV: { heading: string; items: TabDef[] }[] = [
     { tab: "rules", label: "Rules", title: "Rules", subtitle: "Exams, sign-in, accounts and the risk score", Icon: Scale, color: "text-sky-700", search: false },
     { tab: "notice", label: "Notice & help", title: "Notice and help", subtitle: "A banner for everyone, and your help desk details", Icon: Megaphone, color: "text-amber-600", search: false },
     { tab: "academic", label: "Grading & calendar", title: "Grading and calendar", subtitle: "Grade scale, terms, time zone and holidays", Icon: Award, color: "text-lime-700", search: false },
+    { tab: "documents", label: "Documents", title: "Documents", subtitle: "Letterhead for reports and printed answer sheets", Icon: FileText, color: "text-slate-600", search: false },
     { tab: "campuses", label: "Campuses", title: "Campuses", subtitle: "The campuses of your university", Icon: Building2, color: "text-emerald-600", search: true },
     { tab: "structure", label: "Structure", title: "Institution structure", subtitle: "Schools, departments, programs, classes and sections", Icon: Layers, color: "text-teal-600", search: true },
   ] },
@@ -105,6 +107,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
     rules: <RulesPanel />,
     notice: <NoticePanel />,
     academic: <AcademicPanel />,
+    documents: <DocumentsPanel />,
     campuses: <CampusPanel key={refreshKey} search={search} onChanged={loadOverview} />,
     structure: <StructurePanel key={refreshKey} search={search} onChanged={loadOverview} />,
     roster: <RosterPanel key={refreshKey} search={search} />,

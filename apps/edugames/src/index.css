@@ -661,3 +661,11 @@
   border-radius: 99px;
 }
 
+/* Printing an answer sheet: only the sheet, from the top of the page, on as many pages as it needs. */
+@media print {
+  body * { visibility: hidden; }
+  .print-sheet, .print-sheet * { visibility: visible; }
+  .print-sheet { position: absolute !important; inset: auto !important; left: 0; top: 0; width: 100%; height: auto !important; overflow: visible !important; background: #ffffff !important; color: #0f172a; }
+  .print-sheet .no-print { display: none !important; }
+  .print-sheet .overflow-y-auto { overflow: visible !important; height: auto !important; }
+}

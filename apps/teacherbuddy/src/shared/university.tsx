@@ -33,6 +33,7 @@ export interface University {
   /** Exam, sign-in and account rules (missing on an old cached copy). */
   /** The notice to show right now (null when none is on or it is outside its dates). */
   academic?: Academic;
+  documents?: DocumentSettings;
   notice?: Notice | null;
   help?: HelpDetails;
   rules?: {
@@ -340,4 +341,33 @@ export function AcademicPeriod({ className = "" }: { className?: string }) {
   const { academic } = useUniversity();
   if (!academic?.current) return null;
   return <span className={className}>Academic year {academic.current.year_label} · {academic.current.term_label}</span>;
+}
+
+/** The letterhead settings of official documents (Master Admin > Documents). Off until the university turns it on. */
+export interface DocumentSettings { enabled: boolean; show_logo: boolean; show_name: boolean; show_address: boolean; footer: string; signatory_name: string; signatory_title: string }
+
+/** A letterhead that only appears when the page is printed (answer sheets, reports). */
+export function PrintLetterhead({ signature = false }: { signature?: boolean }) {
+  const university = useUniversity();
+  const docs = university.documents;
+  if (!docs?.enabled) return null;
+  const logo = docs.show_logo && university.logo_url ? `${API_BASE_URL}${university.logo_url}` : null;
+  return (
+    <>
+      <div className="hidden print:block text-center" style={{ borderBottom: "1px solid #94a3b8", paddingBottom: 8, marginBottom: 12, color: "#0f172a" }}>
+        {logo && <img src={logo} alt="" style={{ height: 56, margin: "0 auto 6px", objectFit: "contain" }} />}
+        {docs.show_name && university.name && <p style={{ fontSize: 18, fontWeight: 700 }}>{university.name}</p>}
+        {docs.show_address && university.address && <p style={{ fontSize: 11 }}>{university.address.split(/\n+/).join(", ")}</p>}
+      </div>
+      {signature && docs.signatory_name && (
+        <div className="hidden print:block" style={{ marginTop: 48, color: "#0f172a" }}>
+          <div style={{ width: 220, borderTop: "1px solid #0f172a", paddingTop: 4 }}>
+            <p style={{ fontWeight: 700 }}>{docs.signatory_name}</p>
+            {docs.signatory_title && <p style={{ fontSize: 12 }}>{docs.signatory_title}</p>}
+          </div>
+        </div>
+      )}
+      {docs.footer && <p className="hidden print:block text-center" style={{ marginTop: 16, fontSize: 10, color: "#475569" }}>{docs.footer}</p>}
+    </>
+  );
 }
