@@ -1,3 +1,4 @@
+import { GradeTag } from "../../shared/university";
 import React, { useEffect, useState } from "react";
 import {
   BookOpen,
@@ -214,7 +215,7 @@ export const StudentDashboard: React.FC = () => {
               Average Score
             </p>
             <p className="text-lg font-black" style={{ color: average == null ? "var(--color-text-muted)" : "var(--color-brand-blue)" }}>
-              {average == null ? "Not recorded" : `${average}%`}
+              {average == null ? "Not recorded" : <>{average}%<GradeTag percent={average} /></>}
             </p>
           </div>
         </div>
@@ -492,7 +493,7 @@ export const StudentDashboard: React.FC = () => {
                   <div key={`${result.title}-${index}`} className="flex items-center justify-between gap-2 text-sm">
                     <span className="min-w-0 truncate" style={{ color: "var(--color-text-primary)" }}>{result.title}<span className="block text-[10px] text-slate-400">{result.type} · {new Date(result.at).toLocaleDateString()}</span></span>
                     <span className={`shrink-0 text-xs font-bold ${result.status === "flagged" ? "text-red-600" : ""}`} style={result.status === "flagged" ? undefined : { color: "var(--color-brand-blue)" }}>
-                      {result.status === "flagged" ? "Flagged" : result.score == null ? result.status : `${result.score}%`}
+                      {result.status === "flagged" ? "Flagged" : result.score == null ? result.status : <>{result.score}%<GradeTag percent={result.score} /></>}
                     </span>
                   </div>
                 ))}

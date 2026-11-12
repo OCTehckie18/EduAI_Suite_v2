@@ -1,3 +1,4 @@
+import { GradeTag } from "../../shared/university";
 import React from "react";
 import { 
   CheckCircle2, XCircle, AlertCircle, 
@@ -63,7 +64,7 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
              <GlassCard className="flex flex-col items-center justify-center p-4 text-center">
                 <Award size={20} className="text-blue-600 mb-2" />
-                {waiting ? <p className="text-lg font-black text-amber-800">Awaiting marking</p> : <p className="text-2xl font-black text-slate-800">{earnedPoints} <span className="text-sm font-normal text-slate-400">/ {totalPoints} ({attempt.score ?? 0}%)</span></p>}
+                {waiting ? <p className="text-lg font-black text-amber-800">Awaiting marking</p> : <p className="text-2xl font-black text-slate-800">{earnedPoints} <span className="text-sm font-normal text-slate-400">/ {totalPoints} ({attempt.score ?? 0}%<GradeTag percent={attempt.score ?? 0} />)</span></p>}
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Final Score</p>
              </GlassCard>
              <GlassCard className="flex flex-col items-center justify-center p-4 text-center">

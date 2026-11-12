@@ -6,7 +6,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { GlassCard } from "../../shared/components/GlassCard";
 import { AnswerSheet } from "./AnswerSheet";
-import { useRules, type ExamEvent, type PublicRules } from "../../shared/university";
+import { GradeTag, useRules, type ExamEvent, type PublicRules } from "../../shared/university";
 
 import { API_BASE_URL } from "../../shared/utils/apiConfig";
 interface Choice {
@@ -527,7 +527,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onComplete, onClos
           <div className="py-6 px-4 bg-blue-50/50 rounded-3xl border border-blue-100/50">
              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Final Results</p>
              <div className="flex items-end justify-center gap-1">
-                <span className="text-5xl font-black text-blue-600 leading-none">{results.percentage}%</span>
+                <span className="text-5xl font-black text-blue-600 leading-none">{results.percentage}%<GradeTag percent={Number(results.percentage)} className="text-3xl" /></span>
              </div>
              <p className="text-sm font-semibold text-blue-400 mt-2">
                Score: {results.earned} / {results.maxPoints}

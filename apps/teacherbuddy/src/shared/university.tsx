@@ -32,6 +32,7 @@ export interface University {
   modules?: Record<string, boolean>;
   /** Exam, sign-in and account rules (missing on an old cached copy). */
   /** The notice to show right now (null when none is on or it is outside its dates). */
+  academic?: Academic;
   notice?: Notice | null;
   help?: HelpDetails;
   rules?: {
@@ -271,4 +272,72 @@ export function HelpBlock({ className = "" }: { className?: string }) {
       {help.link && <p><a href={help.link} target="_blank" rel="noreferrer" className="underline">How to use the portal</a></p>}
     </div>
   );
+}
+
+/** Grading and calendar conventions of the university (Master Admin > Grading and calendar). */
+export interface GradeBand { min: number; label: string; points: number }
+export interface Academic {
+  grading: { scale: "percentage" | "letters" | "grade_points" | "custom"; pass_mark: number; bands: GradeBand[] };
+  calendar: { year_start_month: number; term_name: string; terms_per_year: number; timezone: string; date_format: string; week_starts: "sunday" | "monday" | "saturday" };
+  current: { year_label: string; term_label: string };
+}
+
+export interface Grade { label: string; points: number; passed: boolean }
+
+/** The grade for a percentage under the university's scale, or null while it shows plain percentages. */
+export const gradeOf = (percent: number | null | undefined, university: University): Grade | null => {
+  const grading = university.academic?.grading;
+  if (percent == null || !grading || grading.scale === "percentage") return null;
+  const band = [...grading.bands].sort((a, b) => b.min - a.min).find((b) => percent >= b.min);
+  return band ? { label: band.label, points: band.points, passed: percent >= grading.pass_mark } : null;
+};
+
+/** The average grade points of some percentages (equal weight), or null when the scale has no grade points. */
+export const cgpaOf = (percents: number[], university: University): number | null => {
+  const grades = percents.map((p) => gradeOf(p, university)).filter((g): g is Grade => g !== null);
+  return grades.length ? Math.round((grades.reduce((sum, g) => sum + g.points, 0) / grades.length) * 100) / 100 : null;
+};
+
+/** ` · A+` after a percentage when the university shows grades; nothing for plain percentages. */
+export function GradeTag({ percent, className = "" }: { percent: number | null | undefined; className?: string }) {
+  const university = useUniversity();
+  const grade = gradeOf(percent, university);
+  if (!grade) return null;
+  return <span className={`font-bold ${className}`} title={grade.passed ? "Pass" : "Below the pass mark"}> · {grade.label}</span>;
+}
+
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** A date in the university's format (the browser's own format until the university chooses one). */
+export function formatDate(value: string | number | Date | null | undefined, university: University, withTime = false): string {
+  if (value == null || value === "") return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const style = university.academic?.calendar?.date_format ?? "auto";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const day = pad(date.getDate()), month = pad(date.getMonth() + 1), year = date.getFullYear();
+  let text: string;
+  switch (style) {
+    case "DD/MM/YYYY": text = `${day}/${month}/${year}`; break;
+    case "MM/DD/YYYY": text = `${month}/${day}/${year}`; break;
+    case "YYYY-MM-DD": text = `${year}-${month}-${day}`; break;
+    case "D MMM YYYY": text = `${date.getDate()} ${MONTH_SHORT[date.getMonth()]} ${year}`; break;
+    default: return withTime ? date.toLocaleString() : date.toLocaleDateString();
+  }
+  return withTime ? `${text}, ${pad(date.getHours())}:${pad(date.getMinutes())}` : text;
+}
+
+export function useFormatDate() {
+  const university = useUniversity();
+  return (value: string | number | Date | null | undefined, withTime = false) => formatDate(value, university, withTime);
+}
+
+/** 0 = Sunday ... 6 = Saturday: the first column of a calendar grid. */
+export const weekStartIndex = (university: University): number => ({ sunday: 0, monday: 1, saturday: 6 }[university.academic?.calendar?.week_starts ?? "sunday"] ?? 0);
+
+/** "Academic year 2026-27 · Semester 2", for the calendar pages. */
+export function AcademicPeriod({ className = "" }: { className?: string }) {
+  const { academic } = useUniversity();
+  if (!academic?.current) return null;
+  return <span className={className}>Academic year {academic.current.year_label} · {academic.current.term_label}</span>;
 }

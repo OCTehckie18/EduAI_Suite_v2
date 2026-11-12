@@ -1,3 +1,4 @@
+import { GradeTag, cgpaOf, useUniversity } from "../../shared/university";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowDownRight, ArrowUpRight, CalendarPlus, FileText, Minus, RefreshCw } from "lucide-react";
@@ -59,7 +60,10 @@ export const MyProgressPage: React.FC = () => {
   };
   useEffect(() => { void load(); }, []);
 
+  const university = useUniversity();
   const overall = data?.overall;
+  // Average grade points over every marked result (equal weight), when the university's scale has them.
+  const cgpa = data ? cgpaOf(data.courses.flatMap((c) => c.timeline.map((p) => p.percent)), university) : null;
   const s = overall ? STATUS[overall.status] : null;
   const openCourse = (courseId: number) => navigate("/classroom", { state: { courseId } });
 
@@ -84,8 +88,9 @@ export const MyProgressPage: React.FC = () => {
             <p className="text-2xl font-black">{s!.label}</p>
             <p className="text-sm">{s!.line}</p>
             <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-              <span>Recent marks: <strong>{overall.recent_average == null ? "none yet" : `${overall.recent_average}%`}</strong></span>
-              <span>All marks: <strong>{overall.average == null ? "none yet" : `${overall.average}%`}</strong> ({overall.results_count})</span>
+              <span>Recent marks: <strong>{overall.recent_average == null ? "none yet" : <>{overall.recent_average}%<GradeTag percent={overall.recent_average} /></>}</strong></span>
+              <span>All marks: <strong>{overall.average == null ? "none yet" : <>{overall.average}%<GradeTag percent={overall.average} /></>}</strong> ({overall.results_count})</span>
+              {cgpa != null && <span>CGPA: <strong>{cgpa}</strong></span>}
               <span>Missing: <strong>{overall.missing.length}</strong>{overall.past_due_count ? ` of ${overall.past_due_count} due` : ""}</span>
               <span>Trend: <Trend slope={overall.trend_slope} /></span>
             </div>

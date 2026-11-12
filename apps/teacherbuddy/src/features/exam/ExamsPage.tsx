@@ -1,4 +1,4 @@
-import { useRules } from "../../shared/university";
+import { GradeTag, useRules } from "../../shared/university";
 import React, { useState, useEffect } from "react";
 import {
   ClipboardList, Clock, Users, Plus, CheckCircle2, AlertCircle,
@@ -569,7 +569,7 @@ export const ExamsPage: React.FC = () => {
                                 <div className="text-right">
                                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-0.5" style={{ fontSize: '9px' }}>Score</p>
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-lg font-black text-blue-600">{attempt.status === "flagged" ? "Flagged: cheating" : attempt.status === "expired" ? "Timed out" : attempt.status === "in_progress" ? "In progress" : attempt.status === "pending_review" ? "Needs marking" : `${attempt.score ?? 0}%`}</span>
+                                    <span className="text-lg font-black text-blue-600">{attempt.status === "flagged" ? "Flagged: cheating" : attempt.status === "expired" ? "Timed out" : attempt.status === "in_progress" ? "In progress" : attempt.status === "pending_review" ? "Needs marking" : <>{attempt.score ?? 0}%<GradeTag percent={attempt.score ?? 0} /></>}</span>
                                   </div>
                                 </div>
                                 <button

@@ -1,3 +1,4 @@
+import { AcademicPeriod, useUniversity, weekStartIndex } from "../../shared/university";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Calendar as CalendarIcon,
@@ -52,7 +53,8 @@ type CalendarNotification = {
 const FILTER_TYPES = ["custom", "deadline", "exam", "appointment", "class"];
 
 const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+// Days before the 1st in the first row, for a week that starts on `weekStart` (0 = Sunday).
+const getFirstDayOfMonth = (year: number, month: number, weekStart = 0) => (new Date(year, month, 1).getDay() - weekStart + 7) % 7;
 
 const toLocalISODate = (date: Date) => {
   const y = date.getFullYear();
@@ -150,14 +152,16 @@ export const StudentCalendar: React.FC = () => {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth = getDaysInMonth(year, month);
-  const firstDayOfMonth = getFirstDayOfMonth(year, month);
+  const calendarUniversity = useUniversity();
+  const weekStart = weekStartIndex(calendarUniversity);
+  const firstDayOfMonth = getFirstDayOfMonth(year, month, weekStart);
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const today = () => setCurrentDate(new Date());
 
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((_, i, all) => all[(i + weekStart) % 7]);
 
   const toggleFilter = (type: string) => {
     const newFilters = new Set(activeFilters);
@@ -376,6 +380,7 @@ export const StudentCalendar: React.FC = () => {
           <p className="mt-1 text-sm text-slate-500">
             View your schedule, deadlines, and appointments.
           </p>
+          <p className="mt-1 text-xs font-semibold" style={{ color: "var(--color-brand-blue)" }}><AcademicPeriod /></p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">

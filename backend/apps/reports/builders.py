@@ -25,7 +25,14 @@ STRONG_SCORE = 75
 
 
 def _pct(value):
-    return f"{value}%" if value is not None else NOT_RECORDED
+    """A percentage, with the university's grade beside it when it uses letters or grade points."""
+    if value is None:
+        return NOT_RECORDED
+    from apps.institution import academic
+
+    grading = academic.current()["grading"]
+    grade = academic.grade_for(value, grading) if grading["scale"] != "percentage" else None
+    return f"{value}% ({grade['label']})" if grade and grade["label"] else f"{value}%"
 
 
 def _stamp():

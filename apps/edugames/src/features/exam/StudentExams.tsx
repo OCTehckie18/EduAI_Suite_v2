@@ -1,3 +1,4 @@
+import { GradeTag, formatDate, useUniversity } from "../../shared/university";
 import React, { useState, useEffect } from "react";
 import { Clock, PlayCircle, AlertCircle, FileText } from "lucide-react";
 import { GlassCard } from "../../shared/components/GlassCard";
@@ -7,6 +8,9 @@ import { ExamPlayer } from "./ExamPlayer";
 
 import { API_BASE_URL } from "../../shared/utils/apiConfig";
 export const StudentExams: React.FC = () => {
+  const university = useUniversity();
+  // Only when the university chose a date format; otherwise the dates look as they always did.
+  const customDates = (university.academic?.calendar?.date_format ?? "auto") !== "auto";
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeExam, setActiveExam] = useState<any>(null);
@@ -104,7 +108,7 @@ export const StudentExams: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {exams.map(exam => {
             // Basic formatting for UI
-            const createdDate = new Date(exam.created_at).toLocaleDateString('en-US', { 
+            const createdDate = customDates ? formatDate(exam.created_at, university) : new Date(exam.created_at).toLocaleDateString('en-US', { 
                 month: 'short', day: 'numeric', year: 'numeric' 
             });
             
@@ -120,7 +124,7 @@ export const StudentExams: React.FC = () => {
             const outOfAttempts = flagged || (!inProgress && finished.length >= (exam.attempts_allowed ?? 1));
             const notOpen = !inProgress && exam.availability === "upcoming";
             const ended = !inProgress && exam.availability === "ended";
-            const fmt = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+            const fmt = (iso: string) => customDates ? formatDate(iso, university, true) : new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
             return (
               <GlassCard key={exam.id} className="p-0 overflow-hidden flex flex-col justify-between hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
@@ -143,7 +147,7 @@ export const StudentExams: React.FC = () => {
                       <p className="mt-1"><FileText className="inline mr-1" size={14}/> {exam.time_limit} Minutes</p>
                       <p className="mt-1 text-xs">
                         Attempts: {finished.length} of {exam.attempts_allowed ?? 1}
-                        {bestScore != null && <> · Best score: <strong>{bestScore}%</strong></>}
+                        {bestScore != null && <> · Best score: <strong>{bestScore}%<GradeTag percent={bestScore} /></strong></>}
                       </p>
                       {wasReset && <p className="mt-1 text-xs font-semibold text-green-700">Your attempt was reset by your teacher. You can start again{exam.my_reset.allowed_until ? ` until ${fmt(exam.my_reset.allowed_until)}` : ""}.</p>}
                       {awaiting && <p className="mt-1 text-xs font-semibold text-amber-800">Submitted, awaiting marking. Your teacher will mark your written answers.</p>}
