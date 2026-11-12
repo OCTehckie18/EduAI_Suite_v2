@@ -3,12 +3,13 @@ import { FormEvent, useState } from "react";
 import logo from "../../logo/eduai_logo.png";
 import { API_ENDPOINTS } from "./shared/apiConfig";
 import { requestJson } from "./shared/request";
-import { logoSrc, logoVariant, portalName, signInBackground, signInPage, siteLinks, useUniversity } from "./shared/university";
+import { logoSrc, logoVariant, portalName, signInBackground, signInPage, siteLinks, useUniversity, termsOf } from "./shared/university";
 import { AdminUser } from "./types";
 import { inputClass } from "./ui";
 
 export function LoginScreen({ onLogin }: { onLogin: (user: AdminUser) => void }) {
   const university = useUniversity();
+  const t = termsOf(university);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -23,7 +24,7 @@ export function LoginScreen({ onLogin }: { onLogin: (user: AdminUser) => void })
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!username.trim() || !password) {
-      setError("Enter your email or employee number, and your password.");
+      setError(`Enter your email or ${t("employee_no", { lower: true })}, and your password.`);
       return;
     }
     setLoading(true);
@@ -63,7 +64,7 @@ export function LoginScreen({ onLogin }: { onLogin: (user: AdminUser) => void })
           {page.text && <p className="mt-1 text-sm text-slate-600">{page.text}</p>}
         </div>}
         {error && <p role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-        <label className="mb-4 block text-sm text-slate-700">Email or employee number
+        <label className="mb-4 block text-sm text-slate-700">Email or {t('employee_no', { lower: true })}
           <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" autoFocus className={`${inputClass} mt-2 px-4 py-3`} />
         </label>
         <label className="mb-6 block text-sm text-slate-700">Password

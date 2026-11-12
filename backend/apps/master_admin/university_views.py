@@ -12,6 +12,7 @@ from apps.core.permissions import IsMasterAdmin
 from apps.institution import look as look_rules
 from apps.institution import academic as academic_rules
 from apps.institution import documents as document_rules
+from apps.institution import terms as term_rules
 from apps.institution import modules as module_rules
 from apps.institution import notice as notice_rules
 from apps.institution import rules as rule_book
@@ -394,3 +395,26 @@ class UniversityDocumentsSampleView(APIView):
         response = HttpResponse(render_docx("Sample report", text, head), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         response["Content-Disposition"] = 'attachment; filename="letterhead_sample.docx"'
         return response
+
+
+class UniversityTermsView(APIView):
+    """The university's own words for campuses, students, register numbers and so on."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def get(self, request):
+        profile = UniversityProfile.load()
+        rows = [{"key": key, "label": label, "group": group, "default_singular": s, "default_plural": p}
+                for key, (label, group, s, p) in term_rules.DEFAULT_TERMS.items()]
+        return Response({"terms": term_rules.merged(profile.terms), "rows": rows})
+
+    def put(self, request):
+        profile = UniversityProfile.load()
+        terms, errors = term_rules.clean_terms(request.data.get("terms") if isinstance(request.data, dict) else None, profile.terms)
+        if errors:
+            first_field, message = next(iter(errors.items()))
+            return Response({"detail": message, "errors": errors, "field": first_field}, status=400)
+        profile.terms = terms
+        with transaction.atomic():
+            profile.save(update_fields=["terms", "updated_at"])
+            _record_admin_action(request, "update_university_terms", "institution.universityprofile:1", {"changed": sorted(terms)})
+        return Response({"terms": term_rules.merged(terms), "university": university_payload(profile)})

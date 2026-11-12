@@ -1,4 +1,5 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
+import { useTerms } from "./shared/university";
 import { Download, Upload } from "lucide-react";
 import { API_BASE_URL, authHeaders } from "./shared/apiConfig";
 import { requestJson } from "./shared/request";
@@ -36,6 +37,7 @@ interface ImportResult {
 const ROSTER = `${API_BASE_URL}/master-admin/roster`;
 
 export function RosterPanel({ search }: { search: string }) {
+  const t = useTerms();
   const confirm = useConfirm();
   const toast = useToast();
   const [status, setStatus] = useState<"all" | "signed_up" | "not_signed_up">("all");
@@ -135,7 +137,7 @@ export function RosterPanel({ search }: { search: string }) {
 
     <div className="overflow-x-auto rounded-xl border border-slate-200">
       <table className="w-full text-left text-sm">
-        <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="p-4">Student</th><th className="p-4">Register no.</th><th className="p-4">Placement</th><th className="p-4">Status</th><th className="p-4 text-right">Actions</th></tr></thead>
+        <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="p-4">Student</th><th className="p-4">{t('register_no')}</th><th className="p-4">Placement</th><th className="p-4">Status</th><th className="p-4 text-right">Actions</th></tr></thead>
         <tbody className="divide-y divide-slate-100">
           {data?.results.map((entry) => <tr key={entry.id} className="hover:bg-slate-50/40">
             <td className="p-4"><p className="font-semibold">{entry.name || "—"}</p><p className="text-xs text-slate-500">{entry.email}</p></td>

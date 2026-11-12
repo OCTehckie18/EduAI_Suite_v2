@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useTerms } from "../shared/university";
 import { Pencil, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { API_BASE_URL, API_ENDPOINTS } from "../shared/apiConfig";
 import { requestJson } from "../shared/request";
@@ -11,6 +12,7 @@ const ROLE_TONE: Record<string, "blue" | "violet" | "amber"> = { STUDENT: "blue"
 const ROLE_LABEL: Record<string, string> = { STUDENT: "Student", TEACHER: "Teacher", MASTER_ADMIN: "Master admin" };
 
 function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | null; campuses: Campus[]; onClose: () => void; onSaved: () => void }) {
+  const t = useTerms();
   const toast = useToast();
   const [form, setForm] = useState({
     email: user?.email ?? "", password: "", first_name: user?.first_name ?? "", last_name: user?.last_name ?? "",
@@ -92,7 +94,7 @@ function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | 
           </select>
         </label>
         {user && form.role === "STUDENT" && <>
-          <label className="block text-sm text-slate-700">Register number
+          <label className="block text-sm text-slate-700">{t('register_no')}
             <input value={form.register_no} onChange={(event) => setForm({ ...form, register_no: event.target.value })} className={inputClass} />
           </label>
           <label className="block text-sm text-slate-700">Section <span className="text-xs text-slate-500">(sets class, program and department; the roster follows)</span>
@@ -103,7 +105,7 @@ function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | 
           </label>
         </>}
         {user && form.role === "TEACHER" && <>
-          <label className="block text-sm text-slate-700 sm:col-span-2">Employee number
+          <label className="block text-sm text-slate-700 sm:col-span-2">{t('employee_no')}
             <input value={form.emp_no} onChange={(event) => setForm({ ...form, emp_no: event.target.value })} className={inputClass} />
           </label>
           <fieldset className="sm:col-span-2">
@@ -125,6 +127,7 @@ function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | 
 }
 
 export function UsersPanel({ search, onChanged }: { search: string; onChanged: () => void }) {
+  const t = useTerms();
   const toast = useToast();
   const confirm = useConfirm();
   const [users, setUsers] = useState<DirectoryUser[] | null>(null);
@@ -184,7 +187,7 @@ export function UsersPanel({ search, onChanged }: { search: string; onChanged: (
 
   return (
     <PanelCard>
-      <PanelHeader title="Users" subtitle="Everyone with an account on the platform. Search by name, email, register number or employee number."
+      <PanelHeader title="Users" subtitle={`Everyone with an account on the platform. Search by name, email, ${t("register_no", { lower: true })} or ${t("employee_no", { lower: true })}.`}
         actions={<PrimaryButton tone="sky" onClick={() => setEditing("new")}><Plus className="h-4 w-4" />Add user</PrimaryButton>} />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Chips value={role} options={ROLE_FILTERS} onChange={setRole} />

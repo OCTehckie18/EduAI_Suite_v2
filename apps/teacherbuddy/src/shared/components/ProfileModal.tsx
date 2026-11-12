@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTerms } from "../university";
 import { X } from "lucide-react";
 import { API_ENDPOINTS } from "../utils/apiConfig";
 import { useRules } from "../university";
@@ -32,6 +33,7 @@ const authHeaders = () => ({
 });
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) => {
+  const t = useTerms();
   const studentRules = useRules().accounts.student_can_edit;
   const studentProfile = (role?: string) => role === "student";
   const [profile, setProfile] = useState<ProfileUser | null>(null);
@@ -135,12 +137,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose, onSaved }) 
               <input className={`${inputClass} mt-1 disabled:opacity-60`} value={form.phone_number} onChange={set("phone_number")} disabled={isStudent && !studentRules.phone} />
             </label>
             {isStudent && (
-              <label className="block text-xs font-semibold text-slate-500">Register number
+              <label className="block text-xs font-semibold text-slate-500">{t('register_no')}
                 <input className={`${inputClass} mt-1`} value={form.register_no} onChange={set("register_no")} disabled={Boolean(profile.register_no)} />
               </label>
             )}
             {isTeacher && (
-              <label className="block text-xs font-semibold text-slate-500">Employee number
+              <label className="block text-xs font-semibold text-slate-500">{t('employee_no')}
                 <input className={`${inputClass} mt-1`} value={form.emp_no} onChange={set("emp_no")} disabled={Boolean(profile.emp_no)} />
               </label>
             )}

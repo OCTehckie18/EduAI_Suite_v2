@@ -16,6 +16,7 @@ from .look import look_payload
 from .modules import module_states
 from .academic import public_academic
 from .documents import public_documents
+from .terms import public_terms
 from .notice import active_notice, merged_help
 from .rules import public_rules
 from .models import UniversityProfile
@@ -76,6 +77,7 @@ def university_payload(profile):
         "notice": active_notice(profile.notice),
         "academic": public_academic(profile.academic),
         "documents": public_documents(profile.documents),
+        "terms": public_terms(profile.terms),
         "help": merged_help(profile.help),
     }
 

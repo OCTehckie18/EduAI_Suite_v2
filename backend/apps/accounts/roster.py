@@ -18,6 +18,7 @@ from openpyxl import Workbook, load_workbook
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
 
 from .models import AdmittedStudent
+from apps.institution import terms as university_terms
 
 TEMPLATE_COLUMNS = (
     "Register No", "Student Name", "Student Email",
@@ -120,7 +121,7 @@ def entry_for_identifiers(email, register_no):
         if str(register_no or "").strip() else None
     )
     if by_email and by_register and by_email.pk != by_register.pk:
-        raise ValueError("The email and register number belong to different students on the admitted list.")
+        raise ValueError(f"The email and {university_terms.get('register_no', lower=True)} belong to different {university_terms.get('student', plural=True, lower=True)} on the admitted list.")
     return by_email or by_register
 
 
@@ -198,7 +199,7 @@ def import_roster(uploaded_file):
         except ValueError as exc:
             result.errors.append({"row": number, "error": str(exc)})
         except IntegrityError:
-            result.errors.append({"row": number, "error": "This register number or email is already used by another roster entry."})
+            result.errors.append({"row": number, "error": f"This {university_terms.get('register_no', lower=True)} or email is already used by another roster entry."})
     return result
 
 

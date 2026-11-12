@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTerms } from "../shared/university";
 import { Check, UserCheck, X } from "lucide-react";
 import { API_ENDPOINTS } from "../shared/apiConfig";
 import { requestJson } from "../shared/request";
@@ -8,6 +9,7 @@ import { Avatar, Badge, Chips, EmptyState, ErrorState, PanelCard, PanelHeader, S
 const FILTERS = [["pending", "Pending"], ["approved", "Approved"], ["rejected", "Rejected"]] as const;
 
 export function ApprovalsPanel({ search, onChanged }: { search: string; onChanged: () => void }) {
+  const t = useTerms();
   const toast = useToast();
   const confirm = useConfirm();
   const [status, setStatus] = useState<(typeof FILTERS)[number][0]>("pending");
@@ -68,7 +70,7 @@ export function ApprovalsPanel({ search, onChanged }: { search: string; onChange
         <EmptyState icon={<UserCheck className="h-5 w-5" />} title={status === "pending" ? "No applications are waiting" : `No ${status} teachers`} hint={status === "pending" ? "New teacher sign-ups on TeacherBuddy will appear here." : undefined} />
       ) : (
         <TableShell>
-          <thead><tr><Th>Applicant</Th><Th>Employee no.</Th><Th>Placement</Th><Th>{status === "pending" ? "Applied" : "Reviewed"}</Th><Th right>{status === "pending" ? "Decision" : "Outcome"}</Th></tr></thead>
+          <thead><tr><Th>Applicant</Th><Th>{t('employee_no')}</Th><Th>Placement</Th><Th>{status === "pending" ? "Applied" : "Reviewed"}</Th><Th right>{status === "pending" ? "Decision" : "Outcome"}</Th></tr></thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((row) => (
               <tr key={row.id} className="hover:bg-slate-50/40">
