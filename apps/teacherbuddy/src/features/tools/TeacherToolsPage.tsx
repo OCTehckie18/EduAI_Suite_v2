@@ -62,7 +62,7 @@ export const TeacherToolsPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <div className="space-y-6">
       <div>
         <h1
           className="text-2xl font-bold font-display"

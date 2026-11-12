@@ -34,7 +34,7 @@ export const TrelloBoardsPage: React.FC = () => {
   };
 
   return (
-    <div className="animate-fade-in-up">
+    <div >
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
         <div>

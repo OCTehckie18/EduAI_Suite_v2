@@ -200,7 +200,7 @@ export const StudentShell: React.FC = () => {
 
         <NoticeBanner />
         <div className="p-4 sm:p-6 min-h-[calc(100vh-70px)] min-h-[calc(100dvh-70px)]">
-          <Suspense fallback={<p className="p-6 text-sm" style={{ color: "var(--color-text-muted)" }}>Loading...</p>}><Outlet /></Suspense>
+          <Suspense fallback={<p className="p-6 text-sm" style={{ color: "var(--color-text-muted)" }}>Loading...</p>}><div key={location.pathname} className="page-enter"><Outlet /></div></Suspense>
         </div>
         {profileModalOpen && (
           <ProfileModal

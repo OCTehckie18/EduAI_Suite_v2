@@ -153,7 +153,7 @@ export const DashboardPage: React.FC = () => {
   } = data;
 
   return (
-    <div className="space-y-7 animate-fade-in">
+    <div className="space-y-7">
       {/* Page Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -190,7 +190,7 @@ export const DashboardPage: React.FC = () => {
           return (
             <div
               key={stat.label}
-              className={`glass-card p-5 border-l-4 ${stat.accent} animate-fade-in-up delay-${i}00`}
+              className={`glass-card p-5 border-l-4 ${stat.accent}`}
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: stat.bg }}>
@@ -224,7 +224,7 @@ export const DashboardPage: React.FC = () => {
           <div className="grid sm:grid-cols-2 gap-4">
             {classrooms.map((cls: any, i: number) => (
               <Link to={`/classrooms/${cls.id}`} key={cls.id}>
-                <GlassCard interactive className={`animate-fade-in-up delay-${i % 3}00`}>
+                <GlassCard interactive>
                   <div className="gradient-blue rounded-xl mb-4 p-4 h-28 flex flex-col justify-between relative overflow-hidden">
                     <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-10 bg-white" />
                     <div className="absolute -right-2 -bottom-6 w-20 h-20 rounded-full opacity-8 bg-white" />

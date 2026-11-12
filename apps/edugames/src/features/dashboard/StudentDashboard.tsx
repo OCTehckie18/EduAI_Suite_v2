@@ -184,7 +184,7 @@ export const StudentDashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-7 animate-fade-in">
+    <div className="space-y-7">
       <div className="flex items-start justify-between">
         <div>
           <h1

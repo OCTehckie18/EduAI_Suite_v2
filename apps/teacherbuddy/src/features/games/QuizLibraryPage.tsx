@@ -102,7 +102,7 @@ export const QuizLibraryPage: React.FC = () => {
   );
 
   return (
-    <div className="space-y-8 animate-fade-in pb-12">
+    <div className="space-y-8 pb-12">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>

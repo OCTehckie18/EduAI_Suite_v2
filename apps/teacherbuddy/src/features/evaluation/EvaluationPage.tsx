@@ -142,7 +142,7 @@ export const EvaluationPage: React.FC = () => {
   const border = { borderColor: "var(--color-border)" };
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold font-display" style={{ color: "var(--color-text-primary)" }}>Evaluation</h1>
         <p className="mt-1" style={{ color: "var(--color-text-secondary)" }}>

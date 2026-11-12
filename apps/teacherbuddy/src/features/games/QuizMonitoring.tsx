@@ -286,7 +286,7 @@ export const QuizMonitoring: React.FC = () => {
 
   if ((status === "active" || status === "result") && currentQuestion) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col animate-fade-in relative">
+      <div className="min-h-screen bg-gray-50 flex flex-col relative">
         {banner}
         <div className="bg-white border-b p-6 flex justify-between items-center shadow-sm z-10">
           <div className="flex items-center gap-4">
@@ -421,7 +421,7 @@ export const QuizMonitoring: React.FC = () => {
 
   if (status === "completed") {
     return (
-      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col items-center justify-center p-8 text-white animate-fade-in overflow-hidden relative">
+      <div className="min-h-screen bg-[var(--color-brand-blue-dark)] flex flex-col items-center justify-center p-8 text-white overflow-hidden relative">
         <Trophy size={120} className="text-yellow-400 mb-8 animate-bounce" />
         <h1 className="text-8xl font-black mb-16 italic tracking-tighter shadow-text">
           PODIUM

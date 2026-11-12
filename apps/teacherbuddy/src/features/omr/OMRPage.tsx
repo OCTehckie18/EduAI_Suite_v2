@@ -168,7 +168,7 @@ export const OMRPage: React.FC = () => {
   // ---- create ----
   if (view === "create") {
     return (
-      <div className="space-y-6 animate-fade-in-up max-w-3xl">
+      <div className="space-y-6 max-w-3xl">
         <div>
           <button className="text-sm font-bold text-blue-700 hover:underline" onClick={() => setView("list")}>Back to OMR exams</button>
           <h1 className="text-2xl font-bold font-display">New OMR exam</h1>
@@ -204,7 +204,7 @@ export const OMRPage: React.FC = () => {
   if (view === "detail" && job) {
     const review = openSheet;
     return (
-      <div className="space-y-6 animate-fade-in-up">
+      <div className="space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <button className="text-sm font-bold text-blue-700 hover:underline" onClick={() => { setView("list"); loadJobs(); }}>Back to OMR exams</button>
@@ -301,7 +301,7 @@ export const OMRPage: React.FC = () => {
 
   // ---- list ----
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="max-w-2xl">
           <h1 className="text-2xl font-bold font-display">OMR</h1>

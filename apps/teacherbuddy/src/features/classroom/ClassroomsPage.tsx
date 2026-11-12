@@ -805,7 +805,7 @@ export const ClassroomsPage: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="animate-in fade-in duration-300">
+            <div >
               <div
                 className="p-8 rounded-3xl relative overflow-hidden shadow-2xl"
                 style={{
@@ -899,7 +899,7 @@ export const ClassroomsPage: React.FC = () => {
 
               <div className="p-2 py-6">
                 {activeTab === "home" && (
-                  <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="space-y-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
                         <p className="text-xs font-bold uppercase tracking-widest mb-3 text-slate-500 ">
@@ -1016,7 +1016,7 @@ export const ClassroomsPage: React.FC = () => {
                 )}
 
                 {activeTab === "assignments" && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="space-y-4">
                     <div className="grid gap-4">
                       {assignments.length === 0 ? (
                         <div className="p-16 text-center rounded-2xl bg-white/60 border border-slate-200 ">
@@ -1109,7 +1109,7 @@ export const ClassroomsPage: React.FC = () => {
                 {activeTab === "gradebook" && selectedId && <GradebookTab courseId={selectedId} />}
 
                 {activeTab === "students" && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="space-y-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-slate-600">{students.length} enrolled</p>
                       <button
@@ -1196,7 +1196,7 @@ export const ClassroomsPage: React.FC = () => {
                 )}
 
                 {activeTab === "engagement" && (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="space-y-6">
                     {engagementLoading ? (
                       <div className="flex flex-col items-center justify-center py-20">
                         <div className="w-10 h-10 border-4 border-brand-blue border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -1566,7 +1566,7 @@ export const ClassroomsPage: React.FC = () => {
       {/* --- SUPER PREMIUM MODALS --- */}
 
       {showCourseModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-fade-in">
           <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg lg:max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
@@ -1739,7 +1739,7 @@ export const ClassroomsPage: React.FC = () => {
       )}
 
       {showStudentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-fade-in">
           <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg lg:max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
@@ -1835,7 +1835,7 @@ export const ClassroomsPage: React.FC = () => {
       )}
 
       {showAnnouncementModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-fade-in">
           <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
@@ -1930,7 +1930,7 @@ export const ClassroomsPage: React.FC = () => {
       )}
 
       {showAssignmentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-fade-in">
           <div className="bg-white [#111] border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-lg lg:max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] [0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
@@ -2045,7 +2045,7 @@ export const ClassroomsPage: React.FC = () => {
       )}
 
       {deleteConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in">
           <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="flex flex-col items-center text-center">
               <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
@@ -2078,7 +2078,7 @@ export const ClassroomsPage: React.FC = () => {
       )}
 
       {showSubmissionsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-fade-in">
           <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 w-full max-w-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] max-h-[calc(100dvh-2rem)] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-2xl text-slate-800 ">
@@ -2145,7 +2145,7 @@ export const ClassroomsPage: React.FC = () => {
       {/* ── Student Profile Card Modal ── */}
       {showStudentProfile && (
         <div
-          className="fixed inset-0 z-[60] flex justify-end bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-[60] flex justify-end bg-slate-900/40 backdrop-blur-md animate-fade-in"
           onClick={() => setShowStudentProfile(false)}
         >
           <div
@@ -2319,7 +2319,7 @@ export const ClassroomsPage: React.FC = () => {
                 <div className="p-6 space-y-4">
                   {/* Overview Tab */}
                   {profileTab === "overview" && (
-                    <div className="space-y-4 animate-in fade-in duration-300">
+                    <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
                           <div className="flex items-center gap-2 mb-2">
@@ -2414,7 +2414,7 @@ export const ClassroomsPage: React.FC = () => {
 
                   {/* Assignments Tab */}
                   {profileTab === "assignments" && (
-                    <div className="space-y-3 animate-in fade-in duration-300">
+                    <div className="space-y-3">
                       {studentProfileData.assignments.details.length === 0 ? (
                         <div className="text-center py-12 text-slate-400">
                           <BookOpen size={32} className="mx-auto mb-3" />
@@ -2476,7 +2476,7 @@ export const ClassroomsPage: React.FC = () => {
 
                   {/* Exams Tab */}
                   {profileTab === "exams" && (
-                    <div className="space-y-3 animate-in fade-in duration-300">
+                    <div className="space-y-3">
                       {studentProfileData.exams.details.length === 0 ? (
                         <div className="text-center py-12 text-slate-400">
                           <ClipboardList size={32} className="mx-auto mb-3" />
@@ -2527,7 +2527,7 @@ export const ClassroomsPage: React.FC = () => {
 
                   {/* Games Tab */}
                   {profileTab === "games" && (
-                    <div className="space-y-3 animate-in fade-in duration-300">
+                    <div className="space-y-3">
                       {studentProfileData.games.details.length === 0 ? (
                         <div className="text-center py-12 text-slate-400">
                           <Gamepad2 size={32} className="mx-auto mb-3" />
@@ -2575,7 +2575,7 @@ export const ClassroomsPage: React.FC = () => {
 
                   {/* Timeline Tab */}
                   {profileTab === "timeline" && (
-                    <div className="space-y-1 animate-in fade-in duration-300">
+                    <div className="space-y-1">
                       {studentProfileData.timeline.length === 0 ? (
                         <div className="text-center py-12 text-slate-400">
                           <Activity size={32} className="mx-auto mb-3" />

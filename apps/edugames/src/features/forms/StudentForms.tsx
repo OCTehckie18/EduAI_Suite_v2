@@ -59,7 +59,7 @@ export const StudentForms: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in-up max-w-3xl">
+    <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold font-display" style={{ color: "var(--color-text-primary)" }}>Forms</h1>
         <p className="mt-1 text-sm" style={{ color: "var(--color-text-secondary)" }}>Forms your teachers have asked you to fill in. You can answer each one once.</p>
