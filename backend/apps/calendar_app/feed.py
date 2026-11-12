@@ -118,7 +118,6 @@ def custom_events_for(user, course_ids):
     visible = (
         Q(created_by=user)
         | Q(student_email__iexact=user.email)
-        | Q(teacher_name__iexact=user.full_name)
         | Q(created_by__isnull=True, student_email__isnull=True, teacher_name__isnull=True,
             course_id__isnull=True)
     )
@@ -132,10 +131,8 @@ def can_edit_event(user, event) -> bool:
         return True
     if event.created_by_id is not None:
         return event.created_by_id == user.pk
-    return (
-        (event.student_email or "").lower() == (user.email or "").lower()
-        or (event.teacher_name or "").lower() == user.full_name.lower()
-    )
+    # Not by teacher name: a name is editable, so matching on it would hand one teacher's events to another.
+    return (event.student_email or "").lower() == (user.email or "").lower()
 
 
 def build_feed(user):
@@ -195,7 +192,7 @@ def build_feed(user):
     if student:
         appointments = appointments.filter(student_email__iexact=user.email)
     elif not admin:
-        appointments = appointments.filter(teacher_name__iexact=user.full_name)
+        appointments = appointments.filter(teacher=user)
     for appt in appointments:
         slot, _ = parse_when(appt.time_slot)
         if slot:

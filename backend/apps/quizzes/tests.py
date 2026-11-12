@@ -28,7 +28,7 @@ class QuizSocketCase(TransactionTestCase):
             settings.JWT_SECRET_KEY,
             algorithm="HS256",
         )
-        self.quiz = Quiz.objects.create(title="WebSocket smoke quiz")
+        self.quiz = Quiz.objects.create(title="WebSocket smoke quiz", teacher_id=teacher.pk)
         self.question = self.add_question("Which answer is correct?")
         self.correct_option = self.question.options.get(is_correct=True)
         self.wrong_option = self.question.options.get(is_correct=False)

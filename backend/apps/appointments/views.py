@@ -22,7 +22,8 @@ def _normalize_name(name):
 
 
 def _is_appointment_teacher(user, appointment):
-    return user.role == User.Role.TEACHER and _normalize_name(appointment.teacher_name) == _normalize_name(user.full_name)
+    # By account, never by name: names are editable, so a name match would let a teacher rename themselves into access.
+    return user.role == User.Role.TEACHER and appointment.teacher_id == user.pk
 
 
 class AppointmentListCreateView(APIView):
@@ -41,8 +42,7 @@ class AppointmentListCreateView(APIView):
         if is_master_admin(user):
             pass
         elif user.role == User.Role.TEACHER:
-            norm = _normalize_name(user.full_name)
-            return Response(AppointmentSerializer([a for a in qs if _normalize_name(a.teacher_name) == norm], many=True).data)
+            qs = qs.filter(teacher=user)
         else:
             qs = qs.filter(student_email__iexact=user.email)
 
@@ -71,6 +71,7 @@ class AppointmentListCreateView(APIView):
             student_name=student_name,
             student_email=student_email,
             teacher_name=canonical_teacher,
+            teacher=candidates[0],
             teacher_department=data.get("teacher_department"),
             meeting_mode=data.get("meeting_mode"),
             time_slot=data.get("time_slot"),
@@ -108,7 +109,10 @@ class TeacherAppointmentListView(APIView):
         norm = _normalize_name(teacher_name)
         if not (is_master_admin(user) or (user.role == User.Role.TEACHER and _normalize_name(user.full_name) == norm)):
             return Response({"detail": "You can only view your own appointments."}, status=status.HTTP_403_FORBIDDEN)
-        matched = [a for a in Appointment.objects.all() if _normalize_name(a.teacher_name) == norm]
+        if is_master_admin(user):
+            matched = [a for a in Appointment.objects.all() if _normalize_name(a.teacher_name) == norm]
+        else:
+            matched = list(Appointment.objects.filter(teacher=user))  # the path name only selects the page; the account decides
         return Response(AppointmentSerializer(matched, many=True).data)
 
 
@@ -198,7 +202,7 @@ class TeacherInviteView(APIView):
             return Response({"detail": "The meeting is either In-person or Online."}, status=status.HTTP_400_BAD_REQUEST)
         now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M")
         appointment = Appointment.objects.create(
-            student_name=student.full_name, student_email=student.email, teacher_name=user.full_name,
+            student_name=student.full_name, student_email=student.email, teacher_name=user.full_name, teacher=user,
             meeting_mode=mode, time_slot=time_slot[:100], agenda=str(request.data.get("agenda") or "Progress check")[:500],
             details=str(request.data.get("details") or ""), status="approved", booked_by_teacher=True, requested_at=now_iso,
             reviewed_at=now_iso, reviewed_by=user.full_name,
