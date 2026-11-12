@@ -1,25 +1,27 @@
+import { lazy } from "react";
 import { ModuleGate } from "../shared/university";
-import React from "react";
 import { createBrowserRouter } from "react-router-dom";
 import { StudentShell } from "../layouts/StudentShell";
 import { StudentDashboard } from "../features/dashboard/StudentDashboard";
-import { StudentClassrooms } from "../features/classroom/StudentClassrooms";
-import { StudentExams } from "../features/exam/StudentExams";
 import { AuthPage } from "../features/auth/AuthPage";
-import { GamesPage } from "../features/games/GamesPage";
-import { ChainAnswerGamePage } from "../features/games/ChainAnswerGamePage";
-import { QuizController } from "../features/games/QuizController";
-import { AppointmentBookingPage } from "../features/appointments/AppointmentBookingPage";
-import { StudentForms } from "../features/forms/StudentForms";
-import { MyProgressPage } from "../features/progress/MyProgressPage";
-import { TrelloBoardsPage } from "../features/trello/TrelloBoardsPage";
-import { TrelloBoardView } from "../features/trello/TrelloBoardView";
 import { ConstructionPage } from "../shared/components/ConstructionPage";
-import { WordCloudPlayerPage } from "../features/games/WordCloudPlayerPage";
-import { StudentCalendar } from "../features/calendar/StudentCalendar";
 
 import { WaitingPage } from "../features/auth/WaitingPage";
 import { ProfileSetupPage } from "../features/auth/ProfileSetupPage";
+
+// Feature pages load on first visit, so the sign-in and dashboard need only the main bundle.
+const StudentClassrooms = lazy(() => import("../features/classroom/StudentClassrooms").then((m) => ({ default: m.StudentClassrooms })));
+const StudentExams = lazy(() => import("../features/exam/StudentExams").then((m) => ({ default: m.StudentExams })));
+const GamesPage = lazy(() => import("../features/games/GamesPage").then((m) => ({ default: m.GamesPage })));
+const ChainAnswerGamePage = lazy(() => import("../features/games/ChainAnswerGamePage").then((m) => ({ default: m.ChainAnswerGamePage })));
+const QuizController = lazy(() => import("../features/games/QuizController").then((m) => ({ default: m.QuizController })));
+const AppointmentBookingPage = lazy(() => import("../features/appointments/AppointmentBookingPage").then((m) => ({ default: m.AppointmentBookingPage })));
+const StudentForms = lazy(() => import("../features/forms/StudentForms").then((m) => ({ default: m.StudentForms })));
+const MyProgressPage = lazy(() => import("../features/progress/MyProgressPage").then((m) => ({ default: m.MyProgressPage })));
+const TrelloBoardsPage = lazy(() => import("../features/trello/TrelloBoardsPage").then((m) => ({ default: m.TrelloBoardsPage })));
+const TrelloBoardView = lazy(() => import("../features/trello/TrelloBoardView").then((m) => ({ default: m.TrelloBoardView })));
+const WordCloudPlayerPage = lazy(() => import("../features/games/WordCloudPlayerPage").then((m) => ({ default: m.WordCloudPlayerPage })));
+const StudentCalendar = lazy(() => import("../features/calendar/StudentCalendar").then((m) => ({ default: m.StudentCalendar })));
 
 export const router = createBrowserRouter([
   {

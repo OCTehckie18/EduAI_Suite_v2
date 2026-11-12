@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import React, { useState, useEffect, useRef } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, Gamepad2, LayoutDashboard, ClipboardList, CalendarClock, LogOut, ChevronRight, Menu, Calendar, FileSignature, TrendingUp } from "lucide-react";
@@ -199,7 +200,7 @@ export const StudentShell: React.FC = () => {
 
         <NoticeBanner />
         <div className="p-4 sm:p-6 min-h-[calc(100vh-70px)] min-h-[calc(100dvh-70px)]">
-          <Outlet />
+          <Suspense fallback={<p className="p-6 text-sm" style={{ color: "var(--color-text-muted)" }}>Loading...</p>}><Outlet /></Suspense>
         </div>
         {profileModalOpen && (
           <ProfileModal

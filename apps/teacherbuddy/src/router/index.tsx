@@ -1,32 +1,35 @@
+import { lazy } from "react";
 import { ModuleGate } from "../shared/university";
 import { createBrowserRouter } from "react-router-dom";
 import { DashboardShell } from "../layouts/DashboardShell";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
-import { EvaluationPage } from "../features/evaluation/EvaluationPage";
-import { OMRPage } from "../features/omr/OMRPage";
-import { ReportsPage } from "../features/reports/ReportsPage";
-import { FormsPage } from "../features/forms/FormsPage";
-import { RiskIntelligencePage } from "../features/analytics/RiskIntelligencePage";
-import { CalendarPage } from "../features/calendar/CalendarPage";
-import { AIChatPage } from "../features/ai-chat/AIChatPage";
 import { AuthPage } from "../features/auth/AuthPage";
-import { GamesPage } from "../features/games/GamesPage";
-import { QuizCreator } from "../features/games/QuizCreator";
-import { QuizLibraryPage } from "../features/games/QuizLibraryPage";
-import { QuizMonitoring } from "../features/games/QuizMonitoring";
-import { QuizReportPage } from "../features/games/QuizReportPage";
-import { QuizTestParticipantPage } from "../features/games/QuizTestParticipantPage";
-import { TeacherAppointmentsPage } from "../features/appointments/TeacherAppointmentsPage";
-import { TeacherToolsPage } from "../features/tools/TeacherToolsPage";
-import { ClassroomsPage } from "../features/classroom/ClassroomsPage";
-import { ExamsPage } from "../features/exam/ExamsPage";
-import { MailStudentsPage } from "../features/mail/MailStudentsPage";
 import { ConstructionPage } from "../shared/components/ConstructionPage";
-import { TrelloBoardsPage } from "../features/trello/TrelloBoardsPage";
-import { TrelloBoardView } from "../features/trello/TrelloBoardView";
 
 import { WaitingPage } from "../features/auth/WaitingPage";
 import { ProfileSetupPage } from "../features/auth/ProfileSetupPage";
+
+// Feature pages load on first visit, so the sign-in and dashboard need only the main bundle.
+const EvaluationPage = lazy(() => import("../features/evaluation/EvaluationPage").then((m) => ({ default: m.EvaluationPage })));
+const OMRPage = lazy(() => import("../features/omr/OMRPage").then((m) => ({ default: m.OMRPage })));
+const ReportsPage = lazy(() => import("../features/reports/ReportsPage").then((m) => ({ default: m.ReportsPage })));
+const FormsPage = lazy(() => import("../features/forms/FormsPage").then((m) => ({ default: m.FormsPage })));
+const RiskIntelligencePage = lazy(() => import("../features/analytics/RiskIntelligencePage").then((m) => ({ default: m.RiskIntelligencePage })));
+const CalendarPage = lazy(() => import("../features/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
+const AIChatPage = lazy(() => import("../features/ai-chat/AIChatPage").then((m) => ({ default: m.AIChatPage })));
+const GamesPage = lazy(() => import("../features/games/GamesPage").then((m) => ({ default: m.GamesPage })));
+const QuizCreator = lazy(() => import("../features/games/QuizCreator").then((m) => ({ default: m.QuizCreator })));
+const QuizLibraryPage = lazy(() => import("../features/games/QuizLibraryPage").then((m) => ({ default: m.QuizLibraryPage })));
+const QuizMonitoring = lazy(() => import("../features/games/QuizMonitoring").then((m) => ({ default: m.QuizMonitoring })));
+const QuizReportPage = lazy(() => import("../features/games/QuizReportPage").then((m) => ({ default: m.QuizReportPage })));
+const QuizTestParticipantPage = lazy(() => import("../features/games/QuizTestParticipantPage").then((m) => ({ default: m.QuizTestParticipantPage })));
+const TeacherAppointmentsPage = lazy(() => import("../features/appointments/TeacherAppointmentsPage").then((m) => ({ default: m.TeacherAppointmentsPage })));
+const TeacherToolsPage = lazy(() => import("../features/tools/TeacherToolsPage").then((m) => ({ default: m.TeacherToolsPage })));
+const ClassroomsPage = lazy(() => import("../features/classroom/ClassroomsPage").then((m) => ({ default: m.ClassroomsPage })));
+const ExamsPage = lazy(() => import("../features/exam/ExamsPage").then((m) => ({ default: m.ExamsPage })));
+const MailStudentsPage = lazy(() => import("../features/mail/MailStudentsPage").then((m) => ({ default: m.MailStudentsPage })));
+const TrelloBoardsPage = lazy(() => import("../features/trello/TrelloBoardsPage").then((m) => ({ default: m.TrelloBoardsPage })));
+const TrelloBoardView = lazy(() => import("../features/trello/TrelloBoardView").then((m) => ({ default: m.TrelloBoardView })));
 
 export const router = createBrowserRouter([
   {
