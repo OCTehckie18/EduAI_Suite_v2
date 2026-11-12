@@ -1,11 +1,16 @@
+from datetime import datetime, time
+
 from django.db import transaction
-from rest_framework.parsers import FormParser, MultiPartParser
+from django.shortcuts import get_object_or_404
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.calendar_app.models import CalendarEvent
 from apps.core.permissions import IsMasterAdmin
 from apps.institution import look as look_rules
+from apps.institution import academic as academic_rules
 from apps.institution import modules as module_rules
 from apps.institution import notice as notice_rules
 from apps.institution import rules as rule_book
@@ -223,3 +228,123 @@ class UniversityNoticeView(APIView):
             profile.save(update_fields=["notice", "help", "updated_at"])
             _record_admin_action(request, "update_university_notice", "institution.universityprofile:1", {"groups": sorted(k for k in data if k in ("notice", "help"))})
         return Response({**self._payload(profile), "university": university_payload(profile)})
+
+
+class UniversityAcademicView(APIView):
+    """The grading scale and the academic calendar conventions."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def _payload(self, profile):
+        academic = academic_rules.merged(profile.academic)
+        return {
+            "academic": academic,
+            "presets": {"letters": academic_rules._bands(academic_rules.LETTERS), "grade_points": academic_rules._bands(academic_rules.GRADE_POINTS)},
+            "timezones": sorted(academic_rules.available_timezones()),
+            "months": list(academic_rules.MONTHS),
+            "current": academic_rules.current_period(academic["calendar"]),
+        }
+
+    def get(self, request):
+        return Response(self._payload(UniversityProfile.load()))
+
+    def put(self, request):
+        profile = UniversityProfile.load()
+        academic, errors = academic_rules.clean_academic(request.data, profile.academic)
+        if errors:
+            first_field, message = next(iter(errors.items()))
+            return Response({"detail": message, "errors": errors, "field": first_field}, status=400)
+        before = academic_rules.merged(profile.academic)
+        profile.academic = academic
+        with transaction.atomic():
+            profile.save(update_fields=["academic", "updated_at"])
+            _record_admin_action(request, "update_university_academic", "institution.universityprofile:1", {"before": before, "after": academic})
+        return Response({**self._payload(profile), "university": university_payload(profile)})
+
+
+HOLIDAY_COLOUR = "#0f766e"
+
+
+def _holiday_payload(event):
+    return {"id": event.pk, "date": event.start_time.astimezone(academic_rules.university_zone()).date().isoformat(), "name": event.title}
+
+
+class UniversityHolidaysView(APIView):
+    """Institution-wide holidays: they appear as all-day events in every calendar (and in Google Calendar sync)."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request):
+        events = CalendarEvent.objects.filter(event_type="holiday", created_by__isnull=True).order_by("start_time")
+        return Response({"results": [_holiday_payload(e) for e in events]})
+
+    def post(self, request):
+        """Add holidays from a sheet (``file``: columns Date and Name) or one at a time (``date`` and ``name``)."""
+        rows = []
+        uploaded = request.FILES.get("file")
+        if uploaded:
+            try:
+                rows = _holiday_rows(uploaded)
+            except ValueError as exc:
+                return Response({"detail": str(exc)}, status=400)
+        else:
+            rows = [(2, request.data.get("date"), request.data.get("name"))]
+        created, skipped, errors = 0, 0, []
+        zone = academic_rules.university_zone()
+        for number, raw_date, name in rows:
+            day = academic_rules.parse_holiday_date(raw_date)
+            name = str(name or "").strip()
+            if day is None:
+                errors.append({"row": number, "error": "The date is not valid (use 2026-12-25 or 25/12/2026)."})
+                continue
+            if not name or len(name) > 120:
+                errors.append({"row": number, "error": "Give the holiday a name of up to 120 characters."})
+                continue
+            start = datetime.combine(day, time.min, tzinfo=zone)
+            if CalendarEvent.objects.filter(event_type="holiday", created_by__isnull=True, title__iexact=name, start_time=start).exists():
+                skipped += 1
+                continue
+            CalendarEvent.objects.create(title=name, start_time=start, end_time=start, is_all_day=True, event_type="holiday", color=HOLIDAY_COLOUR)
+            created += 1
+        if created:
+            _record_admin_action(request, "add_university_holidays", "calendar_app.calendarevent", {"created": created})
+        status_code = 400 if errors and not created and not skipped else 200
+        return Response({"created": created, "skipped": skipped, "errors": errors}, status=status_code)
+
+
+class UniversityHolidayDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def delete(self, request, pk):
+        event = get_object_or_404(CalendarEvent, pk=pk, event_type="holiday", created_by__isnull=True)
+        event.delete()
+        _record_admin_action(request, "remove_university_holiday", f"calendar_app.calendarevent:{pk}")
+        return Response({"success": True, "id": pk})
+
+
+def _holiday_rows(uploaded):
+    import csv
+    import io
+
+    from openpyxl import load_workbook
+
+    name = uploaded.name.lower()
+    if name.endswith(".csv"):
+        table = list(csv.reader(io.StringIO(uploaded.read().decode("utf-8-sig"))))
+    elif name.endswith(".xlsx"):
+        table = [list(row) for row in load_workbook(uploaded, read_only=True, data_only=True).active.iter_rows(values_only=True)]
+    else:
+        raise ValueError("Upload a .csv or .xlsx file with the columns Date and Name.")
+    if not table:
+        raise ValueError("The file is empty.")
+    header = [str(c or "").strip().lower() for c in table[0]]
+    if "date" not in header or "name" not in header:
+        raise ValueError("The first row must have the headings Date and Name.")
+    date_at, name_at = header.index("date"), header.index("name")
+    rows = []
+    for number, row in enumerate(table[1:], start=2):
+        if not any(str(c or "").strip() for c in row):
+            continue
+        rows.append((number, row[date_at] if date_at < len(row) else "", row[name_at] if name_at < len(row) else ""))
+    if len(rows) > 500:
+        raise ValueError("Upload at most 500 holidays at a time.")
+    return rows

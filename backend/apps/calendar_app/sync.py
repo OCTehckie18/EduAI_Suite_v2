@@ -32,6 +32,12 @@ MAX_ITEMS = 1500  # a safety ceiling for one user
 DEFAULT_LENGTH = timedelta(hours=1)
 
 
+def university_timezone():
+    from apps.institution import academic
+
+    return academic.current()["calendar"]["timezone"]
+
+
 def calendar_name():
     profile = UniversityProfile.load()
     return f"EduAI · {profile.short_name or profile.name or 'University'}"
@@ -69,8 +75,8 @@ def to_google_event(item):
     else:
         if end is None or end <= start:
             end = start + DEFAULT_LENGTH
-        body["start"] = {"dateTime": start.isoformat(), "timeZone": settings.TIME_ZONE}
-        body["end"] = {"dateTime": end.isoformat(), "timeZone": settings.TIME_ZONE}
+        body["start"] = {"dateTime": start.isoformat(), "timeZone": university_timezone()}
+        body["end"] = {"dateTime": end.isoformat(), "timeZone": university_timezone()}
     body["extendedProperties"] = {"private": {"eduai_uid": item["id"]}}
     return body
 
@@ -104,7 +110,7 @@ def _mark(link, status, error=""):
 def _ensure_calendar(link, api, access):
     if link.calendar_id:
         return
-    link.calendar_id = api.create_calendar(access, calendar_name(), settings.TIME_ZONE)
+    link.calendar_id = api.create_calendar(access, calendar_name(), university_timezone())
     link.save(update_fields=["calendar_id"])
 
 

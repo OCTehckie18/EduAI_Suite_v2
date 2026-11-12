@@ -2,6 +2,7 @@ from django.urls import path
 
 from .university_views import (
     UniversityDetailView, UniversityLogoUploadView, UniversityLookAssetView, UniversityLookResetView, UniversityLookView,
+    UniversityAcademicView, UniversityHolidayDetailView, UniversityHolidaysView,
     UniversityModulesView, UniversityNoticeView, UniversityRulesView,
 )
 from .staff_roster_views import (
@@ -47,6 +48,9 @@ urlpatterns = [
     path("university/modules/", UniversityModulesView.as_view(), name="master-admin-university-modules"),
     path("university/rules/", UniversityRulesView.as_view(), name="master-admin-university-rules"),
     path("university/notice/", UniversityNoticeView.as_view(), name="master-admin-university-notice"),
+    path("university/academic/", UniversityAcademicView.as_view(), name="master-admin-university-academic"),
+    path("university/holidays/", UniversityHolidaysView.as_view(), name="master-admin-university-holidays"),
+    path("university/holidays/<int:pk>/", UniversityHolidayDetailView.as_view(), name="master-admin-university-holiday"),
     path("university/look/reset/", UniversityLookResetView.as_view(), name="master-admin-university-look-reset"),
     path("university/look/assets/<str:slot>/", UniversityLookAssetView.as_view(), name="master-admin-university-look-asset"),
     path("overview/", MasterAdminOverviewView.as_view(),

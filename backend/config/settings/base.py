@@ -72,6 +72,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # Refuses the API of any module the university switched off (Master Admin > Modules).
     'apps.institution.modules.ModuleSwitchMiddleware',
+    # Times are shown in the university's own time zone (Master Admin > Grading and calendar).
+    'apps.institution.academic.UniversityTimezoneMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'

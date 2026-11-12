@@ -189,6 +189,8 @@ class UniversityProfile(TimeStampedModel):
     # An institution-wide notice banner and the help-desk details; validated by institution/notice.py.
     notice = models.JSONField(default=dict, blank=True)
     help = models.JSONField(default=dict, blank=True)
+    # Grading scale and academic calendar settings; validated by institution/academic.py.
+    academic = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return self.name or "University (not configured)"

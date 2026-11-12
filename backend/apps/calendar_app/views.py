@@ -213,7 +213,7 @@ class GoogleCalendarCallbackView(APIView):
             link.refresh_token = crypto.encrypt(refresh)
             link.status, link.last_error = GoogleCalendarLink.Status.CONNECTED, ""
             if not link.calendar_id:
-                link.calendar_id = api.create_calendar(access, sync.calendar_name(), settings.TIME_ZONE)
+                link.calendar_id = api.create_calendar(access, sync.calendar_name(), sync.university_timezone())
             link.save()
         except (google_client.GoogleApiError, google_client.GoogleAuthError):
             return _redirect(return_to, google="error", reason="google")
