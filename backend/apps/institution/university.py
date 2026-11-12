@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from .look import look_payload
 from .modules import module_states
+from .notice import active_notice, merged_help
 from .rules import public_rules
 from .models import UniversityProfile
 
@@ -70,6 +71,8 @@ def university_payload(profile):
         # Which modules are on, so every portal can hide the ones the university switched off.
         "modules": module_states(profile.modules),
         "rules": public_rules(profile.rules),
+        "notice": active_notice(profile.notice),
+        "help": merged_help(profile.help),
     }
 
 

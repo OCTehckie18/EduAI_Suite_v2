@@ -30,7 +30,7 @@ import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { tokenIsFresh } from "../shared/utils/installAuthFetch";
 import { ThemeToggle } from "../shared/ThemeToggle";
 import { ProfileModal } from "../shared/components/ProfileModal";
-import { PortalName, UniversityBadge, moduleOn, rulesOf, useUniversity, type ModuleKey } from "../shared/university";
+import { HelpBlock, NoticeBanner, PortalName, UniversityBadge, moduleOn, rulesOf, useUniversity, type ModuleKey } from "../shared/university";
 
 // uncomment to view the modesl
 // Entries that belong to a module the university can switch off. Game Studio goes once every game is off.
@@ -650,6 +650,7 @@ export const DashboardShell: React.FC = () => {
                 >
                   Edit Profile
                 </button>
+                <HelpBlock className="border-t" />
                 <div
                   className="border-t mt-1"
                   style={{ borderColor: "var(--color-border)" }}
@@ -744,6 +745,7 @@ export const DashboardShell: React.FC = () => {
       <main
         className={`flex-1 min-w-0 transition-all duration-300 pt-[64px] ${sidebarOpen ? "lg:ml-[260px]" : "ml-0"}`}
       >
+        <NoticeBanner />
         <div className="p-4 sm:p-6">
           <Outlet />
         </div>

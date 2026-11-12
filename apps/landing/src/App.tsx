@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { logoSrc, logoVariant, portalName, useDocumentTitle, useUniversity } from "./shared/university";
+import { NoticeBanner, logoSrc, logoVariant, portalName, useDocumentTitle, useUniversity } from "./shared/university";
 import { API_BASE_URL } from "./shared/utils/apiConfig";
 import { portals } from "./portals";
 import { Header } from "./components/Header";
@@ -40,6 +40,7 @@ export default function App() {
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)", color: "var(--text)" }}>
       <a href="#portals" className="skip-link">Skip to the portals</a>
+      <NoticeBanner />
       <Header name={name} shortName={university.short_name || name} logo={logo} logoVariant={variant} email={university.contact_email} />
       <main>
         <Hero universityName={university.name} students={students} teachers={teachers} backendUp={backendUp} headline={university.look?.landing?.headline} text={university.look?.landing?.text} />

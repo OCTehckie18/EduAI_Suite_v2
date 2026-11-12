@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, Menu, Paintbrush, Scale, ToggleRight, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
+import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, Menu, Megaphone, Paintbrush, Scale, ToggleRight, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
 import logo from "../../logo/eduai_logo.png";
 import { LoginScreen } from "./Login";
 import { ThemeToggle } from "./shared/ThemeToggle";
@@ -8,6 +8,7 @@ import { StaffRosterPanel } from "./StaffRosterPanel";
 import { StructurePanel } from "./StructurePanel";
 import { LookPanel } from "./LookPanel";
 import { ModulesPanel } from "./ModulesPanel";
+import { NoticePanel } from "./NoticePanel";
 import { RulesPanel } from "./RulesPanel";
 import { UniversityPanel } from "./UniversityPanel";
 import { ApprovalsPanel } from "./panels/ApprovalsPanel";
@@ -17,7 +18,7 @@ import { RecycleBinPanel } from "./panels/RecycleBinPanel";
 import { UsersPanel } from "./panels/UsersPanel";
 import { API_ENDPOINTS } from "./shared/apiConfig";
 import { requestJson } from "./shared/request";
-import { PortalName, UniversityBadge, useDocumentTitle } from "./shared/university";
+import { NoticeBanner, PortalName, UniversityBadge, useDocumentTitle } from "./shared/university";
 import { AdminUser, Overview, TabKey } from "./types";
 import { Avatar, UIProvider } from "./ui";
 
@@ -32,6 +33,7 @@ const NAV: { heading: string; items: TabDef[] }[] = [
     { tab: "look", label: "Look & feel", title: "Look and feel", subtitle: "Fonts, corners, portal names and sign-in pages for every portal", Icon: Paintbrush, color: "text-orange-600", search: false },
     { tab: "modules", label: "Modules", title: "Modules", subtitle: "Switch off what your university does not use", Icon: ToggleRight, color: "text-emerald-600", search: false },
     { tab: "rules", label: "Rules", title: "Rules", subtitle: "Exams, sign-in, accounts and the risk score", Icon: Scale, color: "text-sky-700", search: false },
+    { tab: "notice", label: "Notice & help", title: "Notice and help", subtitle: "A banner for everyone, and your help desk details", Icon: Megaphone, color: "text-amber-600", search: false },
     { tab: "campuses", label: "Campuses", title: "Campuses", subtitle: "The campuses of your university", Icon: Building2, color: "text-emerald-600", search: true },
     { tab: "structure", label: "Structure", title: "Institution structure", subtitle: "Schools, departments, programs, classes and sections", Icon: Layers, color: "text-teal-600", search: true },
   ] },
@@ -99,6 +101,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
     look: <LookPanel />,
     modules: <ModulesPanel />,
     rules: <RulesPanel />,
+    notice: <NoticePanel />,
     campuses: <CampusPanel key={refreshKey} search={search} onChanged={loadOverview} />,
     structure: <StructurePanel key={refreshKey} search={search} onChanged={loadOverview} />,
     roster: <RosterPanel key={refreshKey} search={search} />,
@@ -160,6 +163,7 @@ function Dashboard({ user, onSignOut }: { user: AdminUser; onSignOut: () => void
           <div className="flex items-center gap-2"><Avatar name={displayName} /><div className="hidden text-left leading-tight md:block"><p className="max-w-[10rem] truncate text-xs font-semibold text-slate-900">{displayName}</p><p className="text-[11px] text-slate-500">Master Admin</p></div></div>
           <button onClick={onSignOut} className="flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:text-slate-900"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">Sign out</span></button>
         </header>
+        <NoticeBanner />
         <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-8">{panel}</main>
       </div>
     </div>

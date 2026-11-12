@@ -186,6 +186,9 @@ class UniversityProfile(TimeStampedModel):
     modules = models.JSONField(default=dict, blank=True)
     # Exam, sign-in, account and risk rules; validated by institution/rules.py, missing values use the default.
     rules = models.JSONField(default=dict, blank=True)
+    # An institution-wide notice banner and the help-desk details; validated by institution/notice.py.
+    notice = models.JSONField(default=dict, blank=True)
+    help = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return self.name or "University (not configured)"

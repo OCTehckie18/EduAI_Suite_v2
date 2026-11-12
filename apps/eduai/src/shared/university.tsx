@@ -31,6 +31,9 @@ export interface University {
   /** Module switches ({forms: false, ...}); missing means on. */
   modules?: Record<string, boolean>;
   /** Exam, sign-in and account rules (missing on an old cached copy). */
+  /** The notice to show right now (null when none is on or it is outside its dates). */
+  notice?: Notice | null;
+  help?: HelpDetails;
   rules?: {
     exam?: Partial<Omit<PublicRules["exam"], "events">> & { events?: Partial<PublicRules["exam"]["events"]> };
     signin?: Partial<PublicRules["signin"]>;
@@ -222,4 +225,50 @@ export const rulesOf = (university: University): PublicRules => {
 
 export function useRules(): PublicRules {
   return rulesOf(useUniversity());
+}
+
+/** The institution-wide notice. ``version`` changes whenever the text does, so a dismissed notice stays hidden only until it is edited. */
+export interface Notice { text: string; tone: "info" | "urgent"; dismissable: boolean; version: string }
+export interface HelpDetails { email: string; phone: string; hours: string; link: string }
+
+const NOTICE_KEY = "eduai-notice-dismissed";
+const dismissedVersion = () => {
+  try { return localStorage.getItem(NOTICE_KEY); } catch { return null; }
+};
+
+/** The banner across the top of a portal while the university has a notice on. */
+export function NoticeBanner() {
+  const university = useUniversity();
+  const notice = university.notice;
+  const [dismissed, setDismissed] = useState<string | null>(dismissedVersion);
+  if (!notice || (notice.dismissable && dismissed === notice.version)) return null;
+  const urgent = notice.tone === "urgent";
+  return (
+    <div role={urgent ? "alert" : "status"} className="flex items-start gap-3 px-4 py-2.5 text-sm"
+      style={{ background: urgent ? "#b91c1c" : "var(--color-brand-blue-fill)", color: "#ffffff" }}>
+      <p className="min-w-0 flex-1 font-medium">{notice.text}</p>
+      {notice.dismissable && (
+        <button type="button" aria-label="Dismiss this notice" className="shrink-0 rounded px-2 text-lg leading-none hover:bg-white/20"
+          onClick={() => {
+            try { localStorage.setItem(NOTICE_KEY, notice.version); } catch { /* the notice just returns next visit */ }
+            setDismissed(notice.version);
+          }}>&times;</button>
+      )}
+    </div>
+  );
+}
+
+/** Help-desk details for the account menu; renders nothing until the university has filled something in. */
+export function HelpBlock({ className = "" }: { className?: string }) {
+  const { help } = useUniversity();
+  if (!help || !(help.email || help.phone || help.hours || help.link)) return null;
+  return (
+    <div className={`px-4 py-3 text-[11px] leading-relaxed ${className}`} style={{ color: "var(--color-text-secondary)" }}>
+      <p className="mb-1 font-bold uppercase tracking-wider" style={{ color: "var(--color-text-muted, var(--color-text-secondary))" }}>Need help?</p>
+      {help.email && <p><a href={`mailto:${help.email}`} className="underline break-all">{help.email}</a></p>}
+      {help.phone && <p><a href={`tel:${help.phone.replace(/\s+/g, "")}`} className="underline">{help.phone}</a></p>}
+      {help.hours && <p>{help.hours}</p>}
+      {help.link && <p><a href={help.link} target="_blank" rel="noreferrer" className="underline">How to use the portal</a></p>}
+    </div>
+  );
 }

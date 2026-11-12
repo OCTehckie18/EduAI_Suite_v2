@@ -6,7 +6,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useSessionTimeout } from "../shared/hooks/useSessionTimeout";
 import { DESKTOP_QUERY, useMediaQuery } from "../shared/hooks/useMediaQuery";
 import { ProfileModal } from "../shared/components/ProfileModal";
-import { PortalName, UniversityBadge, moduleOn, rulesOf, useUniversity, type ModuleKey } from "../shared/university";
+import { HelpBlock, NoticeBanner, PortalName, UniversityBadge, moduleOn, rulesOf, useUniversity, type ModuleKey } from "../shared/university";
 import { NotificationBell } from "../shared/components/NotificationBell";
 import { ThemeToggle } from "../shared/ThemeToggle";
 
@@ -180,6 +180,7 @@ export const StudentShell: React.FC = () => {
                   >
                     Edit Profile
                   </button>
+                  <HelpBlock className="border-t" />
 
                   <div className="border-t mt-1" style={{ borderColor: 'var(--color-border)' }}>
                     <button onClick={() => { logout(); navigate("/login"); }}
@@ -196,6 +197,7 @@ export const StudentShell: React.FC = () => {
           </div>
         </header>
 
+        <NoticeBanner />
         <div className="p-4 sm:p-6 min-h-[calc(100vh-70px)] min-h-[calc(100dvh-70px)]">
           <Outlet />
         </div>
