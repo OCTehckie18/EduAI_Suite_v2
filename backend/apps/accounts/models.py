@@ -48,6 +48,7 @@ class User(AbstractBaseUser, PermissionsMixin, SoftDeleteModel):
     last_name = models.CharField(max_length=150, blank=True)
     avatar_url = models.URLField(blank=True)
     phone_number = models.CharField(max_length=30, blank=True)
+    extra = models.JSONField(default=dict, blank=True)  # the university's custom profile fields (institution.fields)
 
     campus = models.ForeignKey(Campus, null=True, blank=True, on_delete=models.SET_NULL, related_name="users")
     school = models.ForeignKey(School, null=True, blank=True, on_delete=models.SET_NULL, related_name="users")

@@ -18,6 +18,7 @@ from openpyxl import Workbook, load_workbook
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
 
 from .models import AdmittedStudent
+from apps.institution import fields as university_fields
 from apps.institution import terms as university_terms
 
 TEMPLATE_COLUMNS = (
@@ -209,6 +210,9 @@ def _import_row(row, result):
     name = _text(row, "Student Name")
     if not register_no or not email:
         raise ValueError("Register No and Student Email are required.")
+    format_error = university_fields.check_id("register_no", register_no)
+    if format_error:
+        raise ValueError(format_error)
     try:
         validate_email(email)
     except ValidationError:

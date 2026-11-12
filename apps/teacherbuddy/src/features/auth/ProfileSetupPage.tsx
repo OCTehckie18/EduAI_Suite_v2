@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../../../../logo/eduai_logo.png";
 import { useAuthStore } from "../../store/useAuthStore";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
-import { logoSrc, logoVariant, useUniversity, termsOf } from "../../shared/university";
+import { logoSrc, logoVariant, useUniversity, termsOf, ExtraFields, extraBody, fieldsFor } from "../../shared/university";
 
 type Option = { id: number; name: string; code?: string };
 
@@ -31,6 +31,7 @@ export const ProfileSetupPage: React.FC = () => {
   const [programs, setPrograms] = useState<Option[]>([]);
   const [batches, setBatches] = useState<Option[]>([]);
   const [sections, setSections] = useState<Option[]>([]);
+  const [extra, setExtra] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ campus: "", school: "", department: "", program: "", batch: "", section: "", emp_no: "", phone_number: "", password: "", confirm_password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -83,7 +84,7 @@ export const ProfileSetupPage: React.FC = () => {
     if (form.password !== form.confirm_password) { setError("Passwords do not match."); return; }
     setLoading(true);
     try {
-      const response = await fetch(`${API_ENDPOINTS.AUTH}/profile/setup/`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ role: "TEACHER", emp_no: form.emp_no, phone_number: form.phone_number, campus: Number(form.campus), school: Number(form.school), department: Number(form.department), programs: form.program ? [Number(form.program)] : [], batches: form.batch ? [Number(form.batch)] : [], password: form.password }) });
+      const response = await fetch(`${API_ENDPOINTS.AUTH}/profile/setup/`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ role: "TEACHER", emp_no: form.emp_no, phone_number: form.phone_number, campus: Number(form.campus), school: Number(form.school), department: Number(form.department), programs: form.program ? [Number(form.program)] : [], batches: form.batch ? [Number(form.batch)] : [], password: form.password, extra: extraBody(fieldsFor(uni, "teacher"), extra) }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Unable to complete registration.");
       googleLogin(data.access, data.user, data.status);

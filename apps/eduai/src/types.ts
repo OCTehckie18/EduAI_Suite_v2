@@ -42,6 +42,7 @@ export interface Campus {
 
 export interface DirectoryUser {
   id: number;
+  extra?: Record<string, string>;
   email: string;
   name: string;
   first_name?: string;
@@ -81,7 +82,7 @@ export interface TeacherApplication {
 }
 
 export type TabKey =
-  | "overview" | "campuses" | "structure" | "university" | "look" | "modules" | "rules" | "notice" | "academic" | "documents" | "words"
+  | "overview" | "campuses" | "structure" | "university" | "look" | "modules" | "rules" | "notice" | "academic" | "documents" | "words" | "fields"
   | "roster" | "users" | "approvals" | "recycle_bin";
 
 export interface RestoreField { name: string; label: string; type: "text" | "email" | "textarea"; value: string; max_length?: number | null; required: boolean }

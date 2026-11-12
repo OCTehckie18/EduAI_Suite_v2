@@ -114,6 +114,13 @@ class DefaultSectionMigrationTests(TransactionTestCase):
     migrate_from = [("institution", "0001_initial")]
     migrate_to = [("institution", "0002_default_sections")]
 
+    def tearDown(self):
+        # Put every app back at its latest migration, so later tests see the full schema (for example new User columns).
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+        super().tearDown()
+
     def test_existing_classes_without_sections_get_section_a(self):
         executor = MigrationExecutor(connection)
         executor.migrate(self.migrate_from)

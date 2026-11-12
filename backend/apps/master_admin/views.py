@@ -19,6 +19,7 @@ from apps.accounts.roster import hierarchy_for
 from apps.core.permissions import IsMasterAdmin
 from apps.core.models import ActionHistory
 from apps.institution.models import Batch, Campus, Department, Program, School, Section
+from apps.institution import fields as university_fields
 from apps.institution import terms as university_terms
 
 from .services import (
@@ -433,6 +434,7 @@ def _user_payload(user):
         "name": user.full_name,
         "register_no": user.register_no,
         "emp_no": user.emp_no,
+        "extra": user.extra or {},
         "role": user.role,
         "approval_status": user.approval_status,
         "is_active": user.is_active,
@@ -525,6 +527,10 @@ class UserDirectoryView(APIView):
             validate_password(str(data["password"]))
         except DjangoValidationError as exc:
             return Response({"detail": " ".join(exc.messages)}, status=400)
+        for number_kind, number_field in (("register_no", "register_no"), ("employee_no", "emp_no")):
+            format_error = university_fields.check_id(number_kind, data.get(number_field))
+            if format_error:
+                return Response({"detail": format_error, "field": number_field}, status=400)
         try:
             with transaction.atomic():
                 user = User.objects.create_user(
@@ -589,6 +595,10 @@ class UserDirectoryDetailView(APIView):
                 value = str(data[field] or "").strip() or None
                 if value and User.all_objects.filter(**{f"{field}__iexact": value}).exclude(pk=user.pk).exists():
                     return Response({"detail": f"Another account already uses this {label}.", "field": field}, status=409)
+                if value and value != getattr(user, field):
+                    format_error = university_fields.check_id(field if field == "register_no" else "employee_no", value)
+                    if format_error:
+                        return Response({"detail": format_error, "field": field}, status=400)
                 setattr(user, field, value)
         if "role" in data:
             valid_roles = {choice[0] for choice in user.Role.choices}
@@ -645,6 +655,11 @@ class UserDirectoryDetailView(APIView):
                 return Response({"detail": "One of those programs does not exist."}, status=400)
             if any(program.department_id != user.department_id for program in programs):
                 return Response({"detail": "A teacher can only teach programs in their own department."}, status=400)
+        if "extra" in data:
+            extra, extra_error = university_fields.apply_extra(user, data["extra"], by_admin=True, enforce_required=False)
+            if extra_error:
+                return Response({"detail": extra_error, "field": "extra"}, status=400)
+            user.extra = extra
         entry = AdmittedStudent.objects.filter(user=user).first()
         if section is not None:
             for name, value in hierarchy_for(section).items():

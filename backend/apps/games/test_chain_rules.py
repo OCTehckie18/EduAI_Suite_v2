@@ -196,6 +196,13 @@ class RenumberMigrationTests(TransactionTestCase):
     before = [("games", "0003_chain_game_account_links"), ("accounts", "0004_admitted_student_roster")]
     after = [("games", "0004_chain_turn_state_and_word_positions"), ("accounts", "0004_admitted_student_roster")]
 
+    def tearDown(self):
+        # Put every app back at its latest migration, so later tests see the full schema (for example new User columns).
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+        super().tearDown()
+
     def test_old_games_keep_their_chain_order_and_rejected_words_leave_the_chain(self):
         executor = MigrationExecutor(connection)
         executor.migrate(self.before)

@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { useTerms } from "../shared/university";
+import { useTerms, ExtraFields, extraBody, fieldsFor, useUniversity } from "../shared/university";
 import { Pencil, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { API_BASE_URL, API_ENDPOINTS } from "../shared/apiConfig";
 import { requestJson } from "../shared/request";
@@ -21,6 +21,8 @@ function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | 
   });
   const [departments, setDepartments] = useState<{ id: number; label: string }[]>([]);
   const [teaching, setTeaching] = useState<number[]>(user?.teaching_programs ?? []);
+  const [extra, setExtra] = useState<Record<string, string>>(user?.extra ?? {});
+  const university = useUniversity();
   const [options, setOptions] = useState<{ sections: { id: number; label: string }[]; programs: { id: number; label: string; department: number }[] }>({ sections: [], programs: [] });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -48,6 +50,7 @@ function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | 
           campus: form.campus ? Number(form.campus) : null, department: form.department ? Number(form.department) : null,
           ...(form.role === "STUDENT" && form.section && Number(form.section) !== user.section?.id ? { section: Number(form.section) } : {}),
           ...(form.role === "TEACHER" ? { teaching_programs: teaching } : {}),
+          ...(form.role === "STUDENT" || form.role === "TEACHER" ? { extra: extraBody(fieldsFor(university, form.role === "TEACHER" ? "teacher" : "student"), extra, true) } : {}),
         } : { ...form, campus: form.campus ? Number(form.campus) : null, department: form.department ? Number(form.department) : null }),
       });
       toast.success(user ? "User updated." : "User created.");
@@ -117,6 +120,7 @@ function UserForm({ user, campuses, onClose, onSaved }: { user: DirectoryUser | 
             </div>}
           </fieldset>
         </>}
+        {user && (form.role === "STUDENT" || form.role === "TEACHER") && <ExtraFields role={form.role === "TEACHER" ? "teacher" : "student"} values={extra} onChange={setExtra} asAdmin labelClass="block text-sm text-slate-700" inputClass={inputClass} />}
         <div className="flex justify-end gap-3 pt-2 sm:col-span-2">
           <button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:text-slate-900">Cancel</button>
           <PrimaryButton type="submit" disabled={saving}>{saving ? "Saving..." : "Save"}</PrimaryButton>

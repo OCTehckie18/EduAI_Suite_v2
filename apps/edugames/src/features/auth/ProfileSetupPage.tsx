@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../../../../logo/eduai_logo.png";
 import { useAuthStore } from "../../store/useAuthStore";
 import { API_ENDPOINTS } from "../../shared/utils/apiConfig";
-import { logoSrc, logoVariant, useUniversity } from "../../shared/university";
+import { logoSrc, logoVariant, useUniversity, ExtraFields, extraBody, fieldsFor } from "../../shared/university";
 
 interface Admission {
   matched: boolean | null;
@@ -40,6 +40,7 @@ export const ProfileSetupPage: React.FC = () => {
   const token = localStorage.getItem("token");
   const [admission, setAdmission] = useState<Admission | null>(null);
   const [form, setForm] = useState({ phone_number: "", password: "", confirm_password: "" });
+  const [extra, setExtra] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -72,7 +73,7 @@ export const ProfileSetupPage: React.FC = () => {
       const response = await fetch(`${API_ENDPOINTS.AUTH}/profile/setup/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ phone_number: form.phone_number, password: form.password }),
+        body: JSON.stringify({ phone_number: form.phone_number, password: form.password, extra: extraBody(fieldsFor(uni, "student"), extra) }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Unable to complete registration.");
@@ -139,6 +140,9 @@ export const ProfileSetupPage: React.FC = () => {
           <label className="flex flex-col gap-2 text-sm font-semibold">Phone number
             <input value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} className={inputClass} />
           </label>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ExtraFields role="student" values={extra} onChange={setExtra} labelClass="flex flex-col gap-2 text-sm font-semibold" inputClass={inputClass} />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-2 text-sm font-semibold">Password

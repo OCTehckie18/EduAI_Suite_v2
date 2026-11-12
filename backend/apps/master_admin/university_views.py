@@ -12,6 +12,7 @@ from apps.core.permissions import IsMasterAdmin
 from apps.institution import look as look_rules
 from apps.institution import academic as academic_rules
 from apps.institution import documents as document_rules
+from apps.institution import fields as field_rules
 from apps.institution import terms as term_rules
 from apps.institution import modules as module_rules
 from apps.institution import notice as notice_rules
@@ -418,3 +419,23 @@ class UniversityTermsView(APIView):
             profile.save(update_fields=["terms", "updated_at"])
             _record_admin_action(request, "update_university_terms", "institution.universityprofile:1", {"changed": sorted(terms)})
         return Response({"terms": term_rules.merged(terms), "university": university_payload(profile)})
+
+
+class UniversityFieldsView(APIView):
+    """ID formats for register and employee numbers, and the extra profile fields."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def get(self, request):
+        return Response({"fields": field_rules.public_fields(UniversityProfile.load().fields)})
+
+    def put(self, request):
+        profile = UniversityProfile.load()
+        fields, errors = field_rules.clean_fields(request.data, profile.fields)
+        if errors:
+            first_field, message = next(iter(errors.items()))
+            return Response({"detail": message, "errors": errors, "field": first_field}, status=400)
+        profile.fields = fields
+        with transaction.atomic():
+            profile.save(update_fields=["fields", "updated_at"])
+            _record_admin_action(request, "update_university_fields", "institution.universityprofile:1", {"custom": [row["key"] for row in fields["custom"]]})
+        return Response({"fields": field_rules.public_fields(fields), "university": university_payload(profile)})
