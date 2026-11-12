@@ -251,9 +251,6 @@ def _get_game(session_id):
     )
 
 
-def _my_player(game, user):
-    return game.players.filter(student=user).first()
-
 
 def _can_view(user, game):
     """The owner and admins; players of the game; and any student of the owning teacher (so they can open the join page)."""

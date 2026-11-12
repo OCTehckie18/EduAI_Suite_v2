@@ -36,3 +36,6 @@ backend/backups/
 
 # Files uploaded while running the app or its tests
 backend/uploads/
+
+# TypeScript incremental build cache
+*.tsbuildinfo

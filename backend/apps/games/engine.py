@@ -50,10 +50,6 @@ def chain(game):
     return list(game.words.filter(is_valid=True).order_by("position"))
 
 
-def anchor_word(game):
-    words = chain(game)
-    return words[-1].word if words else game.starting_word
-
 
 def time_left(game):
     """Seconds left on the current turn (None when nothing is running)."""
