@@ -119,6 +119,10 @@ html.dark .recharts-default-tooltip {
   color: var(--dk-text);
 }
 html.dark .recharts-tooltip-cursor { fill: rgba(148, 163, 184, 0.08); }
+/* Tooltip text defaults to dark grey; the label and every row must be light on the dark tooltip. */
+html.dark .recharts-tooltip-label,
+html.dark .recharts-tooltip-item { color: var(--dk-text) !important; }
+html.dark .recharts-legend-item-text { color: var(--dk-text-sub) !important; }
 
 /* Brand colour as a fill under white text: a deeper shade than the brand colour used for text */
 :root {
@@ -176,3 +180,13 @@ html.theme-switching * {
 /* TeacherBuddy only: the sidebar is white in light mode */
 html.dark { --color-sidebar-bg: var(--dk-card); }
 html.dark .glass-sidebar { background: var(--dk-card); box-shadow: 4px 0 20px rgba(0, 0, 0, 0.35); }
+
+/* Text on a brand fill: the fill is chosen per theme and per university, so the text colour has to follow it
+   (white while that reads well, near-black on a light fill). Only plain fills and fill-to-fill gradients, never
+   a gradient that fades into a dark colour, where white text is still right. */
+[style*="background: var(--color-brand-blue-fill)"],
+[style*="var(--color-brand-blue-fill), var(--color-brand-blue-fill-2)"],
+[style*="background: var(--color-brand-accent-fill)"] { color: var(--color-on-brand) !important; }
+[style*="background: var(--color-brand-blue-fill)"] .text-white,
+[style*="var(--color-brand-blue-fill), var(--color-brand-blue-fill-2)"] .text-white,
+[style*="background: var(--color-brand-accent-fill)"] .text-white { color: inherit !important; }

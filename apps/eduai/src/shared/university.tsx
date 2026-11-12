@@ -264,7 +264,7 @@ export function NoticeBanner() {
   const urgent = notice.tone === "urgent";
   return (
     <div role={urgent ? "alert" : "status"} className="flex items-start gap-3 px-4 py-2.5 text-sm"
-      style={{ background: urgent ? "#b91c1c" : "var(--color-brand-blue-fill)", color: "#ffffff" }}>
+      style={{ background: urgent ? "#b91c1c" : "var(--color-brand-blue-fill)", color: urgent ? "#ffffff" : "var(--color-on-brand)" }}>
       <p className="min-w-0 flex-1 font-medium">{notice.text}</p>
       {notice.dismissable && (
         <button type="button" aria-label="Dismiss this notice" className="shrink-0 rounded px-2 text-lg leading-none hover:bg-white/20"
