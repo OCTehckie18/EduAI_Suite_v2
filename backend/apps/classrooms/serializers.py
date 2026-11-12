@@ -80,8 +80,3 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         }
 
 
-class ResourceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Resource
-        fields = ["id", "course", "name", "type", "size", "date"]
-

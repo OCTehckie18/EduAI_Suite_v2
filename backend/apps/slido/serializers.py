@@ -100,19 +100,6 @@ class SlidoPollSerializer(serializers.ModelSerializer):
         ]
 
 
-class PollResponseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PollResponse
-        fields = [
-            "id",
-            "poll_id",
-            "student_id",
-            "option_text",
-            "response_text",
-            "response_value",
-            "responded_at",
-        ]
-
 
 class SlidoQnASerializer(serializers.ModelSerializer):
     class Meta:

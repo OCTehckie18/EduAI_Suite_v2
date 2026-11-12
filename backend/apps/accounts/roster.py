@@ -292,6 +292,3 @@ def roster_workbook():
         guide.append(row)
     return workbook, count
 
-
-def template_workbook():
-    return roster_workbook()[0]

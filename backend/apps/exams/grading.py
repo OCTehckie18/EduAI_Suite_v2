@@ -66,6 +66,3 @@ def clean_accepted_answers(raw, blanks, label):
         cleaned.append(values)
     return cleaned, None
 
-
-def word_count(text):
-    return len(str(text or "").split())
