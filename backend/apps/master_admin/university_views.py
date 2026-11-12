@@ -426,7 +426,7 @@ class UniversityFieldsView(APIView):
     permission_classes = [IsAuthenticated, IsMasterAdmin]
 
     def get(self, request):
-        return Response({"fields": field_rules.public_fields(UniversityProfile.load().fields)})
+        return Response({"fields": field_rules.admin_fields(UniversityProfile.load().fields)})
 
     def put(self, request):
         profile = UniversityProfile.load()
@@ -438,4 +438,4 @@ class UniversityFieldsView(APIView):
         with transaction.atomic():
             profile.save(update_fields=["fields", "updated_at"])
             _record_admin_action(request, "update_university_fields", "institution.universityprofile:1", {"custom": [row["key"] for row in fields["custom"]]})
-        return Response({"fields": field_rules.public_fields(fields), "university": university_payload(profile)})
+        return Response({"fields": field_rules.admin_fields(fields), "university": university_payload(profile)})
