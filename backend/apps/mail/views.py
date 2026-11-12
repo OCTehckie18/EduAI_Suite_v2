@@ -22,7 +22,7 @@ from apps.core.utils.file_uploads import MAX_SPREADSHEET_BYTES, validate_upload
 
 from apps.accounts.models import User
 from apps.core.models import ActionHistory
-from apps.core.utils.email_utils import email_configured, send_email
+from apps.core.utils.email_utils import email_configured, send_email, smtp_connection
 from services.groq_service import GroqService, DEFAULT_MODEL
 from .models import MailDraft, MailHistory
 from .serializers import MailDraftSerializer, MailHistorySerializer
@@ -369,13 +369,13 @@ class MailSendView(APIView):
 
         sent, failed = [], []
         histories = []
-        with transaction.atomic():
+        with transaction.atomic(), smtp_connection() as connection:
             for subject, body in messages:
                 reached = []
                 for person in people:
                     text = personalise(body, person)
                     html = escape(text).replace("\n", "<br>")
-                    if send_email(to_email=person["email"], subject=personalise(subject, person), body=html):
+                    if send_email(to_email=person["email"], subject=personalise(subject, person), body=html, connection=connection):
                         reached.append(person["email"])
                     else:
                         failed.append(person["email"])

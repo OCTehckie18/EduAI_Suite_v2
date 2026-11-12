@@ -114,7 +114,7 @@ class SendTests(MailBase):
         self.assertEqual((ok.status_code, sender.call_count), (201, 1))
 
     def test_a_partial_failure_is_reported_and_only_reached_people_are_logged(self):
-        def flaky(to_email, subject, body):
+        def flaky(to_email, subject, body, connection=None):
             return to_email != "bob@x.com"
 
         with CONFIGURED, mock.patch("apps.mail.views.send_email", side_effect=flaky):

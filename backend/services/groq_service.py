@@ -46,7 +46,8 @@ class GroqService:
             return
 
         try:
-            cls._client = Groq(api_key=groq_api_key)
+            # A slow or stuck AI call must not hold a web request (and its worker) for minutes.
+            cls._client = Groq(api_key=groq_api_key, timeout=60.0, max_retries=1)
             cls._available = True
             logger.info("Groq Service Connected and Ready")
         except Exception as e:
