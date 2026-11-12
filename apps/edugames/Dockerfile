@@ -7,6 +7,7 @@ RUN npm ci
 
 COPY edugames .
 COPY logo /app/logo
+COPY shared /app/shared
 
 EXPOSE 5174
 

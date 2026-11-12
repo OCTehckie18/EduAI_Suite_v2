@@ -1,5 +1,14 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+// apps/shared holds code used by every portal. It sits outside this app, so the packages it imports
+// are looked up in this app's node_modules.
+const sharedDeps = ["react", "react-dom", "lucide-react"].map((dep) => ({
+  find: new RegExp(`^${dep}(?=$|/)`),
+  replacement: fileURLToPath(new URL(`./node_modules/${dep}`, import.meta.url)),
+}));
+
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -23,6 +32,7 @@ export default defineConfig({
     },
   },
   resolve: {
+    alias: sharedDeps,
     dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {

@@ -7,6 +7,7 @@ COPY landing/package*.json ./
 RUN npm ci
 COPY landing .
 COPY logo /app/logo
+COPY shared /app/shared
 ARG VITE_EDUGAMES_URL
 ARG VITE_TEACHERBUDDY_URL
 ARG VITE_ADMIN_URL
@@ -18,6 +19,7 @@ COPY eduai/package*.json ./
 RUN npm ci
 COPY eduai .
 COPY logo /app/logo
+COPY shared /app/shared
 RUN npm run build
 
 FROM node:22-alpine AS build-teacherbuddy
@@ -26,6 +28,7 @@ COPY teacherbuddy/package*.json ./
 RUN npm ci
 COPY teacherbuddy .
 COPY logo /app/logo
+COPY shared /app/shared
 ARG VITE_GOOGLE_CLIENT_ID
 RUN npm run build
 
@@ -35,6 +38,7 @@ COPY edugames/package*.json ./
 RUN npm ci
 COPY edugames .
 COPY logo /app/logo
+COPY shared /app/shared
 ARG VITE_GOOGLE_CLIENT_ID
 RUN npm run build
 

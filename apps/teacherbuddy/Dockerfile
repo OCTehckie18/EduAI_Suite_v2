@@ -7,6 +7,7 @@ RUN npm ci --legacy-peer-deps
 
 COPY teacherbuddy .
 COPY logo /app/logo
+COPY shared /app/shared
 
 EXPOSE 5173
 

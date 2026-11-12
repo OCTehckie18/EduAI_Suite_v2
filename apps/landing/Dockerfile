@@ -6,6 +6,7 @@ COPY landing/package*.json ./
 RUN npm ci
 
 COPY landing .
+COPY shared /app/shared
 
 EXPOSE 5176
 
