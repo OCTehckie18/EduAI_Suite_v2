@@ -8,12 +8,14 @@ platform does not record (attendance) is stated as "Not recorded" instead of bei
 import io
 import logging
 import re
+from collections import defaultdict
 from datetime import datetime
 
+from django.db.models import Count
 from django.utils import timezone
 
 from apps.assignments.models import Assignment, Submission
-from apps.assignments.stats import average_by_student, course_average
+from apps.assignments.stats import average_by_student, averages_by_course, course_average
 from apps.classrooms.models import Enrollment
 from apps.exams.models import Exam, ExamAttempt
 
@@ -65,8 +67,17 @@ def build_class_report(classroom):
     ]
     if not assignments:
         lines.append("- No assignments have been set yet.")
+    # Every submission and attempt of the class in two queries, instead of one query per assignment and per exam.
+    subs_by_assignment = defaultdict(list)
+    if assignments:
+        for sub in Submission.objects.filter(assignment__in=assignments, student_id__in=list(students)):
+            subs_by_assignment[sub.assignment_id].append(sub)
+    attempts_by_exam = defaultdict(list)
+    if exams:
+        for attempt in ExamAttempt.objects.filter(exam__in=exams):
+            attempts_by_exam[attempt.exam_id].append(attempt)
     for asg in assignments:
-        subs = list(Submission.objects.filter(assignment=asg, student_id__in=list(students)))
+        subs = subs_by_assignment.get(asg.pk, [])
         graded = [s.grade for s in subs if s.grade is not None]
         mean = round(100 * sum(graded) / (len(graded) * asg.max_points), 1) if graded and asg.max_points else None
         lines.append(f"- {asg.title or 'Untitled'}: {len(subs)} of {len(students)} submitted, {len(graded)} graded, average {_pct(mean)}")
@@ -75,7 +86,7 @@ def build_class_report(classroom):
     if not exams:
         lines.append("- No exams have been set yet.")
     for exam in exams:
-        attempts = list(ExamAttempt.objects.filter(exam=exam))
+        attempts = attempts_by_exam.get(exam.pk, [])
         done = [a.score for a in attempts if a.status == "submitted" and a.score is not None]
         flagged = sum(1 for a in attempts if a.status == "flagged")
         waiting = sum(1 for a in attempts if a.status == "pending_review")
@@ -115,11 +126,18 @@ def build_student_report(student, courses):
         "## Courses",
     ]
     strengths, weaknesses = [], []
+    # Per-course figures for every course in three queries, instead of three queries per course.
+    assignments_per_course = dict(Assignment.objects.filter(course_id__in=course_ids).values_list("course_id").annotate(n=Count("id")))
+    submitted_per_course = dict(
+        Submission.objects.filter(assignment__course_id__in=course_ids, student=student)
+        .values_list("assignment__course_id").annotate(n=Count("id"))
+    )
+    averages_per_course = averages_by_course(student.pk, course_ids)
     for course in courses:
-        assignments = list(Assignment.objects.filter(course=course))
-        submitted = Submission.objects.filter(assignment__in=assignments, student=student).count() if assignments else 0
-        average = average_by_student([student.pk], [course.pk]).get(student.pk)
-        lines.append(f"- {course.name} ({course.subject_code}): {submitted} of {len(assignments)} assignments submitted, average {_pct(average)}")
+        total = assignments_per_course.get(course.pk, 0)
+        submitted = submitted_per_course.get(course.pk, 0) if total else 0
+        average = averages_per_course.get(course.pk)
+        lines.append(f"- {course.name} ({course.subject_code}): {submitted} of {total} assignments submitted, average {_pct(average)}")
         if average is not None and average >= STRONG_SCORE:
             strengths.append(f"{course.name} ({average}%)")
         elif average is not None and average < LOW_SCORE:

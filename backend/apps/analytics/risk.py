@@ -198,15 +198,18 @@ def _as_datetime(value):
     return parsed
 
 
-def analyse(classrooms, now=None):
-    """{student_id: StudentRisk} for everyone actively enrolled in `classrooms`."""
+def analyse(classrooms, now=None, only_student=None):
+    """{student_id: StudentRisk} for everyone actively enrolled in `classrooms` (or just ``only_student``, a user id)."""
     now = now or timezone.now()
     from apps.institution import rules as university_rules
 
     cfg = university_rules.current()["risk"]
     course_ids = [c.pk for c in classrooms]
     risks = {}
-    for e in Enrollment.objects.filter(classroom_id__in=course_ids, is_active=True, student__role=User.Role.STUDENT).select_related("student"):
+    enrolled = Enrollment.objects.filter(classroom_id__in=course_ids, is_active=True, student__role=User.Role.STUDENT)
+    if only_student is not None:
+        enrolled = enrolled.filter(student_id=only_student)  # a student's own page never needs the rest of the class
+    for e in enrolled.select_related("student"):
         risk = risks.setdefault(e.student_id, StudentRisk(student=e.student, cfg=cfg))
         risk.course_ids.add(e.classroom_id)
     if not risks:
