@@ -1,4 +1,4 @@
-import { GradeTag } from "../../shared/university";
+import { GradeTag, PrintLetterhead } from "../../shared/university";
 import { useModule } from "../../shared/university";
 import React, { useState } from "react";
 import { 
@@ -99,9 +99,9 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt: initialAttemp
     : "Not finished";
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col animate-fade-in">
+    <div className="print-sheet fixed inset-0 z-[100] bg-slate-50 flex flex-col animate-fade-in">
       {/* Top Header */}
-      <header className="h-16 border-b px-6 flex items-center justify-between bg-white sticky top-0 z-10">
+      <header className="no-print h-16 border-b px-6 flex items-center justify-between bg-white sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
             <ArrowLeft size={20} className="text-slate-500" />
@@ -126,6 +126,8 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt: initialAttemp
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto py-8 px-4 md:px-8 space-y-6">
+          <PrintLetterhead />
+          <p className="hidden print:block text-lg font-bold">{attempt.exam?.title} · Answer sheet of {attempt.student_name}</p>
           
           {/* Summary Banner */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -291,8 +293,10 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt: initialAttemp
             </div>
           )}
 
+          <PrintLetterhead signature />
           <div className="pt-4 pb-12 flex justify-center">
-             <button onClick={onClose} className="btn bg-white border-slate-200 text-slate-600 px-12 py-3 rounded-2xl font-bold shadow-sm hover:shadow-md transition-all">
+             <button onClick={() => window.print()} className="no-print btn btn-outline mr-3 px-8 py-3 rounded-2xl font-bold transition-all">Print</button>
+             <button onClick={onClose} className="no-print btn bg-white border-slate-200 text-slate-600 px-12 py-3 rounded-2xl font-bold shadow-sm hover:shadow-md transition-all">
                Close Answer Sheet
              </button>
           </div>

@@ -11,6 +11,7 @@ from apps.calendar_app.models import CalendarEvent
 from apps.core.permissions import IsMasterAdmin
 from apps.institution import look as look_rules
 from apps.institution import academic as academic_rules
+from apps.institution import documents as document_rules
 from apps.institution import modules as module_rules
 from apps.institution import notice as notice_rules
 from apps.institution import rules as rule_book
@@ -348,3 +349,48 @@ def _holiday_rows(uploaded):
     if len(rows) > 500:
         raise ValueError("Upload at most 500 holidays at a time.")
     return rows
+
+
+class UniversityDocumentsView(APIView):
+    """The letterhead and signatory on official documents."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def get(self, request):
+        return Response({"documents": document_rules.merged(UniversityProfile.load().documents)})
+
+    def put(self, request):
+        profile = UniversityProfile.load()
+        documents, errors = document_rules.clean_documents(request.data, profile.documents)
+        if errors:
+            first_field, message = next(iter(errors.items()))
+            return Response({"detail": message, "errors": errors, "field": first_field}, status=400)
+        profile.documents = documents
+        with transaction.atomic():
+            profile.save(update_fields=["documents", "updated_at"])
+            _record_admin_action(request, "update_university_documents", "institution.universityprofile:1", {"enabled": documents["enabled"]})
+        return Response({"documents": documents, "university": university_payload(profile)})
+
+
+class UniversityDocumentsSampleView(APIView):
+    """A one-page sample Word document with the letterhead as entered (nothing is saved)."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def post(self, request):
+        from django.http import HttpResponse
+
+        from apps.reports.builders import render_docx
+
+        profile = UniversityProfile.load()
+        documents, errors = document_rules.clean_documents(request.data, profile.documents)
+        if errors:
+            first_field, message = next(iter(errors.items()))
+            return Response({"detail": message, "errors": errors, "field": first_field}, status=400)
+        profile.documents = {**documents, "enabled": True}  # a sample always shows the letterhead
+        head = document_rules.letterhead(profile)
+        text = chr(10).join([
+            "# Class report: Data Structures", "", "## Summary", "- 13 students enrolled, 12 graded", "- Class average: 72.5%", "",
+            "## Exams", "- Mid-term: 12 completed, average 68%", "", "This is a sample page so you can check the letterhead.",
+        ])
+        response = HttpResponse(render_docx("Sample report", text, head), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        response["Content-Disposition"] = 'attachment; filename="letterhead_sample.docx"'
+        return response

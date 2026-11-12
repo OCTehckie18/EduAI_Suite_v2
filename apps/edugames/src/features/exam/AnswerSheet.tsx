@@ -1,4 +1,4 @@
-import { GradeTag } from "../../shared/university";
+import { GradeTag, PrintLetterhead } from "../../shared/university";
 import React from "react";
 import { 
   CheckCircle2, XCircle, AlertCircle, 
@@ -35,9 +35,9 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
     : "Not finished";
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col animate-fade-in text-slate-800">
+    <div className="print-sheet fixed inset-0 z-[100] bg-slate-50 flex flex-col animate-fade-in text-slate-800">
       {/* Top Header */}
-      <header className="h-16 border-b px-6 flex items-center justify-between bg-white sticky top-0 z-10">
+      <header className="no-print h-16 border-b px-6 flex items-center justify-between bg-white sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
             <ArrowLeft size={20} className="text-slate-500" />
@@ -59,6 +59,8 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto py-8 px-4 md:px-8 space-y-6">
+          <PrintLetterhead />
+          <p className="hidden print:block text-lg font-bold">{attempt.exam?.title} · Answer sheet</p>
           
           {/* Summary Banner */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -189,7 +191,8 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({ attempt, onClose }) =>
           </div>
 
           <div className="pt-4 pb-12 flex justify-center">
-             <button onClick={onClose} className="btn btn-primary px-12 py-3 rounded-2xl font-bold shadow-lg transition-all">
+             <button onClick={() => window.print()} className="no-print btn btn-outline mr-3 px-8 py-3 rounded-2xl font-bold transition-all">Print</button>
+             <button onClick={onClose} className="no-print btn btn-primary px-12 py-3 rounded-2xl font-bold shadow-lg transition-all">
                Close & Exit Review
              </button>
           </div>

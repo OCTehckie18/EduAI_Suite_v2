@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 from .look import look_payload
 from .modules import module_states
 from .academic import public_academic
+from .documents import public_documents
 from .notice import active_notice, merged_help
 from .rules import public_rules
 from .models import UniversityProfile
@@ -74,6 +75,7 @@ def university_payload(profile):
         "rules": public_rules(profile.rules),
         "notice": active_notice(profile.notice),
         "academic": public_academic(profile.academic),
+        "documents": public_documents(profile.documents),
         "help": merged_help(profile.help),
     }
 

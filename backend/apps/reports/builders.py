@@ -237,11 +237,20 @@ def build_event_report(notes, *, extra=None, ai_client=None, ai_model=None):
 
 
 # ---------------------------------------------------------------- Word output
-def render_docx(name, content):
+_CURRENT = object()
+
+
+def render_docx(name, content, head=_CURRENT):
     from docx import Document
+
+    from apps.institution import documents as letterheads
 
     document = Document()
     document.core_properties.title = name[:250]
+    if head is _CURRENT:
+        head = letterheads.current_letterhead()  # None until the university turns its letterhead on
+    if head:
+        letterheads.apply_to_docx(document, head)
     for raw in content.splitlines():
         line = raw.rstrip()
         if not line.strip():
@@ -257,6 +266,8 @@ def render_docx(name, content):
         for index, part in enumerate(re.split(r"\*\*", line[2:] if bullet else line)):
             if part:
                 paragraph.add_run(part).bold = index % 2 == 1
+    if head:
+        letterheads.add_signature_block(document, head)
     buffer = io.BytesIO()
     document.save(buffer)
     return buffer.getvalue()
