@@ -127,3 +127,83 @@ class FieldsTests(APITestCase):
         self.client.force_authenticate(self.student)
         self.assertEqual(self.client.get(URL).status_code, 403)
         self.assertEqual(self.save({}).status_code, 403)
+
+
+STRUCTURE = [{"kind": "year", "length": 2}, {"kind": "program", "length": 2}, {"kind": "section", "length": 1}, {"kind": "serial", "length": 2}]
+
+
+class RollNumberStructureTests(APITestCase):
+    """Christ's numbers: 2547237 is year 25, program 47, section B (2), student 37."""
+
+    def setUp(self):
+        self.master = User.objects.create_user(email="m@x.com", password="pw", role="MASTER_ADMIN")
+        self.client.force_authenticate(self.master)
+        campus = Campus.objects.create(name="Main", code="MAIN")
+        school = School.objects.create(campus=campus, name="Sci", code="SCI")
+        dept = Department.objects.create(school=school, name="CS", code="CS")
+        self.program = Program.objects.create(department=dept, name="MCA", code="MCA", duration_years=2)
+        batch = Batch.objects.create(program=self.program, name="2025", start_year=2025, end_year=2027)
+        self.section_a = Section.objects.create(batch=batch, name="A")
+        self.section_b = Section.objects.create(batch=batch, name="B")
+        response = self.client.put(URL, {"id_formats": {"register_no": {"parts": STRUCTURE, "program_codes": {str(self.program.pk): "47"}}}}, format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+
+    def test_structure_is_saved_described_and_shapes_the_number(self):
+        public = self.client.get(PUBLIC).json()["fields"]["id_formats"]["register_no"]
+        self.assertEqual(public["pattern"], "99XXX99")
+        self.assertEqual(public["description"], "2 for the year, 2 for the program, 1 for the section, 2 for the student number")
+        admin = self.client.get(URL).json()["fields"]
+        self.assertEqual(admin["register_structure"]["program_codes"], {str(self.program.pk): "47"})
+        self.assertEqual([p["label"] for p in admin["programs"]], ["MCA - MCA"])
+
+    def test_a_matching_number_passes_and_each_wrong_part_is_named(self):
+        self.assertIsNone(fields.check_register("2547237", self.section_b))
+        self.assertIsNone(fields.check_register("2547137", self.section_a))  # A is 1 by default
+        wrong = fields.check_register("2447137", self.section_b)
+        self.assertIn("year 25", wrong)
+        self.assertIn("section 2", wrong)
+        self.assertNotIn("program", wrong)
+        self.assertIn("program 47", fields.check_register("2548237", self.section_b))
+        self.assertIsNotNone(fields.check_register("254723", self.section_b))
+
+    def test_a_program_without_a_code_is_not_checked_for_its_program_part(self):
+        self.client.put(URL, {"id_formats": {"register_no": {"parts": STRUCTURE, "program_codes": {}}}}, format="json")
+        self.assertIsNone(fields.check_register("2599237", self.section_b))
+
+    def test_section_codes_override_the_alphabet(self):
+        self.client.put(URL, {"id_formats": {"register_no": {"parts": STRUCTURE, "section_codes": {"B": "7"}}}}, format="json")
+        self.assertIsNone(fields.check_register("2547737", self.section_b))
+        self.assertIn("section 7", fields.check_register("2547237", self.section_b))
+
+    def test_roster_upload_rejects_a_number_that_disagrees_with_the_row_placement(self):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(list(roster.TEMPLATE_COLUMNS))
+        sheet.append(["2547237", "Good", "good@x.com", "MAIN", "SCI", "CS", "MCA", "2025", "B"])
+        sheet.append(["2547137", "Bad", "bad@x.com", "MAIN", "SCI", "CS", "MCA", "2025", "B"])
+        buffer = io.BytesIO()
+        workbook.save(buffer)
+        result = roster.import_roster(SimpleUploadedFile("r.xlsx", buffer.getvalue()))
+        self.assertEqual(result.created, 1)
+        self.assertEqual([e["row"] for e in result.errors], [3])
+        self.assertIn("section 2", result.errors[0]["error"])
+
+    def test_admin_edit_checks_against_the_students_section(self):
+        student = User.objects.create_user(email="s@x.com", password="pw", role="STUDENT", section=self.section_b)
+        url = f"/api/v1/master-admin/users/{student.pk}/"
+        self.assertEqual(self.client.patch(url, {"register_no": "2547137"}, format="json").status_code, 400)
+        self.assertEqual(self.client.patch(url, {"register_no": "2547237"}, format="json").status_code, 200)
+
+    def test_structure_validation(self):
+        bad = [
+            [{"kind": "year", "length": 3}],
+            [{"kind": "year", "length": 2}, {"kind": "year", "length": 2}],
+            [{"kind": "ghost", "length": 2}],
+            [{"kind": "fixed", "text": "!!"}],
+            [{"kind": "serial", "length": 0}],
+        ]
+        for parts in bad:
+            self.assertEqual(self.client.put(URL, {"id_formats": {"register_no": {"parts": parts}}}, format="json").status_code, 400, parts)
+        # a code of the wrong length, or for a program that does not exist
+        self.assertEqual(self.client.put(URL, {"id_formats": {"register_no": {"parts": STRUCTURE, "program_codes": {str(self.program.pk): "4"}}}}, format="json").status_code, 400)
+        self.assertEqual(self.client.put(URL, {"id_formats": {"register_no": {"parts": STRUCTURE, "program_codes": {"9999": "47"}}}}, format="json").status_code, 400)

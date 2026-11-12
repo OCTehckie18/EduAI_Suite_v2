@@ -596,7 +596,8 @@ class UserDirectoryDetailView(APIView):
                 if value and User.all_objects.filter(**{f"{field}__iexact": value}).exclude(pk=user.pk).exists():
                     return Response({"detail": f"Another account already uses this {label}.", "field": field}, status=409)
                 if value and value != getattr(user, field):
-                    format_error = university_fields.check_id(field if field == "register_no" else "employee_no", value)
+                    format_error = (university_fields.check_register(value, user.section) if field == "register_no"
+                                    else university_fields.check_id("employee_no", value))
                     if format_error:
                         return Response({"detail": format_error, "field": field}, status=400)
                 setattr(user, field, value)

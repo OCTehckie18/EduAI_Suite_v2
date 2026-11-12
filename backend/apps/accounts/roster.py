@@ -210,14 +210,14 @@ def _import_row(row, result):
     name = _text(row, "Student Name")
     if not register_no or not email:
         raise ValueError("Register No and Student Email are required.")
-    format_error = university_fields.check_id("register_no", register_no)
-    if format_error:
-        raise ValueError(format_error)
     try:
         validate_email(email)
     except ValidationError:
         raise ValueError(f"'{email}' is not a valid email address.")
     section = section_for_row(row)
+    format_error = university_fields.check_register(register_no, section)
+    if format_error:
+        raise ValueError(format_error)
 
     entry = entry_for_identifiers(email, register_no)
     if entry is None:

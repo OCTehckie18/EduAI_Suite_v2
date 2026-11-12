@@ -9,6 +9,15 @@ const ENDPOINT = `${API_BASE_URL}/master-admin/university/fields/`;
 const inputClass = "mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900";
 const MAX_FIELDS = 10;
 
+type PartKind = "year" | "program" | "section" | "serial" | "fixed";
+interface PartRow { kind: PartKind; length: number; text: string }
+interface Structure { parts: { kind: PartKind; length: number; text?: string }[]; program_codes: Record<string, string>; section_codes: Record<string, string> }
+interface AdminFields extends PublicFields { register_structure: Structure; programs: { id: number; label: string }[] }
+const PART_NAMES: Record<PartKind, string> = { year: "Year", program: "Program", section: "Section", serial: "Student's own number", fixed: "Fixed text" };
+const SAMPLE: Record<PartKind, (length: number, text: string) => string> = {
+  year: (n) => "2025".slice(-n), program: (n) => "47".padEnd(n, "7").slice(0, n), section: (n) => "2".padEnd(n, "0").slice(0, n), serial: (n) => "37".padStart(n, "0").slice(-n), fixed: (_n, text) => text,
+};
+
 interface Row { key: string; label: string; type: FieldDefinition["type"]; applies_to: FieldDefinition["applies_to"]; required: boolean; admin_only: boolean; choices: string }
 
 const toRow = (field: FieldDefinition): Row => ({ ...field, choices: field.choices.join(", ") });
@@ -26,16 +35,27 @@ export function FieldsPanel() {
   const toast = useToast();
   const t = useTerms();
   const [formats, setFormats] = useState<{ register_no: string; employee_no: string } | null>(null);
+  const [parts, setParts] = useState<PartRow[]>([]);
+  const [programs, setPrograms] = useState<{ id: number; label: string }[]>([]);
+  const [programCodes, setProgramCodes] = useState<Record<string, string>>({});
+  const [sectionCodes, setSectionCodes] = useState<{ name: string; code: string }[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const applyLoaded = (data: AdminFields) => {
+    setFormats({ register_no: data.id_formats.register_no.pattern, employee_no: data.id_formats.employee_no.pattern });
+    setParts(data.register_structure.parts.map((part) => ({ kind: part.kind, length: part.length, text: part.text ?? "" })));
+    setPrograms(data.programs);
+    setProgramCodes(data.register_structure.program_codes);
+    setSectionCodes(Object.entries(data.register_structure.section_codes).map(([name, code]) => ({ name, code })));
+    setRows(data.custom.map(toRow));
+  };
+
   const load = async () => {
     setError("");
     try {
-      const data = (await requestJson<{ fields: PublicFields }>(ENDPOINT)).fields;
-      setFormats({ register_no: data.id_formats.register_no.pattern, employee_no: data.id_formats.employee_no.pattern });
-      setRows(data.custom.map(toRow));
+      applyLoaded((await requestJson<{ fields: AdminFields }>(ENDPOINT)).fields);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the settings.");
     }
@@ -51,11 +71,19 @@ export function FieldsPanel() {
     setError("");
     try {
       const body = {
-        id_formats: { register_no: { pattern: formats.register_no }, employee_no: { pattern: formats.employee_no } },
+        id_formats: {
+          register_no: {
+            pattern: formats.register_no,
+            parts: parts.map((part) => (part.kind === "fixed" ? { kind: part.kind, text: part.text } : { kind: part.kind, length: part.length })),
+            program_codes: programCodes,
+            section_codes: Object.fromEntries(sectionCodes.filter((row) => row.name.trim() && row.code.trim()).map((row) => [row.name.trim(), row.code.trim()])),
+          },
+          employee_no: { pattern: formats.employee_no },
+        },
         custom: rows.map((row) => ({ ...row, choices: row.type === "choice" ? row.choices.split(",").map((c) => c.trim()).filter(Boolean) : [] })),
       };
-      const data = await requestJson<{ fields: PublicFields; university: University }>(ENDPOINT, { method: "PUT", body: JSON.stringify(body) });
-      setRows(data.fields.custom.map(toRow));
+      const data = await requestJson<{ fields: AdminFields; university: University }>(ENDPOINT, { method: "PUT", body: JSON.stringify(body) });
+      applyLoaded(data.fields);
       setUniversity(data.university);
       toast.success("Saved. Profiles, rosters and user screens follow these settings.");
     } catch (err) {
@@ -80,9 +108,56 @@ export function FieldsPanel() {
         <p className="mt-1 max-w-xl text-xs text-slate-500">Write the shape of your numbers: 9 is a digit, A is a letter, X is a letter or a digit, anything else stands for itself. For example 9999999 is seven digits, and 99-AAA-9999 fits 21-MCA-0042. Numbers are checked when they are added or changed, in roster uploads (the error names the row), profiles and user edits. Existing numbers are never rejected.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        {idField("register_no", t("register_no"))}
+        {parts.length === 0 && idField("register_no", t("register_no"))}
         {idField("employee_no", t("employee_no"))}
       </div>
+    </PanelCard>
+
+    <PanelCard className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold">{t("register_no")} by parts</h3>
+          <p className="mt-1 max-w-xl text-xs text-slate-500">Describe what each part of the number means, for example 2547237 is the year (25), the program (47), the section (2) and the student's own number (37). A number that disagrees with the student's class, program or section is refused, and the message says what it should have been. Leave this empty to use the simple format above.</p>
+        </div>
+        <button type="button" onClick={() => setParts([...parts, { kind: "year", length: 2, text: "" }])} disabled={parts.length >= 6} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"><Plus className="h-4 w-4" />Add a part</button>
+      </div>
+      {parts.map((part, index) => <div key={index} className="flex flex-wrap items-end gap-3">
+        <label className="block text-sm text-slate-700">Part {index + 1}
+          <select value={part.kind} onChange={(e) => setParts(parts.map((p, i) => (i === index ? { ...p, kind: e.target.value as PartKind } : p)))} className={inputClass} aria-label={`Number part ${index + 1} meaning`}>
+            {(Object.keys(PART_NAMES) as PartKind[]).map((kind) => <option key={kind} value={kind}>{PART_NAMES[kind]}</option>)}
+          </select>
+        </label>
+        {part.kind === "fixed"
+          ? <label className="block text-sm text-slate-700">Text<input value={part.text} maxLength={6} onChange={(e) => setParts(parts.map((p, i) => (i === index ? { ...p, text: e.target.value } : p)))} className={`${inputClass} w-28`} aria-label={`Number part ${index + 1} text`} /></label>
+          : <label className="block text-sm text-slate-700">Characters
+            <select value={part.length} onChange={(e) => setParts(parts.map((p, i) => (i === index ? { ...p, length: Number(e.target.value) } : p)))} className={`${inputClass} w-24`} aria-label={`Number part ${index + 1} length`}>
+              {(part.kind === "year" ? [2, 4] : [1, 2, 3, 4, 5, 6]).map((n) => <option key={n} value={n}>{n}</option>)}
+            </select></label>}
+        <button type="button" onClick={() => setParts(parts.filter((_, i) => i !== index))} className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-rose-700 hover:underline"><Trash2 className="h-4 w-4" />Remove</button>
+      </div>)}
+      {parts.length > 0 && <>
+        <p className="text-sm text-slate-700">Example: <span className="font-mono font-semibold">{parts.map((p) => SAMPLE[p.kind](p.length, p.text)).join("")}</span></p>
+        {parts.some((p) => p.kind === "program") && <fieldset className="space-y-2">
+          <legend className="text-sm font-semibold text-slate-700">Program codes</legend>
+          <p className="text-xs text-slate-500">The code each program carries in the number. A program left blank is not checked for this part.</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {programs.length === 0 && <p className="text-sm text-slate-500">No programs yet. Add them under Structure.</p>}
+            {programs.map((program) => <label key={program.id} className="flex items-center gap-3 text-sm text-slate-700"><span className="flex-1">{program.label}</span>
+              <input value={programCodes[String(program.id)] ?? ""} maxLength={6} onChange={(e) => setProgramCodes({ ...programCodes, [String(program.id)]: e.target.value })} className={`${inputClass} w-24 !mt-0`} aria-label={`Code for ${program.label}`} />
+            </label>)}
+          </div>
+        </fieldset>}
+        {parts.some((p) => p.kind === "section") && <fieldset className="space-y-2">
+          <legend className="text-sm font-semibold text-slate-700">Section codes</legend>
+          <p className="text-xs text-slate-500">Sections named with a single letter default to A=1, B=2 and so on. Add a row only to change that, or for sections with other names.</p>
+          {sectionCodes.map((row, index) => <div key={index} className="flex items-center gap-3">
+            <input value={row.name} placeholder="Section name" maxLength={30} onChange={(e) => setSectionCodes(sectionCodes.map((r, i) => (i === index ? { ...r, name: e.target.value } : r)))} className={`${inputClass} w-40 !mt-0`} aria-label={`Section name ${index + 1}`} />
+            <input value={row.code} placeholder="Code" maxLength={6} onChange={(e) => setSectionCodes(sectionCodes.map((r, i) => (i === index ? { ...r, code: e.target.value } : r)))} className={`${inputClass} w-24 !mt-0`} aria-label={`Section code ${index + 1}`} />
+            <button type="button" onClick={() => setSectionCodes(sectionCodes.filter((_, i) => i !== index))} className="text-sm font-semibold text-rose-700 hover:underline">Remove</button>
+          </div>)}
+          <button type="button" onClick={() => setSectionCodes([...sectionCodes, { name: "", code: "" }])} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:underline"><Plus className="h-4 w-4" />Add a section code</button>
+        </fieldset>}
+      </>}
     </PanelCard>
 
     <PanelCard className="space-y-4">
