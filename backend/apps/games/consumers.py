@@ -6,6 +6,7 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
 from ..accounts.authentication import authenticate_access_token
 from .models import WordCloudSession, WordCloudSubmission
+from django.db.models import Count
 
 CLOSE_UNAUTHORISED = 4401
 CLOSE_FORBIDDEN = 4403
@@ -94,13 +95,12 @@ class WordCloudConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def get_words(self):
-        submissions = WordCloudSubmission.objects.filter(
-            session__pin=self.pin
-        ).values_list("word", flat=True)
-        counts = {}
-        for word in submissions:
-            counts[word] = counts.get(word, 0) + 1
-        return [{"text": word, "value": value} for word, value in counts.items()]
+        # Counted by the database: one row per distinct word instead of every submission.
+        rows = (
+            WordCloudSubmission.objects.filter(session__pin=self.pin)
+            .values("word").annotate(value=Count("id")).order_by()
+        )
+        return [{"text": row["word"], "value": row["value"]} for row in rows]
 
     @database_sync_to_async
     def save_submission(self, word):

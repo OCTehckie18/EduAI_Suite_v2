@@ -39,6 +39,19 @@ _armed_timers = set()
 _timer_tasks = set()
 
 
+
+# Every answer used to be announced to every player: in a room of N that is N*N messages per question.
+# Small rooms still see each answer; a large room sees the count move in about 20 steps, and always the last one.
+COUNT_STEPS = 20
+
+
+def should_announce_count(count, total):
+    if total <= COUNT_STEPS or count >= total:
+        return True
+    step = -(-total // COUNT_STEPS)  # ceiling division
+    return count % step == 0
+
+
 class QuizConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         self.pin = self.scope["url_route"]["kwargs"]["pin"]
@@ -320,11 +333,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         # Whether the answer was right is only revealed with everyone else's, when the question ends.
         await self.send_json({"type": "answer_submitted"})
-        await self.broadcast_json({
-            "type": "answer_count_update",
-            "count": result["answer_count"],
-            "players_total": result["players_total"],
-        })
+        if should_announce_count(result["answer_count"], result["players_total"]):
+            await self.broadcast_json({
+                "type": "answer_count_update",
+                "count": result["answer_count"],
+                "players_total": result["players_total"],
+            })
         if result["answer_count"] >= result["players_total"]:
             await self.finish_question(session["current_question_index"])
 
