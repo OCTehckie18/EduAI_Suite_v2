@@ -19,7 +19,7 @@ import { GamesHistoryList } from "./GamesHistoryList";
 
 // Which module each game card belongs to, so cards of switched-off modules are hidden.
 const GAME_MODULES: Record<string, ModuleKey> = {
-  "chain-answer": "chain_answer", "word-cloud-battle": "word_cloud", "quiz-battle-royale": "live_quizzes", "trello-projects": "trello",
+  "chain-answer": "chain_answer", "word-cloud-battle": "word_cloud", "quiz-battle-royale": "live_quizzes", "trello-projects": "trello", "slido-polling": "slido",
 };
 const gameCategories = [
   {
@@ -73,6 +73,15 @@ const gameCategories = [
   //   icon: Users,
   //   color: "from-cyan-400 to-blue-500",
   // },
+  {
+    id: "slido-polling",
+    title: "Slido: Live Polling & Q&A",
+    description:
+      "Live polling and Q&A for presentations, so students can give feedback in real time.",
+    icon: BarChart,
+    color: "from-blue-400 to-blue-500",
+    underConstruction: true,
+  },
   {
     id: "trello-projects",
     title: "Trello: Project Management",
@@ -128,10 +137,7 @@ export const GamesPage: React.FC = () => {
       navigate("/games/quiz");
       return;
     }
-    if (gameId === "slido-polling") {
-      navigate("/games/slido/assignments");
-      return;
-    }
+    if (gameId === "slido-polling") return; // under construction: the tile says so and opens nothing
     if (game?.hasImplementation) {
       setShowCreation(true);
     }
@@ -296,6 +302,11 @@ export const GamesPage: React.FC = () => {
                     >
                       <category.icon size={24} />
                     </div>
+                    {(category as { underConstruction?: boolean }).underConstruction && (
+                      <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-amber-800">
+                        <HardHat size={12} /> Under construction
+                      </span>
+                    )}
                     <h3
                       className="text-lg font-bold mb-2"
                       style={{ color: "var(--color-text-primary)" }}

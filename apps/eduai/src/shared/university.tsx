@@ -192,12 +192,12 @@ export function UniversityBadge({ className = "", labelClassName = "" }: { class
 /** Modules a university can switch off (Master Admin > Modules). Anything not listed as off is on. */
 export type ModuleKey =
   | "live_quizzes" | "chain_answer" | "word_cloud" | "trello" | "appointments" | "forms"
-  | "mail" | "reports" | "omr" | "ai_assistant" | "ai_exam_tools" | "google_calendar";
+  | "mail" | "reports" | "omr" | "ai_assistant" | "ai_exam_tools" | "google_calendar" | "slido";
 
 const MODULE_LABELS: Record<ModuleKey, string> = {
   live_quizzes: "Live quizzes", chain_answer: "The chain answer game", word_cloud: "Word cloud", trello: "Project boards",
   appointments: "Appointments", forms: "Forms", mail: "Mail students", reports: "Reports", omr: "OMR answer sheets",
-  ai_assistant: "The AI assistant", ai_exam_tools: "AI exam tools", google_calendar: "Google Calendar sync",
+  ai_assistant: "The AI assistant", ai_exam_tools: "AI exam tools", google_calendar: "Google Calendar sync", slido: "Slido polls and Q&A",
 };
 
 export const moduleOn = (university: University, key: ModuleKey) => university.modules?.[key] !== false;
