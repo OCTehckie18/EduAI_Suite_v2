@@ -132,6 +132,9 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    # Trust only the address our own edge proxy appended (the last X-Forwarded-For entry). Without this a caller
+    # rotates a made-up X-Forwarded-For per request and never meets a login or refresh limit. Set to 0 with no proxy.
+    'NUM_PROXIES': int(os.getenv('NUM_PROXIES', '1')),
     'DEFAULT_THROTTLE_RATES': {
         'login': os.getenv('THROTTLE_LOGIN_RATE', '10/min'),
         'refresh': os.getenv('THROTTLE_REFRESH_RATE', '30/min'),

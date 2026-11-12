@@ -364,7 +364,7 @@ class MigrationSmokeTestCase(TestCase):
 
         res = self.client.put(f"/api/v1/students/detail/{student_id}", {
             "name": "Karan Singhania Updated",
-            "registration_number": "REG-102",
+            "registration_number": "REG-101",
         }, format="json")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.json()["name"], "Karan Singhania Updated")

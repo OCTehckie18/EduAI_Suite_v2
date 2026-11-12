@@ -187,7 +187,7 @@ class AppointmentOwnershipTests(OwnershipBase):
     def setUp(self):
         super().setUp()
         self.appointment = Appointment.objects.create(
-            student_name="Alice Able", student_email="alice@x.com", teacher_name="Olga Owner", status="pending", agenda="Help",
+            student_name="Alice Able", student_email="alice@x.com", teacher_name="Olga Owner", teacher=self.owner, status="pending", agenda="Help",
         )
 
     def test_only_the_appointments_teacher_can_change_its_status(self):
