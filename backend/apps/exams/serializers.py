@@ -98,6 +98,13 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
             return None
         return max(0, int((attempt.expires_at - timezone.now()).total_seconds()))
 
+    def _can_retake(self, attempt):
+        exam = attempt.exam
+        used = ExamAttempt.objects.filter(exam=exam, student_id=attempt.student_id).count()
+        if used >= exam.attempts_allowed:
+            return False
+        return exam_availability(exam) != "ended" or bool(personal_deadline(exam, attempt.student_id, timezone.now()))
+
     def get_exam(self, attempt):
         if not self.context.get("include_review"):
             return None
@@ -105,6 +112,8 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
             return None  # no answer key while sitting the exam, and none for an attempt ended for cheating
         exam = attempt.exam
         manages = bool(self.context.get("viewer_manages"))
+        # A student who can still sit the exam again must not be handed the key by a finished attempt.
+        reveal_key = manages or not self._can_retake(attempt)
         questions = []
         for position, (q, points, choices) in enumerate(attempt_questions(attempt)):
             item = {
@@ -114,7 +123,11 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
                 "points": points,
                 "order": position,
                 "word_limit": q.word_limit,
-                "choices": [{"id": c.id, "choice_text": c.choice_text, "is_correct": c.is_correct} for c in choices],
+                "choices": [
+                    ({"id": c.id, "choice_text": c.choice_text, "is_correct": c.is_correct} if reveal_key
+                     else {"id": c.id, "choice_text": c.choice_text})
+                    for c in choices
+                ],
             }
             if manages:  # the answer key for written questions is the teacher's only
                 item["accepted_answers"] = q.accepted_answers
@@ -180,6 +193,8 @@ class ExamSerializer(serializers.ModelSerializer):
             # A student must not see the whole pool: their paper arrives when they start.
             data["questions"] = []
             data["pattern"] = None
+        elif self.context.get("hide_answers") and self.get_availability(instance) == "upcoming":
+            data["questions"] = []  # nothing of the paper is readable before the exam opens
         return data
 
     def get_attempts(self, exam):
