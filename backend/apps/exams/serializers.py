@@ -35,7 +35,7 @@ class ExamQuestionSerializer(serializers.ModelSerializer):
 
 
 class ExamAnswerSerializer(serializers.ModelSerializer):
-    question_id = serializers.IntegerField(source="question.id", read_only=True)
+    question_id = serializers.IntegerField(read_only=True)  # the column, so no question is loaded per answer
 
     class Meta:
         model = ExamAnswer
@@ -81,7 +81,7 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
         users = self.context.get("users")
         if users is None:
             users = self.context["users"] = {}
-        if attempt.student_id not in users:
+        if attempt.student_id not in users:  # list views load every student at once (context["users"])
             users[attempt.student_id] = get_user_model().objects.filter(pk=attempt.student_id).first()
         return users[attempt.student_id]
 
@@ -135,11 +135,21 @@ class ExamSerializer(serializers.ModelSerializer):
     paper_total = serializers.SerializerMethodField()
     pool_groups = serializers.SerializerMethodField()
 
+    def _resets(self, exam, student_id):
+        """The student's resets of this exam, newest first. A list view hands them over in bulk (context["resets"])."""
+        bulk = self.context.get("resets")
+        if bulk is not None:
+            return bulk.get(exam.pk, [])
+        return list(ExamReset.objects.filter(exam=exam, student_id=student_id).order_by("-created_at"))
+
     def get_availability(self, exam):
         availability = exam_availability(exam)
         student_id = self.context.get("attempts_for_student")
-        if availability == "ended" and student_id is not None and personal_deadline(exam, student_id):
-            return "open"  # a reset gave this student a personal deadline
+        if availability == "ended" and student_id is not None:
+            now = timezone.now()
+            personal = next((r.allowed_until for r in self._resets(exam, student_id) if r.allowed_until), None)
+            if personal and personal > now:
+                return "open"  # a reset gave this student a personal deadline
         return availability
 
     def get_my_reset(self, exam):
@@ -147,8 +157,8 @@ class ExamSerializer(serializers.ModelSerializer):
         student_id = self.context.get("attempts_for_student")
         if student_id is None:
             return None
-        latest = ExamReset.objects.filter(exam=exam, student_id=student_id).order_by("-created_at").first()
-        return {"at": latest.created_at, "allowed_until": latest.allowed_until} if latest else None
+        resets = self._resets(exam, student_id)
+        return {"at": resets[0].created_at, "allowed_until": resets[0].allowed_until} if resets else None
 
     def get_question_count(self, exam):
         """Questions on one student's paper."""

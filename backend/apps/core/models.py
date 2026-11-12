@@ -90,7 +90,7 @@ class ActionHistory(models.Model):
     reaction = models.CharField(max_length=100, blank=True, null=True)
     result = models.CharField(max_length=100, blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
-    user_id = models.CharField(max_length=100, blank=True, null=True)
+    user_id = models.CharField(max_length=100, blank=True, null=True, db_index=True)
     metadata_json = models.JSONField(blank=True, null=True)
 
     class Meta:

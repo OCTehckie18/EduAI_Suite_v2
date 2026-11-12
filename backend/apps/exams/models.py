@@ -79,6 +79,10 @@ class ExamAttempt(models.Model):
 
     class Meta:
         ordering = ["-start_time"]
+        indexes = [
+            models.Index(fields=["exam", "student_id"], name="attempt_exam_student_idx"),
+            models.Index(fields=["student_id", "status"], name="attempt_student_status_idx"),
+        ]
 
     def __str__(self):
         return f"Attempt by student {self.student_id} on {self.exam}"
