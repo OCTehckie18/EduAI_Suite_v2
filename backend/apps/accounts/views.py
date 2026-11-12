@@ -21,6 +21,7 @@ from apps.institution.models import Batch, Campus, Department, Program, School, 
 from apps.institution import rules as university_rules
 
 from . import roster, staff_roster
+from .models import AdmittedStaff
 from apps.institution import fields as university_fields
 from apps.institution import terms as university_terms
 
@@ -148,7 +149,10 @@ class GoogleLoginView(APIView):
             listed = staff_roster.entry_for_email(email) if applying else None
             if listed is not None and not listed.user_id:
                 # A teacher on the university's list is approved as soon as they sign in.
-                user = staff_roster.provision_teacher(listed)
+                try:
+                    user = staff_roster.provision_teacher(listed)
+                except roster.IdentifierConflict as exc:
+                    return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
                 changed = [field for field, value in (("first_name", claims.get("given_name", "")), ("last_name", claims.get("family_name", ""))) if value and not getattr(user, field)]
                 for field, value in (("first_name", claims.get("given_name", "")), ("last_name", claims.get("family_name", ""))):
                     if field in changed:
@@ -177,7 +181,10 @@ class GoogleLoginView(APIView):
                 entry = roster.entry_for_email(email)
                 if entry is None:
                     return Response({"detail": roster.NOT_LISTED_MESSAGE}, status=status.HTTP_403_FORBIDDEN)
-                user = roster.provision_student(entry)
+                try:
+                    user = roster.provision_student(entry)
+                except roster.IdentifierConflict as exc:
+                    return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
                 user.avatar_url = claims.get("picture", "")
                 user.save(update_fields=["avatar_url"])
         elif not user.is_active:
@@ -312,6 +319,8 @@ class ProfileSetupView(APIView):
         if staff_entry is not None:
             user.emp_no = staff_entry.emp_no
         elif user.role == user.Role.TEACHER and "emp_no" in data:
+            if AdmittedStaff.objects.filter(emp_no__iexact=str(data["emp_no"] or "").strip()).exclude(email__iexact=user.email).exists():
+                return Response({"detail": f"This {university_terms.get('employee_no', lower=True)} belongs to another listed teacher. Ask the administration."}, status=status.HTTP_409_CONFLICT)
             format_error = university_fields.check_id("employee_no", data["emp_no"])
             if format_error:
                 return Response({"detail": format_error, "field": "emp_no"}, status=status.HTTP_400_BAD_REQUEST)
@@ -361,15 +370,12 @@ class CurrentUserView(APIView):
                 continue
             value = data[field].strip() if isinstance(data[field], str) else ""
             if field in self.LOCKED_ONCE_SET:
+                # These identifiers come from the admission and staff rosters or the Master Admin. Letting a person
+                # type one would let anyone claim a number that belongs to a not-yet-signed-up student or teacher.
                 value = value or None
-                current = getattr(user, field)
-                if current and value != current:
-                    return Response({"detail": f"{field} can only be changed by an administrator."}, status=status.HTTP_403_FORBIDDEN)
-                if value and value != current:
-                    format_error = university_fields.check_id("register_no" if field == "register_no" else "employee_no", value)
-                    if format_error:
-                        return Response({"detail": format_error, "field": field}, status=status.HTTP_400_BAD_REQUEST)
-                setattr(user, field, value)
+                if value != (getattr(user, field) or None):
+                    return Response({"detail": f"{field} can only be set by the administration."}, status=status.HTTP_403_FORBIDDEN)
+                continue
             else:
                 setattr(user, field, value or "")
             changed.append(field)

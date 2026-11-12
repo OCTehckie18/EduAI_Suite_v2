@@ -104,9 +104,15 @@ def provision_teacher(entry):
     if entry.user_id:
         return entry.user
     User = get_user_model()
-    user = User.objects.create_user(email=entry.email, role=User.Role.TEACHER, approval_status=User.ApprovalStatus.APPROVED)
-    apply_entry_to_user(user, entry)
-    user.save()
+    try:
+        with transaction.atomic():  # all or nothing: a conflict must not leave a half-made account
+            user = User.objects.create_user(email=entry.email, role=User.Role.TEACHER, approval_status=User.ApprovalStatus.APPROVED)
+            apply_entry_to_user(user, entry)
+            user.save()
+    except IntegrityError as exc:
+        from .roster import IdentifierConflict
+
+        raise IdentifierConflict(f"This {university_terms.get('employee_no', lower=True)} is already linked to another account. Please contact the administration.") from exc
     return user
 
 
