@@ -2,7 +2,6 @@ import io
 import json
 import logging
 import re
-import pandas as pd
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
 from django.db import transaction
@@ -28,6 +27,28 @@ from .models import MailDraft, MailHistory
 from .serializers import MailDraftSerializer, MailHistorySerializer
 
 logger = logging.getLogger(__name__)
+
+
+def _sheet_rows(content, filename):
+    """The rows of an uploaded .xlsx or .csv as dicts keyed by the lower-cased header. Blank cells are None."""
+    if filename.endswith(".xlsx"):
+        from openpyxl import load_workbook
+
+        sheet = load_workbook(io.BytesIO(content), read_only=True, data_only=True).worksheets[0]
+        table = list(sheet.iter_rows(values_only=True))
+    else:
+        import csv
+
+        table = list(csv.reader(io.StringIO(content.decode("utf-8-sig"))))
+    if not table:
+        return []
+    headers = [str(c or "").lower().strip() for c in table[0]]
+    rows = []
+    for values in table[1:]:
+        if not any(str(v or "").strip() for v in values):
+            continue  # an empty row
+        rows.append({h: (values[i] if i < len(values) and str(values[i] or "").strip() != "" else None) for i, h in enumerate(headers) if h})
+    return rows
 
 
 def _optional_number(value):
@@ -182,16 +203,13 @@ class MailParseExcelView(APIView):
         content = file_obj.read()
 
         try:
-            if filename.endswith((".xlsx", ".xls")):
-                df = pd.read_excel(io.BytesIO(content))
-            elif filename.endswith(".csv"):
-                df = pd.read_csv(io.BytesIO(content))
-            else:
+            if filename.endswith(".xls"):
+                return Response({"detail": "Old .xls files are not supported. Save the sheet as .xlsx or CSV and upload that."}, status=status.HTTP_400_BAD_REQUEST)
+            if not filename.endswith((".xlsx", ".csv")):
                 return Response({"detail": "File must be Excel or CSV"}, status=status.HTTP_400_BAD_REQUEST)
 
-            df.columns = [str(c).lower().strip() for c in df.columns]
             students = []
-            for idx, row in df.iterrows():
+            for idx, row in enumerate(_sheet_rows(content, filename)):
                 students.append({
                     "id": idx + 1,
                     "name": str(row.get("name") or row.get("student_name") or f"Student {idx + 1}"),
