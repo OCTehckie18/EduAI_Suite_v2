@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from apps.core.permissions import IsMasterAdmin
 from apps.institution import look as look_rules
 from apps.institution import modules as module_rules
+from apps.institution import notice as notice_rules
 from apps.institution import rules as rule_book
 from apps.institution.models import UniversityAsset, UniversityProfile
 from apps.institution.university import clean_details, clear_logo, save_logo, university_payload
@@ -189,3 +190,36 @@ class UniversityRulesView(APIView):
             profile.save(update_fields=["rules", "updated_at"])
             _record_admin_action(request, "update_university_rules", "institution.universityprofile:1", {"before": before, "after": rules})
         return Response({"rules": rules, "defaults": rule_book.DEFAULT_RULES, "university": university_payload(profile)})
+
+
+class UniversityNoticeView(APIView):
+    """The institution-wide notice banner and the help-desk details."""
+    permission_classes = [IsAuthenticated, IsMasterAdmin]
+
+    def _payload(self, profile):
+        return {"notice": notice_rules.merged_notice(profile.notice), "help": notice_rules.merged_help(profile.help),
+                "showing_now": notice_rules.active_notice(profile.notice) is not None}
+
+    def get(self, request):
+        return Response(self._payload(UniversityProfile.load()))
+
+    def put(self, request):
+        profile = UniversityProfile.load()
+        data = request.data if isinstance(request.data, dict) else {}
+        errors = {}
+        notice = notice_rules.merged_notice(profile.notice)
+        help_ = notice_rules.merged_help(profile.help)
+        if "notice" in data:
+            notice, found = notice_rules.clean_notice(data["notice"], profile.notice)
+            errors.update(found)
+        if "help" in data:
+            help_, found = notice_rules.clean_help(data["help"], profile.help)
+            errors.update({f"help.{k}": v for k, v in found.items()})
+        if errors:
+            first_field, message = next(iter(errors.items()))
+            return Response({"detail": message, "errors": errors, "field": first_field}, status=400)
+        profile.notice, profile.help = notice, help_
+        with transaction.atomic():
+            profile.save(update_fields=["notice", "help", "updated_at"])
+            _record_admin_action(request, "update_university_notice", "institution.universityprofile:1", {"groups": sorted(k for k in data if k in ("notice", "help"))})
+        return Response({**self._payload(profile), "university": university_payload(profile)})

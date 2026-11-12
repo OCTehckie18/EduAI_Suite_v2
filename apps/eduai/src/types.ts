@@ -81,7 +81,7 @@ export interface TeacherApplication {
 }
 
 export type TabKey =
-  | "overview" | "campuses" | "structure" | "university" | "look" | "modules" | "rules"
+  | "overview" | "campuses" | "structure" | "university" | "look" | "modules" | "rules" | "notice"
   | "roster" | "users" | "approvals" | "recycle_bin";
 
 export interface RestoreField { name: string; label: string; type: "text" | "email" | "textarea"; value: string; max_length?: number | null; required: boolean }
