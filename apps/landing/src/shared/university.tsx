@@ -67,7 +67,15 @@ applyLook(current.look, API_BASE_URL, current.logo_url);
 let inflight: Promise<void> | null = null;
 const listeners = new Set<(value: University) => void>();
 
+let lastJson = "";
+let fetchedAt = 0;
+/** How long a fetched copy is trusted before a component mount asks the server again. */
+export const UNIVERSITY_TTL_MS = 60_000;
+
 const publish = (next: University) => {
+  const json = JSON.stringify(next);
+  if (json === lastJson) return; // nothing changed: no repaint, no re-render of every subscriber
+  lastJson = json;
   current = next;
   applyBrand(next);
   applyLook(next.look, API_BASE_URL, next.logo_url);
@@ -80,14 +88,21 @@ const publish = (next: University) => {
 };
 
 /** Fetch the latest details (public endpoint, works before sign-in) and notify every component. */
-export function refreshUniversity(): Promise<void> {
+export function refreshUniversity(force = false): Promise<void> {
   if (inflight) return inflight;
+  // Many components ask on mount; one request a minute is enough, the rest reuse it.
+  if (!force && fetchedAt && Date.now() - fetchedAt < UNIVERSITY_TTL_MS) return Promise.resolve();
   inflight = fetch(`${API_BASE_URL}/institution/university/`)
     .then((response) => (response.ok ? response.json() : null))
-    .then((data) => { if (data) publish({ ...EMPTY, ...data }); })
+    .then((data) => { if (data) { fetchedAt = Date.now(); publish({ ...EMPTY, ...data }); } })
     .catch(() => { /* keep showing the cached details */ })
     .finally(() => { inflight = null; });
   return inflight;
+}
+
+// Coming back to a tab that sat in the background picks up changes made meanwhile (within the same minute rule).
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) void refreshUniversity(); });
 }
 
 /** Push details we already have (for example right after the master admin saves them). */

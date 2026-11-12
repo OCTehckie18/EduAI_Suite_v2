@@ -33,7 +33,7 @@ export const TrelloBoardView: React.FC = () => {
   useEffect(() => {
     load();
     // Pick up other people's changes; skipped while one of mine is still being saved.
-    const interval = setInterval(() => load(true), 5000);
+    const interval = setInterval(() => { if (!document.hidden) load(true); }, 5000);
     return () => clearInterval(interval);
   }, [load]);
 

@@ -139,7 +139,7 @@ export const StudentCalendar: React.FC = () => {
     const refresh = () => {
       if (document.visibilityState === "visible") fetchEventsAndNotifications(true);
     };
-    const interval = window.setInterval(refresh, 60000);
+    const interval = window.setInterval(() => { if (!document.hidden) refresh(); }, 60000);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {

@@ -218,7 +218,7 @@ export const DashboardShell: React.FC = () => {
   useEffect(() => {
     if (!user) return;
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000);
+    const interval = setInterval(() => { if (!document.hidden) fetchNotifications(); }, 60000);
     return () => clearInterval(interval);
   }, [user, fetchNotifications]);
 

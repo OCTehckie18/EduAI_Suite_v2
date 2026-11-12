@@ -27,7 +27,7 @@ export const TeacherTestRuns: React.FC = () => {
       }
     };
     load();
-    const interval = window.setInterval(load, 15000);
+    const interval = window.setInterval(() => { if (!document.hidden) load(); }, 15000);
     return () => window.clearInterval(interval);
   }, []);
 

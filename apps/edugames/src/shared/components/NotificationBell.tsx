@@ -28,7 +28,7 @@ export const NotificationBell: React.FC = () => {
 
   useEffect(() => {
     load();
-    const timer = setInterval(load, 60000);
+    const timer = setInterval(() => { if (!document.hidden) load(); }, 60000);
     return () => clearInterval(timer);
   }, [load]);
 
