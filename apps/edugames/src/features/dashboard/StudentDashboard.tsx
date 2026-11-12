@@ -241,9 +241,9 @@ export const StudentDashboard: React.FC = () => {
                     {summary?.liveGame?.active && (
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                     )}
-                    <span className={`relative inline-flex rounded-full h-3 w-3 ${summary?.liveGame?.active ? 'bg-red-500' : 'bg-slate-400'}`}></span>
+                    <span className={`relative inline-flex rounded-full h-3 w-3 ${summary?.liveGame?.active ? 'bg-red-500' : 'bg-white/50'}`}></span>
                   </span>
-                  <p className={`text-xs font-bold uppercase tracking-wider ${summary?.liveGame?.active ? 'text-red-300' : 'text-slate-300'}`}>
+                  <p className={`text-xs font-bold uppercase tracking-wider ${summary?.liveGame?.active ? 'text-red-300' : 'text-white/70'}`}>
                     {summary?.liveGame?.active ? 'Live Session Active' : 'No Live Sessions'}
                   </p>
                 </div>
@@ -259,7 +259,7 @@ export const StudentDashboard: React.FC = () => {
                 </p>
               </div>
               <span
-                className={`btn ${summary?.liveGame?.active ? 'bg-white text-blue-900' : 'bg-slate-700 text-slate-300'} border-none font-black px-6 hover:scale-105 active:scale-95 transition-transform flex gap-2 items-center w-full sm:w-auto mt-4 sm:mt-0`}
+                className={`btn ${summary?.liveGame?.active ? 'bg-white text-blue-900' : 'bg-white/15 text-white'} border-none font-black px-6 hover:scale-105 active:scale-95 transition-transform flex gap-2 items-center w-full sm:w-auto mt-4 sm:mt-0`}
               >
                 <PlayCircle size={18} /> {summary?.liveGame?.active ? 'Join Now' : 'View Games'}
               </span>

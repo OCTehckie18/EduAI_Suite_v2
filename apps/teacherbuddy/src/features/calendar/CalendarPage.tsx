@@ -111,6 +111,9 @@ const eventTypeIcons: Record<string, React.ReactNode> = {
   meeting: <Video size={14} />,
 };
 
+/** An event colour as text: mixed with the page's text colour so it stays readable on light and on dark pages. */
+const readable = (color: string) => `color-mix(in srgb, ${color} 62%, var(--color-text-primary))`;
+
 const eventTypeColors: Record<string, string> = {
   custom: "#0b4a87",
   deadline: "#d97706",
@@ -393,7 +396,7 @@ export const CalendarPage: React.FC = () => {
                 className="text-[10px] px-1.5 py-0.5 rounded truncate border"
                 style={{
                   backgroundColor: `${eventTypeColors[ev.type.toLowerCase()] || ev.color}15`,
-                  color: eventTypeColors[ev.type.toLowerCase()] || ev.color,
+                  color: readable(eventTypeColors[ev.type.toLowerCase()] || ev.color),
                   borderColor: `${eventTypeColors[ev.type.toLowerCase()] || ev.color}30`
                 }}
                 title={ev.title}
@@ -464,7 +467,7 @@ export const CalendarPage: React.FC = () => {
                 <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border"
                       style={{
                         backgroundColor: `${eventTypeColors[notif.type.toLowerCase()] || notif.color}15`,
-                        color: eventTypeColors[notif.type.toLowerCase()] || notif.color,
+                        color: readable(eventTypeColors[notif.type.toLowerCase()] || notif.color),
                         borderColor: `${eventTypeColors[notif.type.toLowerCase()] || notif.color}30`
                       }}>
                   {notif.message}
@@ -492,7 +495,7 @@ export const CalendarPage: React.FC = () => {
             }`}
             style={{
               backgroundColor: activeFilters.has(filter.id) ? `${filter.color}15` : 'transparent',
-              color: activeFilters.has(filter.id) ? filter.color : 'var(--color-text-muted)',
+              color: activeFilters.has(filter.id) ? readable(filter.color) : 'var(--color-text-muted)',
               borderColor: activeFilters.has(filter.id) ? `${filter.color}40` : 'var(--color-border)',
             }}
           >
@@ -575,7 +578,7 @@ export const CalendarPage: React.FC = () => {
                     <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: eventTypeColors[ev.type.toLowerCase()] || ev.color }} />
                     <div className="pl-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1" style={{ color: eventTypeColors[ev.type.toLowerCase()] || ev.color }}>
+                        <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1" style={{ color: readable(eventTypeColors[ev.type.toLowerCase()] || ev.color) }}>
                           {eventTypeIcons[ev.type.toLowerCase()] || eventTypeIcons["custom"]} {ev.type}
                         </span>
                         <span className="text-xs font-semibold" style={{ color: "var(--color-text-secondary)" }}>
