@@ -167,11 +167,10 @@ def public_rules(stored):
 
 
 def current():
-    """The rules in force now (read fresh, one small query)."""
-    from .models import UniversityProfile
+    """The rules in force now (from the cached settings)."""
+    from . import cache
 
-    profile = UniversityProfile.objects.only("rules").filter(pk=1).first()
-    return merged(profile.rules if profile else {})
+    return merged(cache.stored("rules"))
 
 
 def domain_allowed(email, domains):

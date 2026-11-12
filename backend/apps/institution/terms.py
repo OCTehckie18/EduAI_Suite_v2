@@ -74,10 +74,9 @@ def public_terms(stored):
 
 
 def current():
-    from .models import UniversityProfile
+    from . import cache
 
-    profile = UniversityProfile.objects.only("terms").filter(pk=1).first()
-    return merged(profile.terms if profile else {})
+    return merged(cache.stored("terms"))
 
 
 def get(key, plural=False, lower=False):

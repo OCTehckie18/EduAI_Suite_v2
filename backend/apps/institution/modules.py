@@ -61,14 +61,16 @@ def clean_modules(data, stored):
 
 def switched_off():
     """Keys of the modules that are off. Only asked for requests to a module's API (one small query)."""
-    from .models import UniversityProfile
+    from . import cache
 
-    profile = UniversityProfile.objects.only("modules").filter(pk=1).first()
-    return {key for key, on in module_states(profile.modules if profile else {}).items() if not on}
+    return {key for key, on in module_states(cache.stored("modules")).items() if not on}
 
 
 def forget_cache():
-    """Kept for callers; switches are read fresh on every request, so there is nothing to clear."""
+    """Drop the cached settings (switches are read through institution.cache)."""
+    from . import cache
+
+    cache.forget()
 
 
 def module_for_path(path):

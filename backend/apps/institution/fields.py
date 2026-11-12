@@ -362,10 +362,9 @@ def admin_fields(stored):
 
 
 def _current_raw():
-    from .models import UniversityProfile
+    from . import cache
 
-    profile = UniversityProfile.objects.only("fields").filter(pk=1).first()
-    return profile.fields if profile else {}
+    return cache.stored("fields")
 
 
 def definitions_for(role, stored=None):

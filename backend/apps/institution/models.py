@@ -222,3 +222,12 @@ class UniversityAsset(TimeStampedModel):
 
     def __str__(self):
         return f"{self.slot} ({self.filename})"
+
+
+# The university settings are cached (apps/institution/cache.py); drop them whenever the profile changes.
+from django.db.models.signals import post_delete, post_save  # noqa: E402
+
+from .cache import forget as _forget_settings  # noqa: E402
+
+post_save.connect(_forget_settings, sender=UniversityProfile, dispatch_uid="university-settings-saved")
+post_delete.connect(_forget_settings, sender=UniversityProfile, dispatch_uid="university-settings-deleted")
