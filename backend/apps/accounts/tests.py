@@ -45,6 +45,9 @@ class LoginHardeningTests(APITestCase):
 
 
 class GoogleAuthenticationTests(APITestCase):
+    def setUp(self):
+        cache.clear()  # the login throttle is 10 a minute and these tests sign in often
+
     @patch("apps.accounts.views.id_token.verify_oauth2_token")
     def test_google_login_issues_eduai_jwt(self, verify_token):
         admit("student@example.com", "REG-S1")
