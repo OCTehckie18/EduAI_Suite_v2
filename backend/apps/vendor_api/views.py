@@ -52,7 +52,7 @@ def _set_password_token(user):
 
 
 def _mail_link(user, subject, lead):
-    link = f"{settings.FRONTEND_URL.rstrip('/')}/set-password?token={_set_password_token(user)}"
+    link = f"{settings.MASTER_ADMIN_URL.rstrip('/')}/set-password?token={_set_password_token(user)}"
     body = (f'<p>{lead}</p><p><a href="{link}">Set your password</a></p>'
             f"<p>The link works once and expires in {SET_PASSWORD_DAYS} days.</p>")
     sent = bool(email_configured() and send_email(to_email=user.email, subject=subject, body=body))

@@ -179,6 +179,8 @@ CORS_ALLOW_CREDENTIALS = True
 # Shared settings consumed by the OAuth, calendar, and AI integrations as
 # they are ported from the previous backend.
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+# Where the Master Admin portal lives: new Master Admins land here from the emailed set-password link.
+MASTER_ADMIN_URL = os.getenv('MASTER_ADMIN_URL', 'http://localhost:5175')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
 # Where Google sends the user back after they allow calendar access. It must be listed as an
 # authorised redirect URI on the Google OAuth client.
