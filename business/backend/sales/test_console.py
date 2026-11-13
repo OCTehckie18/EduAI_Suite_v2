@@ -145,3 +145,26 @@ class AdminActionTests(ConsoleBase):
         for path in ("/api/staff/campuses/alpha/admins/", "/api/staff/actions/", "/api/staff/campuses/"):
             self.assertEqual(anon.get(path).status_code, 403, path)
         self.assertEqual(anon.post("/api/staff/campuses/alpha/admins/7/disable/", {}, format="json").status_code, 403)
+
+
+class AddCampusCommandTests(TestCase):
+    def run_command(self, *args):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command("add_campus", *args, stdout=out)
+        return out.getvalue()
+
+    def test_it_registers_a_college_and_hands_the_key_to_its_env_without_printing_it(self):
+        import tempfile, pathlib
+        env = pathlib.Path(tempfile.mkdtemp()) / ".env"
+        env.write_text("A=1\n", encoding="utf-8")
+        out = self.run_command("--slug", "uni", "--name", "Uni", "--api-url", "http://x.test", "--generate-key", "--write-env", str(env))
+        key = [l for l in env.read_text().splitlines() if l.startswith("VENDOR_CHANNEL_SECRET=")][0].split("=", 1)[1]
+        self.assertNotIn(key, out)
+        campus = Campus.objects.get(slug="uni")
+        self.assertEqual(channel.decrypt_secret(campus.channel_secret_enc), key)
+        self.assertTrue(campus.has_channel)
+        self.run_command("--slug", "uni", "--name", "Uni", "--generate-key", "--write-env", str(env))  # idempotent: replaces, never duplicates
+        self.assertEqual(env.read_text().count("VENDOR_CHANNEL_SECRET="), 1)
+        self.assertEqual(Campus.objects.count(), 1)
