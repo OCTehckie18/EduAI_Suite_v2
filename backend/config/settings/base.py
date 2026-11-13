@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'apps.quizzes',
     'apps.omr',
     'apps.slido',
+    'apps.vendor_api',
     'apps.games',
     'apps.lessons',
     'apps.calendar_app',
@@ -150,6 +151,9 @@ REST_FRAMEWORK = {
 }
 
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', SECRET_KEY)
+
+# The locked channel EduAI support uses to manage this university's Master Admins. Empty means the channel is off.
+VENDOR_CHANNEL_SECRET = os.getenv('VENDOR_CHANNEL_SECRET', '')
 JWT_ACCESS_TOKEN_LIFETIME_MINUTES = int(
     os.getenv('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', '60'))
 JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(
