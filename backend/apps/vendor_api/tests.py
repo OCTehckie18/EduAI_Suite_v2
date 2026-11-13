@@ -72,6 +72,7 @@ class ChannelTests(TestCase):
         res = self.call("POST", "/api/v1/vendor/admins/", {"email": "New@Uni.edu", "first_name": "Nia"})
         self.assertEqual(res.status_code, 201, res.content)
         link = res.json()["set_password_link"]  # no mail server in tests
+        self.assertTrue(link.startswith("http://localhost:5175/set-password?token="))  # the Master Admin portal, not TeacherBuddy
         token = link.split("token=")[1]
         user = User.objects.get(email="new@uni.edu")
         self.assertEqual((user.role, user.has_usable_password()), ("MASTER_ADMIN", False))
