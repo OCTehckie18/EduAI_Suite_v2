@@ -45,7 +45,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
       DJANGO_DEBUG: "True"
-      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend,0.0.0.0
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend,0.0.0.0,host.docker.internal
       USE_SQLITE_FALLBACK: "False"
       DATABASE_URL: postgres://eduai:eduai_dev_password@postgres:5432/eduai_suite
       REDIS_URL: redis://redis:6379/0
