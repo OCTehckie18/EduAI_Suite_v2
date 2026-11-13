@@ -64,7 +64,26 @@ class DemoRequestStaffSerializer(serializers.ModelSerializer):
 
 
 class CampusSerializer(serializers.ModelSerializer):
+    # Write-only: the key for the locked channel goes in, encrypted, and is never sent back to a browser.
+    channel_secret = serializers.CharField(write_only=True, required=False, allow_blank=True, trim_whitespace=True)
+    has_channel = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = Campus
-        fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at"]
+        exclude = ["channel_secret_enc"]
+        read_only_fields = ["id", "created_at", "updated_at", "admins_snapshot", "summary_snapshot", "snapshot_at"]
+
+    def _apply_secret(self, validated, campus=None):
+        from .channel import encrypt_secret
+
+        secret = validated.pop("channel_secret", None)
+        if secret is not None and (secret or campus is not None):
+            validated["channel_secret_enc"] = encrypt_secret(secret)
+
+    def create(self, validated_data):
+        self._apply_secret(validated_data)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        self._apply_secret(validated_data, instance)
+        return super().update(instance, validated_data)

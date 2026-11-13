@@ -8,6 +8,7 @@ This folder is a project of its own. It does not import anything from `backend/`
 business/
   backend/   Django 5.1 + DRF: demo requests and campus records (port 8100)
   site/      Vite + React 19 + Tailwind v4: the product website (port 5180)
+  console/   Vite + React 19 + Tailwind v4: the owner console, for managing each college's Master Admins (port 5181)
   docker-compose.yml
 ```
 
@@ -98,3 +99,25 @@ See [`backend/.env.example`](backend/.env.example) and [`site/.env.example`](sit
 - No made-up numbers, customer logos or testimonials. The screens are illustrations with sample data.
 - Pricing says "Contact us"; quotes and invoices are handled offline.
 - Check every change at phone width (375px), in light and dark mode, and with reduced motion turned on.
+
+## Owner console and the locked channel
+
+`console/` is for you, the owner. Sign in at http://localhost:5181 with an owner account:
+
+```bash
+cd business/backend
+DJANGO_DEBUG=True python manage.py create_owner --username <name> --password <password>
+```
+
+Pick a long password for any real deployment, and keep the console off the public internet or behind another login: it can change who runs every college.
+
+Each college is added with its API address and a **channel key**. The same key goes in that college's server settings as `VENDOR_CHANNEL_SECRET`. With it, the console can list, invite, disable and enable that college's Master Admins and send them a password link. Nothing else: it never sees students, teachers, courses or passwords. Requests are signed (HMAC-SHA256 with a timestamp and a random nonce), so a copied request is refused, and a college with no key has no channel at all. Every action is logged here and, on the college's side, visible to its own Master Admin.
+
+A new Master Admin gets an emailed set-password link. If the college has no email set up, the console shows the link once for you to pass on.
+
+On a college's server, to retire the Master Admin accounts that were created by hand (nothing is deleted; you can enable them again from the console):
+
+```bash
+python manage.py disable_master_admins --identifier <email-or-number>          # lists what it would do
+python manage.py disable_master_admins --identifier <email-or-number> --yes    # does it
+```
