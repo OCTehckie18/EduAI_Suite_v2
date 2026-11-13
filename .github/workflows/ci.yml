@@ -179,3 +179,28 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  business-console:
+    name: Business console
+    needs: business-changes
+    if: needs.business-changes.outputs.business == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: business/console
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: business/console/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build

@@ -95,7 +95,7 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5180,http://127.0.0.1:5180")
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5180,http://127.0.0.1:5180,http://localhost:5181,http://127.0.0.1:5181")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", ",".join(CORS_ALLOWED_ORIGINS))
 
 if not DEBUG:
@@ -115,6 +115,8 @@ REST_FRAMEWORK = {
 
 # How many demo requests one address may send. DRF rate syntax: "<count>/<second|minute|hour|day>".
 DEMO_REQUEST_RATE = os.environ.get("DEMO_REQUEST_RATE", "5/hour")
+# Sign-in attempts on the owner console, per address. Keep it low: this guards every college.
+STAFF_LOGIN_RATE = os.environ.get("STAFF_LOGIN_RATE", "5/min")
 
 # ---- Email: the company's own sales mailbox, not any university's ----
 SALES_EMAIL = os.environ.get("SALES_EMAIL", "sales@example.com")

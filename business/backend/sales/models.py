@@ -62,6 +62,12 @@ class Campus(models.Model):
     contact_phone = models.CharField(max_length=32, blank=True)
     demo_request = models.ForeignKey(DemoRequest, null=True, blank=True, on_delete=models.SET_NULL, related_name="campuses")
     notes = models.TextField(blank=True)
+    # The locked channel to this college's installation. The secret is stored encrypted and is never sent to a browser.
+    channel_secret_enc = models.TextField(blank=True, editable=False)
+    # What the college's Master Admins looked like the last time we could reach it.
+    admins_snapshot = models.JSONField(default=list, blank=True)
+    summary_snapshot = models.JSONField(default=dict, blank=True)
+    snapshot_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -69,5 +75,24 @@ class Campus(models.Model):
         ordering = ["college_name"]
         verbose_name_plural = "campuses"
 
+    @property
+    def has_channel(self) -> bool:
+        return bool(self.channel_secret_enc and self.api_url)
+
     def __str__(self) -> str:
         return self.college_name
+
+
+class AdminAction(models.Model):
+    """Everything the owner's console did to a college's Master Admins: who, where, what, and how it went."""
+
+    campus = models.ForeignKey(Campus, on_delete=models.CASCADE, related_name="actions")
+    staff_username = models.CharField(max_length=150)
+    action = models.CharField(max_length=40)
+    target_email = models.EmailField(blank=True)
+    result = models.CharField(max_length=20)
+    detail = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
