@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BarChart3, Building2, GraduationCap, Landmark, Layers, LogOut, FileText, Languages, ListChecks, Menu, Megaphone, Paintbrush, Award, Scale, ToggleRight, RefreshCw, Search, Trash2, UserCheck, Users, X } from "lucide-react";
 import logo from "../../logo/eduai_logo.png";
 import { LoginScreen } from "./Login";
+import { SetPasswordScreen } from "./SetPassword";
 import { CommandPalette } from "./CommandPalette";
 import { ThemeToggle } from "./shared/ThemeToggle";
 import { RosterPanel } from "./RosterPanel";
@@ -222,6 +223,17 @@ export default function App() {
   }, []);
 
   const signOut = () => { clearSession(); setUser(null); };
+
+  // The emailed invite link: /set-password?token=...
+  const [inviteToken, setInviteToken] = useState(() =>
+    window.location.pathname === "/set-password" ? new URLSearchParams(window.location.search).get("token") : null);
+  if (inviteToken) {
+    return (
+      <UIProvider>
+        <SetPasswordScreen token={inviteToken} onDone={() => { window.history.replaceState(null, "", "/"); setInviteToken(null); }} />
+      </UIProvider>
+    );
+  }
 
   return (
     <UIProvider>

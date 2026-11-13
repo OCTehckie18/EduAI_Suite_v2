@@ -79,6 +79,7 @@ urlpatterns = [
 
     # Slido: Interactive Presentations & Q&A
     path('api/v1/slido/', include('apps.slido.urls')),
+    path('api/v1/vendor/', include('apps.vendor_api.urls')),
 
     # OMR Evaluation
     path('api/v1/omr/', include('apps.omr.urls')),
