@@ -143,6 +143,7 @@ function CollegeDetail({ slug, back }: { slug: string; back: () => void }) {
   const [link, setLink] = useState("");
   const [apiUrl, setApiUrl] = useState("");
   const [secret, setSecret] = useState("");
+  const [replacing, setReplacing] = useState(false);
   const load = useCallback(() => {
     setError("");
     api<AdminsResponse>(`/staff/campuses/${slug}/admins/`).then((d) => { setData(d); setApiUrl(d.campus.api_url); }).catch((e) => setError(e.message));
@@ -189,6 +190,7 @@ function CollegeDetail({ slug, back }: { slug: string; back: () => void }) {
   const saveChannel = () => run(async () => {
     await api(`/staff/campuses/${slug}/`, { method: "PATCH", body: { api_url: apiUrl, ...(secret ? { channel_secret: secret } : {}) } });
     setSecret("");
+    setReplacing(false);
     const res = await api<{ ok: boolean; detail?: string }>(`/staff/campuses/${slug}/test-connection/`, { method: "POST", body: {} });
     setNotice(res.ok ? "Saved. The college answered: the locked channel works." : `Saved, but the test failed: ${res.detail}`);
     load();
@@ -250,9 +252,14 @@ function CollegeDetail({ slug, back }: { slug: string; back: () => void }) {
         <p className="muted text-sm">The key is stored encrypted here and never shown again. It must match <code>VENDOR_CHANNEL_SECRET</code> in this college's server settings.</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm font-medium">Its API address<input className="field mt-1" value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} placeholder="https://api.college.example.edu" /></label>
-          <label className="text-sm font-medium">{campus.has_channel ? "Replace the key (leave empty to keep it)" : "Channel key"}
-            <input className="field mt-1" type="password" autoComplete="new-password" name="channel-key" data-1p-ignore data-lpignore="true" value={secret} onChange={(e) => setSecret(e.target.value)} />
-          </label>
+          {campus.has_channel && !replacing
+            ? <div className="text-sm font-medium">Channel key<p className="muted mt-1 font-normal">Stored. <button type="button" className="underline" onClick={() => setReplacing(true)}>Replace it</button></p></div>
+            : (
+              <label className="text-sm font-medium">New channel key
+                {/* Plain text field drawn as dots: browsers never offer a saved password for it. */}
+                <input className="field mt-1" type="text" autoComplete="off" name="vendor-channel-key" spellCheck={false} data-1p-ignore data-lpignore="true" style={{ WebkitTextSecurity: "disc" } as React.CSSProperties} value={secret} onChange={(e) => setSecret(e.target.value)} />
+              </label>
+            )}
         </div>
         <button className="btn" disabled={busy} onClick={saveChannel}>Save and test connection</button>
         {campus.summary.version && (
