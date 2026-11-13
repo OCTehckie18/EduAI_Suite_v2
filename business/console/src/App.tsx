@@ -251,7 +251,7 @@ function CollegeDetail({ slug, back }: { slug: string; back: () => void }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm font-medium">Its API address<input className="field mt-1" value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} placeholder="https://api.college.example.edu" /></label>
           <label className="text-sm font-medium">{campus.has_channel ? "Replace the key (leave empty to keep it)" : "Channel key"}
-            <input className="field mt-1" type="password" autoComplete="off" value={secret} onChange={(e) => setSecret(e.target.value)} />
+            <input className="field mt-1" type="password" autoComplete="new-password" name="channel-key" data-1p-ignore data-lpignore="true" value={secret} onChange={(e) => setSecret(e.target.value)} />
           </label>
         </div>
         <button className="btn" disabled={busy} onClick={saveChannel}>Save and test connection</button>
